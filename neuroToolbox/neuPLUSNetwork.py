@@ -1,5 +1,5 @@
 import sys, os
-os.chdir("C:/work/KIST_snn_toolbox-master")
+os.chdir("C:/work/neuroTB")
 sys.path.append(os.getcwd())
 
 import neuralSim.parameters as param
