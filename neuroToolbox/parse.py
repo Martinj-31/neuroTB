@@ -1,4 +1,4 @@
-##############################################################################
+############ 해당 부분은 simulation을 위해 간이로 작성된 코드입니다 ############
 from REF_snntoolbox.bin.utils import update_setup, run_pipeline
 
 def main(filepath = None):
@@ -7,8 +7,6 @@ def main(filepath = None):
         config = update_setup(filepath)
         run_pipeline(config)
         return
-    
-##############################################################################
 
 main('C:/Users/user/Desktop/JSB/Repo/snn_toolbox-master/temp/1686899764.7490518')
 
