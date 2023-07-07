@@ -144,29 +144,40 @@ class ModelParser():
         
         return inbound_layers
         
+def absorb_bn_parameters(weight, bias, mean, var_eps_sqrt_inv, gamma, beta,
+                         image_data_format, is_depthwise=False):
+
+    ###### Calculation by Numpy :  Area where BN parameters abosrb ######
     
-    def absorb_bn_parameters(weight, bias, mean, var_eps_sqrt_inv, gamma, beta,
-                             axis, image_data_format, is_depthwise=False):
+    weight_bn = weight * gamma * var_eps_sqrt_inv
+    bias_bn = beta + (bias - mean) * gamma * var_eps_sqrt_inv
     
-        #################### Area where BN parameters abosrb ####################
-        bias_bn = beta + (bias - mean) * gamma * var_eps_sqrt_inv
-        weight_bn = weight * gamma * var_eps_sqrt_inv
-        #########################################################################
-        
-        
-        ############################### evaluation ###############################
-        weight_eval_arr = weight_bn - (weight * gamma * var_eps_sqrt_inv)
-        bias_eval_arr = bias_bn - (beta + (bias - mean) * gamma * var_eps_sqrt_inv)
-       
-        print("\n\n weight_eval_arr : \n\n", weight_eval_arr)
-        print("\n\n bias_eval_arr : \n\n", bias_eval_arr)
+    ############## Calculation by loop ##############
     
-        if np.all(weight_eval_arr == 0) and np.all(bias_eval_arr == 0) :
-            print("BN parameter is properly absorbed.")
-        else:
-            raise NotImplementedError("BN parameter absorption is not properly implemented.")
-        ##########################################################################
-            
+    weight_bn_loop = np.zeros_like(weight)
+    bias_bn_loop = np.zeros_like(bias)
+    
+    for i in range(weight.shape[0]):
+        for j in range(weight.shape[1]):
+            for k in range(weight.shape[2]):
+                for l in range(weight.shape[3]):
+                    weight_bn_loop[i, j, k, l] = weight[i, j, k, l] * gamma[l] * var_eps_sqrt_inv[l]
+                    bias_bn_loop[l] = beta[l] + (bias[l] - mean[l]) * gamma[l] * var_eps_sqrt_inv[l]
+
+    
+    ############################### evaluation ###############################
+    weight_eval_arr = weight_bn - weight_bn_loop
+    bias_eval_arr = bias_bn - bias_bn_loop
+   
+    print("\n\n weight_eval_arr : \n\n", weight_eval_arr)
+    print("\n\n bias_eval_arr : \n\n", bias_eval_arr)
+
+    if np.all(weight_eval_arr == 0) and np.all(bias_eval_arr == 0) :
+        print("BN parameter is properly absorbed.")
+    else:
+        raise NotImplementedError("BN parameter absorption is not properly implemented.")
+    ##########################################################################
+ 
         return weight_bn, bias_bn
 
 
