@@ -2,13 +2,6 @@ import sys, os
 os.chdir("C:/work/neuroTB")
 sys.path.append(os.getcwd())
 
-import neuralSim.parameters as param
-import neuralSim.compiler as compiler
-import neuralSim.synapticTable as synTable
-import neuralSim.inputSpikesGen as inSpike
-import neuralSim.eventAnalysis as eventAnalysis
-import neuralSim.poissonSpike as spikes
-
 from tensorflow import keras
 
 import numpy as np
@@ -21,37 +14,13 @@ class networkGen:
 
     def __init__(self, config, layers):
         self.config = config
-        self.nCount = 1024
-        self.inputSpikeFilename = "testByte.nam"
-        self.synTableFilePrefix = "SynTableWrite"
-
-        self.fname = "testExpConf.exp"
-        self.nfname = "testNeuronConf.nac"
-        self.conffname = "neuplusconf.txt"
-        self.synfname = "testRead.dat"
-
-        self.testSet = compiler.expSetupCompiler(self.fname, self.nfname)
-        self.SynTable = synTable.synapticTable(pCount=config, maxPNCount=self.nCount, inputNCount=self.nCount)
-
-        # Experiment setup
-        self.testSet.setExperimentConf("EVENT_SAVE_MODE", config)
-        self.testSet.setExperimentConf("INTERNAL_ROUTING_MODE", config)
-        self.testSet.setExperimentConf("TIME_ACCEL_MODE", config)
-
-        self.testSet.setExperimentConf("EXP_TIME", config)
-        
-        self.testSet.setExperimentConf("INPUT_SPIKES_FILE", self.inputSpikeFilename)
-        self.testSet.setExperimentConf("SYN_TABLE_FILE_PREFIX", self.synTableFilePrefix)
-        self.testSet.setExperimentConf("SYN_TABLE_READ_FILE", self.synfname)
-        self.testSet.setExperimentConf("SYN_TABLE_READ_START", 0)
-        self.testSet.setExperimentConf("SYN_TABLE_READ_COUNT", 1024)
-
-    def Neurons(self, cnt):
-        self.testSet.setNeuronCoreConf([cnt], [self.config], [self.config], [self.config], [0], [0])
 
     def Synapse_convolution(self, layers, weights):
         print(f"Connecting layer...")
 
+        # According to image data format, parameters of feature map is different.
+        # 'channel_first' : [batch_size, channels, height, width]
+        # 'channel_last' : [batch_size, height, width, channels]
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
         ny = layers.input_shape[1 + ii]  # Height of feature map
@@ -98,30 +67,14 @@ class networkGen:
                                                     weights[py - k, px - p, fin,
                                                             fout], delay))
 
-        self.SynTable.createFromWeightMatrix(source=source, 
-                                             destination=target, 
-                                             weights=weights)
+        return connections
 
     def Synapse_pooling(self, layers, weights):
         print(f"Connecting layer...")
 
-        self.SynTable.createConnections(source=layers, 
-                                        destination=layers, 
-                                        mode=self.config, 
-                                        probability=self.config, 
-                                        weight=weights, 
-                                        snType=self.config, 
-                                        trainable=self.config)
+        connections = []
 
-    def run(self):
-        self.testSet.genExpConfFile(self.conffname)
-        SynMapCompiled = compiler.synMapCompiler(self.synTableFilePrefix)
-        SynMapCompiled.generateSynMap(synTable=self.SynTable, 
-                                    inputNeurons=[range(int(self.config))], 
-                                    linear=0)
-
-        elapsed_time = param.NeuPLUSRun('-GUIModeOff', '-conf', self.conffname)
-        print("Result time : ", elapsed_time)
+        return connections
 
     def Evaluate(self, datasetname):
 
