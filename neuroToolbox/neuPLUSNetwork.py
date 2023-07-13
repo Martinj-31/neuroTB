@@ -51,6 +51,17 @@ class networkGen:
 
         self.layers.append(neurongroup)
 
+    def Synapse_dense(self, layer):
+        weights, _ = layer.get_weights()
+
+        connections = []
+
+        for source in range(weights.shape[0]):
+            for target in range(weights.shape(1)):
+                connections.append((source, target, weights[source, target], delay))
+
+        return connections
+
     def Synapse_convolution(self, layer):
         print(f"Connecting layer...")
 
@@ -133,12 +144,6 @@ class networkGen:
                         source = x + (y + k) * nx + fout * nx * ny
                         for j in range(dx):
                             connections.append((source + j, target, weight, delay))
-
-        return connections
-    
-    def Synapse_dense(self, layer):
-
-        connections = []
 
         return connections
     
