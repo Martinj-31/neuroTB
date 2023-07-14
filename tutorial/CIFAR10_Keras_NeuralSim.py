@@ -1,147 +1,66 @@
 import os
 import time
-import numpy as np
-
 from tensorflow import keras
-from tensorflow.keras import Input, Model
-from tensorflow.keras.layers import Conv2D, AveragePooling2D, Flatten, Dense, \
-    Dropout, BatchNormalization, Activation
 from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
-from snntoolbox.bin.run import main
-from snntoolbox.utils.utils import import_configparser
-
-
-# WORKING DIRECTORY #
-#####################
-
-# Define path where model and output files will be stored.
-# The user is responsible for cleaning up this temporary directory.
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(time.time())))
 os.makedirs(path_wd)
 
-# GET DATASET #
-###############
 
+# CIFAR-10 데이터셋 로드
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
-# Normalize input so we can train ANN with it.
-# Will be converted back to integers for SNN layer.
+# 데이터 전처리 및 정규화
 x_train = x_train.astype('float32') / 255
 x_test = x_test.astype('float32') / 255
-
-
-# Add a channel dimension.
-axis = 3 if keras.backend.image_data_format() == 'channels_first' else -1
-x_train = np.expand_dims(x_train, axis)
-x_test = np.expand_dims(x_test, axis)
 
 # 레이블을 one-hot 인코딩
 num_classes = 10
 y_train = to_categorical(y_train, num_classes)
 y_test = to_categorical(y_test, num_classes)
 
-# Save dataset so SNN toolbox can find it.
-np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
-np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-# SNN toolbox will not do any training, but we save a subset of the training
-# set so the toolbox can use it when normalizing the network parameters.
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
+# 입력 레이어 정의
+inputs = Input(shape=(32, 32, 3))
 
-# CREATE ANN #
-##############
+# Convolutional 레이어
+x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
+x = Conv2D(32, (3, 3), activation='relu')(x)
+x = MaxPooling2D(pool_size=(2, 2))(x)
+x = Dropout(0.25)(x)
 
-# This section creates a simple CNN using Keras, and trains it
-# with backpropagation. There are no spikes involved at this point.
-print("x train shape : ", x_train.shape)
+x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+x = Conv2D(64, (3, 3), activation='relu')(x)
+x = MaxPooling2D(pool_size=(2, 2))(x)
+x = Dropout(0.25)(x)
 
-input_shape = x_train.shape[1:]
+x = Flatten()(x)
+x = Dense(512, activation='relu')(x)
+x = Dropout(0.5)(x)
+outputs = Dense(num_classes, activation='softmax')(x)
 
-print("input shape : ", input_shape)
+# 모델 생성
+model = Model(inputs=inputs, outputs=outputs)
 
-input_layer = Input(input_shape)
+# 모델 컴파일
+model.compile(loss='categorical_crossentropy',
+              optimizer=Adam(lr=0.001),
+              metrics=['accuracy'])
 
-layer = Conv2D(filters=32,
-               kernel_size=(3, 3),
-               strides=(2, 2),
-               activation='relu')(input_layer)
-layer = BatchNormalization(axis=axis)(layer)
-layer = Activation('relu')(layer)
-layer = Conv2D(filters=32,
-               kernel_size=(3, 3),
-               activation='relu')(layer)
-layer = AveragePooling2D()(layer)
-layer = Conv2D(filters=8,
-               kernel_size=(3, 3),
-               padding='same',
-               activation='relu')(layer)
-layer = Flatten()(layer)
-layer = Dropout(0.01)(layer)
-layer = Dense(units=10, activation='softmax')(layer)  # CIFAR-10 has 10 classes
+# 모델 학습
+batch_size = 128
+epochs = 1
+model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
-model = Model(input_layer, layer)
+# 모델 평가
+score = model.evaluate(x_test, y_test, verbose=0)
+print('Test loss:', score[0])
+print('Test accuracy:', score[1])
 
-model.summary()
-
-model.compile('adam', 'categorical_crossentropy', ['accuracy'])
-
-# Train model with backprop.
-model.fit(x_train, y_train, batch_size=64, epochs=1, verbose=2,
-          validation_data=(x_test, y_test))
-
-# Store model so SNN Toolbox can find it.
-model_name = 'cifar10_cnn'  # Model name changed to 'cifar10_cnn'
+# 모델 저장
+model_name = 'cifar10_cnn'
 keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
-
-# SNN TOOLBOX CONFIGURATION #
-#############################
-
-# Create a config file with experimental setup for SNN Toolbox.
-configparser = import_configparser()
-config = configparser.ConfigParser()
-
-config['paths'] = {
-    'path_wd': path_wd,             # Path to model.
-    'dataset_path': path_wd,        # Path to dataset.
-    'filename_ann': model_name      # Name of input model.
-}
-
-config['tools'] = {
-    'evaluate_ann': True,           # Test ANN on dataset before conversion.
-    'normalize': True,              # Normalize weights for full dynamic range.
-}
-
-config['simulation'] = {
-    'simulator': 'brian2',          # Chooses execution backend of SNN toolbox.
-    'duration': 50,                 # Number of time steps to run each sample.
-    'num_to_test': 5,               # How many test samples to run.
-    'batch_size': 1,                # Batch size for simulation.
-    'dt': 0.1                       # Time resolution for ODE solving.
-}
-
-config['input'] = {
-    'poisson_input': False          # Images are encoded as spike trains.
-}
-
-config['output'] = {
-    'plot_vars': {                  # Various plots (slows down simulation).
-        'spiketrains',              # Leave section empty to turn off plots.
-        'spikerates',
-        'activations',
-        'correlation',
-        'v_mem',
-        'error_t'}
-}
-
-# Store config file.
-config_filepath = os.path.join(path_wd, 'config')
-with open(config_filepath, 'w') as configfile:
-    config.write(configfile)
-
-print("config_filepath : ", config_filepath)
-# RUN SNN TOOLBOX #
-###################
-
-main(config_filepath)
