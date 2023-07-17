@@ -121,26 +121,26 @@ class networkGen:
 
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
-        nx = layer.input_shape[2 + ii]  # Width of feature map
-        ny = layer.input_shape[1 + ii]  # Height of feature map
-        nz = layer.input_shape[3 - 2 * ii]  # Number of feature maps
-        dx = layer.pool_size[1]  # Width of pool
-        dy = layer.pool_size[0]  # Height of pool
+        width_fm = layer.input_shape[2 + ii]  # Width of feature map
+        height_fm = layer.input_shape[1 + ii]  # Height of feature map
+        numFm = layer.input_shape[3 - 2 * ii]  # Number of feature maps
+        width_pl = layer.pool_size[1]  # Width of pool
+        height_pl = layer.pool_size[0]  # Height of pool
         sx = layer.strides[1]
         sy = layer.strides[0]
 
-        weight = 1 / (dx * dy)
+        weight = 1 / (width_pl * height_pl)
 
         connections = []
 
-        for fout in range(nz):
-            for y in range(0, ny - dy + 1, sy):
-                for x in range(0, nx - dx + 1, sx):
-                    target = int(x / sx + y / sy * ((nx - dx) / sx + 1) +
-                                fout * nx * ny / (dx * dy))
-                    for k in range(dy):
-                        source = x + (y + k) * nx + fout * nx * ny
-                        for j in range(dx):
+        for fout in range(numFm):
+            for y in range(0, height_fm - height_pl + 1, sy):
+                for x in range(0, width_fm - width_pl + 1, sx):
+                    target = int(x / sx + y / sy * ((width_fm - width_pl) / sx + 1) +
+                                fout * width_fm * height_fm / (width_pl * height_pl))
+                    for k in range(height_pl):
+                        source = x + (y + k) * width_fm + fout * width_fm * height_fm
+                        for j in range(width_pl):
                             connections.append((source + j, target, weight, delay))
 
         self.connections.append(connections)
