@@ -1,0 +1,5 @@
+[paths]
+path_wd = C:\Users\user\Desktop\JSB\Repo\neuroTB\temp\07-17\171314
+dataset_path = C:\Users\user\Desktop\JSB\Repo\neuroTB\temp\07-17\171314
+filename_ann = cifar10_cnn
+
