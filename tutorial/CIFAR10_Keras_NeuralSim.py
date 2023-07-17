@@ -1,5 +1,7 @@
 import os
 import time
+import numpy as np
+import configparser
 from tensorflow import keras
 from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.models import Model
@@ -11,6 +13,7 @@ path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(time.time())))
 os.makedirs(path_wd)
 
+print("path wd: ", path_wd)
 
 # CIFAR-10 데이터셋 로드
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
@@ -23,6 +26,10 @@ x_test = x_test.astype('float32') / 255
 num_classes = 10
 y_train = to_categorical(y_train, num_classes)
 y_test = to_categorical(y_test, num_classes)
+
+# 데이터셋 저장
+np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
 
 # 입력 레이어 정의
 inputs = Input(shape=(32, 32, 3))
@@ -64,3 +71,19 @@ print('Test accuracy:', score[1])
 # 모델 저장
 model_name = 'cifar10_cnn'
 keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+
+# config 파일 저장
+
+config = configparser.ConfigParser()
+
+config['paths'] = {
+    'path_wd': path_wd,             # Path to model.
+    'dataset_path': path_wd,        # Path to dataset.
+    'filename_ann': model_name      # Name of input model.
+}
+
+# Store config file.
+config_filepath = os.path.join(path_wd, 'config')
+with open(config_filepath, 'w') as configfile:
+    config.write(configfile)
+
