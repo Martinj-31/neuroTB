@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 import numpy as np
 import configparser
 from tensorflow import keras
@@ -10,7 +11,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
-    __file__)), '..', 'temp', str(time.time())))
+    __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
 
 print("path wd: ", path_wd)
