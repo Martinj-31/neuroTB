@@ -22,8 +22,6 @@ class networkGen:
 
         # mode On/Off
 
-        self.setup_layers()
-
     def setup_layers(self, input_shape):
         self.add_input_layer(input_shape)
         for layer in self.parsed_model.layers[1:]:
@@ -59,8 +57,8 @@ class networkGen:
         for source in range(weights.shape[0]):
             for target in range(weights.shape(1)):
                 connections.append((source, target, weights[source, target], delay))
-
-        return connections
+        
+        self.connections.append(connections)
 
     def Synapse_convolution(self, layer):
         print(f"Connecting layer...")
@@ -72,23 +70,23 @@ class networkGen:
         # 'channel_last' : [batch_size, height, width, channels]
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
-        ny = layer.input_shape[1 + ii]  # Height of feature map
-        nx = layer.input_shape[2 + ii]  # Width of feature map
-        ky, kx = layer.kernel_size  # Width and height of kernel
+        height_fm = layer.input_shape[1 + ii]  # Height of feature map
+        width_fm = layer.input_shape[2 + ii]  # Width of feature map
+        height_kn, width_kn = layer.kernel_size  # Width and height of kernel
         sy, sx = layer.strides  # Convolution strides
-        py = (ky - 1) // 2  # Zero-padding rows
-        px = (kx - 1) // 2  # Zero-padding columns
+        py = (height_kn - 1) // 2  # Zero-padding rows
+        px = (width_kn - 1) // 2  # Zero-padding columns
 
         if layer.padding == 'valid':
             # In padding 'valid', the original sidelength is reduced by one less
             # than the kernel size.
-            mx = (nx - kx + 1) // sx  # Number of columns in output filters
-            my = (ny - ky + 1) // sy  # Number of rows in output filters
+            numCols = (width_fm - width_kn + 1) // sx  # Number of columns in output filters
+            numRows = (height_fm - height_kn + 1) // sy  # Number of rows in output filters
             x0 = px
             y0 = py
         elif layer.padding == 'same':
-            mx = nx // sx
-            my = ny // sy
+            numCols = width_fm // sx
+            numRows = height_fm // sy
             x0 = 0
             y0 = 0
         else:
@@ -99,24 +97,24 @@ class networkGen:
 
         # Loop over output filters 'fout'
         for fout in range(weights.shape[3]):
-            for y in range(y0, ny - y0, sy):
-                for x in range(x0, nx - x0, sx):
-                    target = int((x - x0) / sx + (y - y0) / sy * mx +
-                                fout * mx * my)
+            for y in range(y0, height_fm - y0, sy):
+                for x in range(x0, width_fm - x0, sx):
+                    target = int((x - x0) / sx + (y - y0) / sy * numCols +
+                                fout * numCols * numRows)
                     # Loop over input filters 'fin'
                     for fin in range(weights.shape[2]):
                         for k in range(-py, py + 1):
-                            if not 0 <= y + k < ny:
+                            if not 0 <= y + k < height_fm:
                                 continue
                             for p in range(-px, px + 1):
-                                if not 0 <= x + p < nx:
+                                if not 0 <= x + p < width_fm:
                                     continue
-                                source = p + x + (y + k) * nx + fin * nx * ny
+                                source = p + x + (y + k) * width_fm + fin * width_fm * height_fm
                                 connections.append((source, target,
                                                     weights[py - k, px - p, fin,
                                                             fout], delay))
 
-        return connections
+        self.connections.append(connections)
 
     def Synapse_pooling(self, layer, weights):
         print(f"Connecting layer...")
@@ -145,13 +143,13 @@ class networkGen:
                         for j in range(dx):
                             connections.append((source + j, target, weight, delay))
 
-        return connections
+        self.connections.append(connections)
     
     def Synapse_flatten(self, layer):
 
         connections = []
 
-        return connections
+        self.connections.append(connections)
 
     def Evaluate(self, datasetname):
 
