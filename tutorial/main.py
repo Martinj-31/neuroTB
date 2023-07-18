@@ -1,6 +1,9 @@
-import os
+import os, sys
+sys.path.append(os.getcwd())
 import configparser
 
+import neuroToolbox.parse as parse
+import neuroToolbox.normalization as norm
 import neuroToolbox.neuPLUSNetwork as net
 
 
