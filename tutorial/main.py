@@ -1,7 +1,6 @@
 import os
-os.chdir("./")
-print(os.getcwd())
 import configparser
+
 import neuroToolbox.neuPLUSNetwork as net
 
 
@@ -23,8 +22,9 @@ config = configparser.ConfigParser()
 
 
 # %% Generate neurons and synapse connections for SNN
+batch_size = config.getint('initial', 'batch_size')
 batsh_shape = list(model.layers[0].input_shape)
-batsh_shape[0] = 1
+batsh_shape[0] = batch_size
 
 spike_model = net.networkGen(config, model)
 spike_model.setup_layers(batch_shape)
