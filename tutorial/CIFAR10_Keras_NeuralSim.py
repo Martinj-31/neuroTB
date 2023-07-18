@@ -1,3 +1,4 @@
+import main
 import os
 import time
 from datetime import datetime
@@ -88,3 +89,4 @@ config_filepath = os.path.join(path_wd, 'config')
 with open(config_filepath, 'w') as configfile:
     config.write(configfile)
 
+main(config_filepath)
