@@ -1,10 +1,10 @@
 import os, sys
-#sys.path.append(os.getcwd())
+sys.path.append(os.getcwd())
 import configparser
 
-#import neuroToolbox.parse as parse
-#import neuroToolbox.normalization as norm
-#import neuroToolbox.neuPLUSNetwork as net
+# import neuroToolbox.parse as parse
+# import neuroToolbox.normalization as norm
+import neuroToolbox.neuPLUSNetwork as net
 
 def main(config_filepath):
     # %% Load data
