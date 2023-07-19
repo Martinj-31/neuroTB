@@ -1,8 +1,16 @@
-import os, sys
-sys.path.append(os.getcwd())
+import os
+import sys
 
-from main import main
+# Add the path of the parent directory (neuroTB) to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
 
-config_filepath = './temp/07-17/171314/config.ini'
+# Import the run_neuroTB function from run.main
+from run.main import run_neuroTB
 
-main.main(config_filepath)
+# Set the relative path of the config file
+config_filepath = '../temp/07-17/171314/config.ini'
+
+# Call the run_neuroTB function with the config_filepath
+run_neuroTB(config_filepath)
