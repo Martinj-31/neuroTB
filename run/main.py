@@ -1,7 +1,7 @@
 import os
 import sys
 import configparser
-
+from tensorflow.keras.models import load_model
 
 sys.path.append(os.getcwd())
 
@@ -11,12 +11,19 @@ sys.path.append(os.getcwd())
 # import neuroToolbox.neuPLUSNetwork as net
 
 def run_neuroTB(config_filepath):
-    # %% Load data
+    ###### 1. Load data ######
     config = configparser.ConfigParser()
     config.read(config_filepath)
     
-    print("@@@@\n\n")
-    print("config : ", config)
+    # Read 'input_model' value from config.ini
+    input_model_name = config["paths"]["filename_ann"]
+    
+    # Load the model using the input_model_name
+    model = load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5"))
+    
+    # Print the summary of the loaded model
+    print("Summary of", input_model_name)
+    model.summary()
     
     
     # %% Parse model
