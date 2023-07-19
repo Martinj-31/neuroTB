@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul 18 17:25:54 2023
+import os, sys
+sys.path.append(os.getcwd())
 
-@author: user
-"""
+from main import main
 
-from neuroTB.main import main
-    
-main('C:/Users/user/Desktop/JSB/Repo/neuroTB/temp/07-17/171314')
+config_filepath = './temp/07-17/171314/config.ini'
+
+main.main(config_filepath)
