@@ -15,15 +15,11 @@ def run_neuroTB(config_filepath):
     config = configparser.ConfigParser()
     config.read(config_filepath)
     
-    # Read 'input_model' value from config.ini
-    input_model_name = config["paths"]["filename_ann"]
-    
-    # Load the model using the input_model_name
-    model = load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5"))
-    
-    # Print the summary of the loaded model
-    print("Summary of", input_model_name)
-    model.summary()
+    # input_model_name에 저장된 모델 이름으로 저장된 모델을 불러와 해당 모델의 summary를 출력합니다.
+    input_model_name = config["paths"]["filename_ann"] # Read 'input_model' value from config.ini
+    input_model = load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5")) # Load the model using the input_model_name
+    print("Summary of", input_model_name) # Print the summary of the loaded model
+    input_model.summary()
     
     
     # %% Parse model
