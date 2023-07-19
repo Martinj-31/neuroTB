@@ -8,7 +8,8 @@ import neuroToolbox.neuPLUSNetwork as net
 
 def main(config_filepath):
     # %% Load data
-    config = configparser.ConfigParser(config_filepath)
+    config = configparser.ConfigParser()
+    config.read(config_filepath)
     
     
     print("config :", config)
@@ -27,7 +28,7 @@ def main(config_filepath):
     
     
     # %% Generate neurons and synapse connections for SNN
-    batch_size = config.getint('initial', 'batch_size')
+    batch_size = config["initial"]["batch_size"]
     batch_shape = list(model.layers[0].input_shape)
     batch_shape[0] = batch_size
     
