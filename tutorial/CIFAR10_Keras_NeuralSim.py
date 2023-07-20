@@ -1,13 +1,20 @@
-import main
 import os
+import sys
+
+# Add the path of the parent directory (neuroTB) to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+
 import time
+from run import main
 from datetime import datetime
 import numpy as np
 import configparser
 from tensorflow import keras
 from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
@@ -26,8 +33,8 @@ x_test = x_test.astype('float32') / 255
 
 # 레이블을 one-hot 인코딩
 num_classes = 10
-y_train = to_categorical(y_train, num_classes)
-y_test = to_categorical(y_test, num_classes)
+y_train = y_train.reshape(-1)  # Convert one-hot encoded labels to categorical labels
+y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical labels
 
 # 데이터셋 저장
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
@@ -38,26 +45,28 @@ inputs = Input(shape=(32, 32, 3))
 
 # Convolutional 레이어
 x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
+x = BatchNormalization(epsilon=1e-5)(x)  # BatchNormalization 레이어 추가
 x = Conv2D(32, (3, 3), activation='relu')(x)
 x = MaxPooling2D(pool_size=(2, 2))(x)
 x = Dropout(0.25)(x)
 
 x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+x = BatchNormalization(epsilon=1e-5)(x)  # BatchNormalization 레이어 추가
 x = Conv2D(64, (3, 3), activation='relu')(x)
 x = MaxPooling2D(pool_size=(2, 2))(x)
 x = Dropout(0.25)(x)
-
 x = Flatten()(x)
-x = Dense(512, activation='relu')(x)
-x = Dropout(0.5)(x)
+
+# Update the last Dense layer to produce a 6x6 feature map (이 부분을 수정합니다.)
+x = Dense(6 * 6 * 64, activation='relu')(x)
 outputs = Dense(num_classes, activation='softmax')(x)
 
 # 모델 생성
 model = Model(inputs=inputs, outputs=outputs)
 
 # 모델 컴파일
-model.compile(loss='categorical_crossentropy',
-              optimizer=Adam(lr=0.001),
+model.compile(loss='sparse_categorical_crossentropy',
+              optimizer=Adam(learning_rate=0.001),  
               metrics=['accuracy'])
 
 # 모델 학습
@@ -89,4 +98,4 @@ config_filepath = os.path.join(path_wd, 'config')
 with open(config_filepath, 'w') as configfile:
     config.write(configfile)
 
-main(config_filepath)
+main.run_neuroTB(config_filepath)  # Use run_neuroTB instead of run_n
