@@ -21,10 +21,10 @@ def run_neuroTB(config_filepath):
     print("Summary of", input_model_name) # Print the summary of the loaded model
     input_model.summary()
     
-    
     # %% Parse model
     
-    
+    parser = parse.Parser(input_model, config)
+    parser.parse()
     
     
     
