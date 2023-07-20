@@ -3,12 +3,10 @@ os.chdir("C:/work/neuroTB")
 sys.path.append(os.getcwd())
 
 from tensorflow import keras
-
-import numpy as np
-import matplotlib.pyplot as plt
 from datetime import date
-import datetime
-
+import numpy as np
+import configparser
+import matplotlib.pyplot as plt
 
 class networkGen:
 
@@ -36,7 +34,11 @@ class networkGen:
                 self.Synapse_pooling(layer)
             elif layer_type == 'Flatten':
                 self.Synapse_flatten(layer)
+            
+            print("Layers : ", self.layers)
+            print("Connections : ", self.connections)
 
+    # Input will be made in neuralSim library.
     def add_input_layer(self, input_shape):
         neurongroup = {}
         neurongroup['N'] = np.prod(input_shape[1:])
@@ -55,65 +57,75 @@ class networkGen:
         connections = []
 
         for source in range(weights.shape[0]):
-            for target in range(weights.shape(1)):
-                connections.append((source, target, weights[source, target], delay))
+            for target in range(weights.shape[1]):
+                connections.append([source, target, weights[source, target]]) # remove delay
         
         self.connections.append(connections)
 
     def Synapse_convolution(self, layer):
+        """_summary_
+
+        Args:
+            layer (_type_): _description_
+            weights (): Data shape is [filter_height, filter_width, input_channels, output_channels].
+            height_fm (int): Height of feature map
+            width_fm (int): Width of feature map
+            height_kn, width_kn (int): Width and height of kernel
+            sy, sx (int): strides
+            numCols (): Number of columns in output filters (horizontal moves)
+            numRows (): Number of rows in output filters (vertical moves)
+            py, px (int): Zero-padding rows, Zero-padding columns. It is (filter_size-1)/2
+
+        Raises:
+            NotImplementedError: _description_
+        """
         print(f"Connecting layer...")
 
         weights, _ = layer.get_weights()
 
-        # According to image data format, parameters of feature map is different.
         # 'channel_first' : [batch_size, channels, height, width]
         # 'channel_last' : [batch_size, height, width, channels]
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
-        height_fm = layer.input_shape[1 + ii]  # Height of feature map
-        width_fm = layer.input_shape[2 + ii]  # Width of feature map
-        height_kn, width_kn = layer.kernel_size  # Width and height of kernel
-        sy, sx = layer.strides  # Convolution strides
-        py = (height_kn - 1) // 2  # Zero-padding rows
-        px = (width_kn - 1) // 2  # Zero-padding columns
+        height_fm = layer.input_shape[1 + ii]
+        width_fm = layer.input_shape[2 + ii]
+        height_kn, width_kn = layer.kernel_size
+        sy, sx = layer.strides
+        py = (height_kn - 1) // 2
+        px = (width_kn - 1) // 2
 
         if layer.padding == 'valid':
             # In padding 'valid', the original sidelength is reduced by one less
             # than the kernel size.
-            numCols = (width_fm - width_kn + 1) // sx  # Number of columns in output filters
-            numRows = (height_fm - height_kn + 1) // sy  # Number of rows in output filters
+            numCols = (width_fm - width_kn + 1) // sx
+            numRows = (height_fm - height_kn + 1) // sy
             x0 = px
             y0 = py
-        elif layer.padding == 'same':
+        elif layer.padding == 'same': # "Output image and input image are same."
             numCols = width_fm // sx
             numRows = height_fm // sy
             x0 = 0
             y0 = 0
         else:
-            raise NotImplementedError("Border_mode {} not supported".format(
-                layer.padding))
+            raise NotImplementedError("Border_mode {} not supported".format(layer.padding))
         
         connections = []
 
-        # Loop over output filters 'fout'
-        for fout in range(weights.shape[3]):
+        for output_channels in range(weights.shape[3]):
             for y in range(y0, height_fm - y0, sy):
                 for x in range(x0, width_fm - x0, sx):
-                    target = int((x - x0) / sx + (y - y0) / sy * numCols +
-                                fout * numCols * numRows)
-                    # Loop over input filters 'fin'
-                    for fin in range(weights.shape[2]):
+                    target = int((x - x0) / sx + (y - y0) / sy * numCols + output_channels * numCols * numRows)
+                    for input_channels in range(weights.shape[2]):
                         for k in range(-py, py + 1):
                             if not 0 <= y + k < height_fm:
                                 continue
                             for p in range(-px, px + 1):
                                 if not 0 <= x + p < width_fm:
                                     continue
-                                source = p + x + (y + k) * width_fm + fin * width_fm * height_fm
-                                connections.append((source, target,
-                                                    weights[py - k, px - p, fin,
-                                                            fout], delay))
-
+                                source = (x + p) + (y + k) * width_fm + input_channels * width_fm * height_fm
+                                connections.append([source, target, weights[py - k, px - p, input_channels, output_channels]]) # remove delay
+        for a in zip(*connections):
+            print(a)
         self.connections.append(connections)
 
     def Synapse_pooling(self, layer, weights):
@@ -136,12 +148,11 @@ class networkGen:
         for fout in range(numFm):
             for y in range(0, height_fm - height_pl + 1, sy):
                 for x in range(0, width_fm - width_pl + 1, sx):
-                    target = int(x / sx + y / sy * ((width_fm - width_pl) / sx + 1) +
-                                fout * width_fm * height_fm / (width_pl * height_pl))
+                    target = int(x / sx + y / sy * ((width_fm - width_pl) / sx + 1) + fout * width_fm * height_fm / (width_pl * height_pl))
                     for k in range(height_pl):
                         source = x + (y + k) * width_fm + fout * width_fm * height_fm
                         for j in range(width_pl):
-                            connections.append((source + j, target, weight, delay))
+                            connections.append([source + j, target, weight]) # remove delay
 
         self.connections.append(connections)
     
