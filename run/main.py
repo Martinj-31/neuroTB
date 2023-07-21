@@ -31,8 +31,13 @@ def run_neuroTB(config_filepath):
     # %% Parse model
     
     parser = parse.Parser(input_model, config)
-    parser.print_layer_connections()
-    parser.parse()
+
+    parsed_model = parser.parse()
+    
+    parsed_model.summary()
+    
+    
+    
     
     
     
