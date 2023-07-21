@@ -1,0 +1,10 @@
+[paths]
+path_wd = 
+dataset_path = 
+filename_ann = 
+
+[restrictions]
+convertible_layers = [input, conv2d, average_pooling2d, dense, flatten]
+
+[initial]
+batch_size = 1
