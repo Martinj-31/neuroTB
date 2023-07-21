@@ -76,7 +76,7 @@ class networkGen:
             numCols (): Number of columns in output filters (horizontal moves)
             numRows (): Number of rows in output filters (vertical moves)
             padding_y, paddding_x (int): Zero-padding rows, Zero-padding columns. It is (filter_size-1)/2
-            
+
         Raises:
             NotImplementedError: _description_
         """
@@ -91,7 +91,7 @@ class networkGen:
 
         height_fm = layer.input_shape[1 + ii]
         width_fm = layer.input_shape[2 + ii]
-        height_kn, width_kn = layer.kernel_siz
+        height_kn, width_kn = layer.kernel_size
         stride_y, stride_x = layer.strides
         padding_y = (height_kn - 1) // 2
         padding_x = (width_kn - 1) // 2
