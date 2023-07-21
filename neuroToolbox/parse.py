@@ -7,6 +7,8 @@ class Parser:
     def __init__(self, input_model, config):
         self.input_model = input_model
         self.config = config
+        self.beforeParse_layer_list = []
+        self.afterParse_layer_list = []
         
     def parse(self):
         layers = self.input_model.layers
@@ -14,6 +16,10 @@ class Parser:
         print("#### parsing input model ####")
 
         for i, layer in enumerate(layers):
+            
+            self.beforeParse_layer_list.append(layer)
+            self.afterParse_layer_list.append(layer)
+            
             # Check if the layer is a BatchNormalization layer
             if isinstance(layer, tf.keras.layers.BatchNormalization):
                 
@@ -21,23 +27,36 @@ class Parser:
                 BN_parameters = list(self._get_BN_parameters(layer))
                 gamma, beta, mean, var, var_eps_sqrt_inv = BN_parameters
                 
-                print("gamma : ", gamma)
-                print("beta : ", beta)
-                print("mean : ", mean)
-                print("varience : ", var)
-                
                 # Get the previous layer
                 prev_layer = layers[i - 1]
                 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight, bias = self._get_weight_bias(prev_layer)
                 
-                print("weight : ", weight)
-                print("bias : ", bias)
                 new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, beta, mean, var_eps_sqrt_inv)
 
                 # Set the new weight and bias to the previous layer
                 self._set_weight_bias(prev_layer, new_weight, new_bias)
+                
+                # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layer_list
+                self.afterParse_layer_list.pop()
+                
+                
+                
+        print("\n\n beforeParse layer name list : ", [layer.name for layer in self.beforeParse_layer_list])    
+        print("\n\n afterParse layer name list : ", [layer.name for layer in self.afterParse_layer_list])
+                
+    
+    def print_layer_connections(self):
+        # Iterate over the layers in the model
+        for i in range(len(self.input_model.layers)-1):
+            # Get current layer and next layer
+            current_layer = self.input_model.layers[i]
+            next_layer = self.input_model.layers[i+1]
+            
+            # Print the connection
+            print(f"{current_layer.name} is connected to {next_layer.name}")
+
       
     def _get_BN_parameters(self, layer):
         mean = k.get_value(layer.moving_mean)
@@ -80,9 +99,6 @@ class Parser:
         ############################### evaluation ###############################
         weight_eval_arr = new_weight - weight_bn_loop
         bias_eval_arr = new_bias - bias_bn_loop
-       
-        print("\n\n weight_eval_arr : \n\n", weight_eval_arr)
-        print("\n\n bias_eval_arr : \n\n", bias_eval_arr)
     
         if np.all(weight_eval_arr == 0) and np.all(bias_eval_arr == 0) :
             print("BN parameter is properly absorbed.")
