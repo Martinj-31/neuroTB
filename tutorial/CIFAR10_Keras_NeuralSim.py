@@ -14,7 +14,7 @@ import configparser
 from tensorflow import keras
 from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D, Flatten, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
@@ -47,18 +47,16 @@ inputs = Input(shape=(32, 32, 3))
 x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
 x = BatchNormalization(epsilon=1e-5)(x)  # BatchNormalization 레이어 추가
 x = Conv2D(32, (3, 3), activation='relu')(x)
-x = MaxPooling2D(pool_size=(2, 2))(x)
-x = Dropout(0.25)(x)
-
+x = AveragePooling2D(pool_size=(2, 2))(x)
 x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
 x = BatchNormalization(epsilon=1e-5)(x)  # BatchNormalization 레이어 추가
 x = Conv2D(64, (3, 3), activation='relu')(x)
-x = MaxPooling2D(pool_size=(2, 2))(x)
-x = Dropout(0.25)(x)
+x = AveragePooling2D(pool_size=(2, 2))(x)
 x = Flatten()(x)
-
-# Update the last Dense layer to produce a 6x6 feature map (이 부분을 수정합니다.)
 x = Dense(6 * 6 * 64, activation='relu')(x)
+x = Dropout(0.25)(x)
+x = Dense(128, activation='relu')(x)
+
 outputs = Dense(num_classes, activation='softmax')(x)
 
 # 모델 생성
@@ -84,18 +82,23 @@ model_name = 'cifar10_cnn'
 keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
 
 # config 파일 저장
+default_config_path = os.path.join("..", "default_config")
 
-config = configparser.ConfigParser()
+# Load the default config file
+default_config = configparser.ConfigParser()
+default_config.read(default_config_path)
 
-config['paths'] = {
-    'path_wd': path_wd,             # Path to model.
-    'dataset_path': path_wd,        # Path to dataset.
-    'filename_ann': model_name      # Name of input model.
-}
+# Update the config values with new values
+default_config['paths']['path_wd'] = path_wd
+default_config['paths']['dataset_path'] = path_wd
+default_config['paths']['filename_ann'] = model_name
 
-# Store config file.
+# Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
+
+# Write the updated config values to a new file named 'config'
 with open(config_filepath, 'w') as configfile:
-    config.write(configfile)
+    default_config.write(configfile)
+
 
 main.run_neuroTB(config_filepath)  # Use run_neuroTB instead of run_n
