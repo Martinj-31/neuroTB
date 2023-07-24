@@ -5,14 +5,9 @@ from tensorflow.keras.models import load_model
 
 sys.path.append(os.getcwd())
 
-# Add the path of the parent directory (neuroTB) to sys.path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
-sys.path.append(parent_dir)
-
 import neuroToolbox.parse as parse
 # import neuroToolbox.normalization as norm
-# import neuroToolbox.neuPLUSNetwork as net
+import neuroToolbox.neuPLUSNetwork as net
 
 def run_neuroTB(config_filepath):
     ###### 1. Load data ######
@@ -35,24 +30,15 @@ def run_neuroTB(config_filepath):
     parsed_model = parser.parse()
     
     parsed_model.summary()
-    
-    
-    
-    
-    
-    
+
     # %% Normalization and convert
     
-    
-    
-    
-    
     # %% Generate neurons and synapse connections for SNN
-    '''
+    
     batch_size = config["initial"]["batch_size"]
-    batch_shape = list(model.layers[0].input_shape)
+    batch_shape = list(parsed_model.layers[0].input_shape)
     batch_shape[0] = batch_size
     
-    spike_model = net.networkGen(config, model)
+    spike_model = net.networkGen(config, parsed_model)
     spike_model.setup_layers(batch_shape)
-    '''
+    
