@@ -133,6 +133,56 @@ class networkGen:
         print("Length : ", len(connections))
         self.connections.append(connections)
 
+    def Synapse_convolution_update(self, layer):
+        print(f"Connecting layer...")
+
+        weight, _ = layer.get_weights()
+
+        ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
+
+        height_fm = layer.input_shape[1 + ii]
+        width_fm = layer.input_shape[2 + ii]
+        height_kn, width_kn = layer.kernel_size
+        stride_y, stride_x = layer.strides
+        padding_y = (height_kn - 1) // 2
+        padding_x = (width_kn - 1) // 2
+
+        fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
+
+        if 'valid' == layer.padding:
+            numCols = (width_fm - width_kn + 1) // stride_x
+            numRows = (height_fm - height_kn + 1) // stride_y
+        elif 'same' == layer.padding:
+            numCols = width_fm // stride_x
+            numRows = height_fm // stride_y
+            fm = np.pad(fm, ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=-1)
+        else:
+            raise NotImplementedError("Border_mode {} not supported".format(layer.padding))
+        
+        source = np.zeros(numCols*numRows*(height_kn*width_kn))
+        target = np.zeros(numCols*numRows*(height_kn*width_kn))
+        weights = np.zeros(numCols*numRows*(height_kn*width_kn))
+
+        idx = 0
+        tar_idx = 0
+        row_idx = 0
+        col_idx = 0
+        for row_idx in range(numRows):
+            for col_idx in range(numCols):
+                for i in range(height_kn):
+                    source[idx:idx+width_kn] = fm[row_idx + i][col_idx:col_idx + width_kn]
+                    target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + tar_idx
+                    weights[idx:idx+width_kn] = weight[i, :, 0, 0] # output channel이 여러개일 때 구현 예정
+                    idx += height_kn
+                tar_idx += 1
+        if 'same' == layer.padding:
+            padding_idx = np.where(source == -1)[0]
+            source = np.delete(source, padding_idx)
+            target = np.delete(target, padding_idx)
+            weights = np.delete(weights, padding_idx)
+
+        self.connections.append([source, target, weights])
+
     def Synapse_pooling(self, layer):
         print(f"Connecting layer...")
 
