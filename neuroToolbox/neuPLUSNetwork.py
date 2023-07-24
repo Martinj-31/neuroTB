@@ -1,6 +1,9 @@
 import sys, os
-os.chdir("C:/work/neuroTB")
 sys.path.append(os.getcwd())
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
 
 from tensorflow import keras
 from datetime import date
@@ -140,6 +143,8 @@ class networkGen:
 
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
+        input_channels = weights.shape[2]
+        output_channels = weights.shape[3]
         height_fm = layer.input_shape[1 + ii]
         width_fm = layer.input_shape[2 + ii]
         height_kn, width_kn = layer.kernel_size
