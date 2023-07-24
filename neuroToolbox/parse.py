@@ -1,4 +1,3 @@
-# parse.py
 import tensorflow as tf
 import tensorflow.keras.backend as k
 import numpy as np
@@ -7,22 +6,20 @@ class Parser:
     def __init__(self, input_model, config):
         self.input_model = input_model
         self.config = config
-        self.beforeParse_layers = []
-        self.afterParse_layers = []
+        self.afterParse_layer_list = []
         
     def parse(self):
         layers = self.input_model.layers
-        
+        flatten_added = False 
         print("\n\n####### parsing input model #######\n\n")
 
         for i, layer in enumerate(layers):
             
-            self.beforeParse_layers.append(layer)
-            self.afterParse_layers.append(layer)
+      
             
             if isinstance(layer, tf.keras.layers.BatchNormalization):
                 
-                # Get BN parameter #
+                # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
                 gamma, beta, mean, var, var_eps_sqrt_inv = BN_parameters
                 
@@ -38,34 +35,43 @@ class Parser:
                 self._set_weight_bias(prev_layer, new_weight, new_bias)
                 
                 # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layers
-                self.afterParse_layers.pop()
                 print("remove BatchNormalization Layer in layerlist")
                 
-            if isinstance(layer, tf.keras.layers.Dropout):
+            elif isinstance(layer, tf.keras.layers.Dropout):
+                # Skip Dropout layers
+                print("Skipped Dropout layer.")
+                continue
+            
+            elif isinstance(layer, tf.keras.layers.Flatten):
+                # If a Flatten layer is encountered, set the flag to True
+                flatten_added = True
+                print("Encountered Flatten layer.")
                 
-                self.afterParse_layers.pop()
-                print("remove Dropout Layer in layerlist")
-        
-        for i, layer in enumerate(self.afterParse_layers):
-            print(f"Layer {i} ({layer.name}):")
-            print(f"  Input shape: {layer.input_shape}")
-            print(f"  Output shape: {layer.output_shape}")
-                        
+            elif isinstance(layer, tf.keras.layers.Dense) and not flatten_added:
+                # If a Dense layer is encountered and no Flatten layer has been encountered yet,
+                # insert a Flatten layer and set the flag to True
+                print("flatten added : ", flatten_added)
+                flatten_layer = tf.keras.layers.Flatten()
+                self.afterParse_layer_list.append(flatten_layer)
+                flatten_added = True
+                print("Added Flatten layer before Dense layer.")
+           
+            self.afterParse_layer_list.append(layer)
+                
 
-                
-        print("\n\n beforeParse layer name list : ", [layer.name for layer in self.beforeParse_layers])    
-        print("\n\n afterParse layer name list : ", [layer.name for layer in self.afterParse_layers])
-        
+        for i, layer in enumerate(self.afterParse_layer_list):
+            print(f"Layer {i} {layer.name}")
+
         
         parsed_model = self.build_parsed_model()
         
         return parsed_model
     
     def build_parsed_model(self):
-        input_layer = tf.keras.layers.Input(shape=self.afterParse_layers[0].input_shape[0][1:])
+        input_layer = tf.keras.layers.Input(shape=self.afterParse_layer_list[0].input_shape[0][1:])
         x = input_layer
     
-        for layer in self.afterParse_layers[1:]:
+        for layer in self.afterParse_layer_list[1:]:
             x = layer(x)
     
         parsed_model = tf.keras.models.Model(inputs=input_layer, outputs=x, name="parsed_model")
@@ -115,7 +121,7 @@ class Parser:
         bias_eval_arr = new_bias - bias_bn_loop
     
         if np.all(weight_eval_arr == 0) and np.all(bias_eval_arr == 0) :
-            print("BN parameter is properly absorbed.")
+            print("BN parameter is properly absorbed into previous layer.")
         else:
             raise NotImplementedError("BN parameter absorption is not properly implemented.")
         ##########################################################################
