@@ -9,13 +9,31 @@ class Parser:
         self.afterParse_layer_list = []
         
     def parse(self):
+        
+        """
+        Parse a Keras model and return a model that is suitable for conversion to an SNN.
+        
+        This function goes through the layers of the input model and performs the following operations:
+        - Absorbs BN parameters from BatchNormalization layers into the previous layer's weights and biases, and removes the BatchNormalization layer.
+        - Replaces GlobalAveragePooling2D layers with an AveragePooling2D layer and a Flatten layer.
+        - Inserts a Flatten layer before the first Dense layer if no Flatten layer has been added yet.
+        - Skips Dropout layers.
+        - Appends all other layers to the parsed model.
+    
+        Returns
+        -------
+        parsed_model : keras.Model
+            The parsed Keras model. This model has the same architecture as the input model, except that:
+            - BatchNormalization layers have been removed.
+            - GlobalAveragePooling2D layers have been replaced by an AveragePooling2D layer and a Flatten layer.
+            - A Flatten layer has been inserted before the first Dense layer if no Flatten layer was in the original model.
+        """
+        
         layers = self.input_model.layers
         flatten_added = False 
         print("\n\n####### parsing input model #######\n\n")
 
         for i, layer in enumerate(layers):
-            
-      
             
             if isinstance(layer, tf.keras.layers.BatchNormalization):
                 
@@ -42,6 +60,22 @@ class Parser:
                 print("Skipped Dropout layer.")
                 continue
             
+            elif isinstance(layer, tf.keras.layers.GlobalAveragePooling2D):
+                # Replace GlobalAveragePooling2D layer with AveragePooling2D plus Flatten layer
+                
+                # Get the spatial dimensions of the input tensor
+                spatial_dims = layer.input_shape[1:-1]  # Exclude the batch and channel dimensions
+            
+                # Create an AveragePooling2D layer with the same spatial dimensions as the input tensor
+                avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg",pool_size=spatial_dims)
+                self.afterParse_layer_list.append(avg_pool_layer)
+                flatten_layer = tf.keras.layers.Flatten(name=layer.name + "_flatten")
+                self.afterParse_layer_list.append(flatten_layer)
+                flatten_added = True
+                print("Replaced GlobalAveragePooling2D layer with AveragePooling2D and Flatten layer.")
+                
+                continue
+            
             elif isinstance(layer, tf.keras.layers.Flatten):
                 # If a Flatten layer is encountered, set the flag to True
                 flatten_added = True
@@ -57,17 +91,33 @@ class Parser:
                 print("Added Flatten layer before Dense layer.")
            
             self.afterParse_layer_list.append(layer)
-                
-
+        
+    
         for i, layer in enumerate(self.afterParse_layer_list):
             print(f"Layer {i} {layer.name}")
-
         
         parsed_model = self.build_parsed_model()
         
         return parsed_model
     
     def build_parsed_model(self):
+        
+        """
+       Construct the parsed Keras model based on the `afterParse_layer_list`.
+       
+       This function iterates over the list of layers stored in `afterParse_layer_list` 
+       that were modified in the parsing process and constructs a Keras model from them. 
+       The first layer of the model is an Input layer with the same shape as the input of the original model.
+       The remaining layers are the layers in the `afterParse_layer_list`, connected sequentially.
+    
+       Returns
+       -------
+       parsed_model : keras.Model
+           The parsed Keras model. This model is ready to be converted to a Spiking Neural Network (SNN).
+       """
+       
+        print("\n###### build parsed model ######\n")
+        
         input_layer = tf.keras.layers.Input(shape=self.afterParse_layer_list[0].input_shape[0][1:])
         x = input_layer
     
@@ -79,6 +129,22 @@ class Parser:
 
       
     def _get_BN_parameters(self, layer):
+        
+        """
+        Extract the parameters of a BatchNormalization layer.
+        
+        Parameters
+        ----------
+        layer : keras.layers.BatchNormalization
+            The BatchNormalization layer to extract parameters from.
+        
+        Returns
+        -------
+        tuple
+            A tuple containing gamma (scale parameter), beta (offset parameter), mean (moving mean), 
+            var (moving variance), and var_eps_sqrt_inv (inverse of the square root of the variance + epsilon).
+        """
+        
         mean = k.get_value(layer.moving_mean)
         var = k.get_value(layer.moving_variance)
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
@@ -89,14 +155,67 @@ class Parser:
 
     
     def _get_weight_bias(self, layer):
+        
+        """
+        Get the weights and biases of a layer.
+    
+        Parameters
+        ----------
+        layer : keras.layers.Layer
+            The layer to extract weights and biases from.
+    
+        Returns
+        -------
+        list
+            A list where the first element is the weight array and the second element is the bias array.
+        """
+        
         # Get the weight and bias of the layer
         return layer.get_weights()
     
     def _set_weight_bias(self, layer, weight, bias):
+        
+        """
+        Set the weights and biases of a layer.
+        
+        Parameters
+        ----------
+        layer : keras.layers.Layer
+            The layer to set weights and biases.
+        weight : np.array
+            The new weight array to set.
+        bias : np.array
+            The new bias array to set.
+        """
+        
         # Set the new weight and bias to the layer
         layer.set_weights([weight, bias])
         
     def _absorb_bn_parameters(self, weight, bias, mean, var_eps_sqrt_inv, gamma, beta):
+        
+        """
+        Absorb the BN parameters of a BatchNormalization layer into the weights and biases of the previous layer.
+    
+        Parameters
+        ----------
+        weight : np.array
+            The weight array of the previous layer.
+        bias : np.array
+            The bias array of the previous layer.
+        mean : np.array
+            The moving mean from the BatchNormalization layer.
+        var_eps_sqrt_inv : np.array
+            The inverse of the square root of the variance plus a small constant for numerical stability.
+        gamma : np.array
+            The scale parameter from the BatchNormalization layer.
+        beta : np.array
+            The offset parameter from the BatchNormalization layer.
+    
+        Returns
+        -------
+        tuple
+            A tuple containing the 'new weight' and 'new bias' arrays after absorption of the BatchNormalization parameters.
+        """
     
         # Calculation by Numpy :  Area where BN parameters abosrb
         
@@ -124,8 +243,8 @@ class Parser:
             print("BN parameter is properly absorbed into previous layer.")
         else:
             raise NotImplementedError("BN parameter absorption is not properly implemented.")
-        ##########################################################################
-     
+
+        
         return new_weight, new_bias
     
     '''
