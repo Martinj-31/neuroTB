@@ -137,49 +137,61 @@ class networkGen:
         self.connections.append(connections)
 
     def Synapse_convolution_update(self, layer):
+        """_summary_
+        This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
+
+        Args:
+            layer (Keras.model): Keras CNN model with weight information.
+
+        Raises:
+            NotImplementedError: _description_
+        """
         print(f"Connecting layer...")
 
-        weight, _ = layer.get_weights()
+        w, _ = layer.get_weights()
 
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
-        input_channels = weights.shape[2]
-        output_channels = weights.shape[3]
-        height_fm = layer.input_shape[1 + ii]
-        width_fm = layer.input_shape[2 + ii]
-        height_kn, width_kn = layer.kernel_size
-        stride_y, stride_x = layer.strides
-        padding_y = (height_kn - 1) // 2
-        padding_x = (width_kn - 1) // 2
+        input_channels = w.shape[2] # It is related to input feature map, which is the number of feature map.
+        output_channels = w.shape[3] # It is related to the number of filter.
+        height_fm = layer.input_shape[1 + ii] # Height of feature map.
+        width_fm = layer.input_shape[2 + ii] # Width of feature map.
+        height_kn, width_kn = layer.kernel_size # Width and height of kernel.
+        stride_y, stride_x = layer.strides # Strides.
+        padding_y = (height_kn - 1) // 2 # Zero-padding rows. It is (filter_size-1)/2.
+        padding_x = (width_kn - 1) // 2 # Zero-padding columns. It is (filter_size-1)/2.
 
+        # To map neuron index, we need virtual feature map with CNN neuron index.
         fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
 
+        # numCols : Number of columns in output filters (horizontal moves).
+        # numRows : Number of rows in output filters (vertical moves).
         if 'valid' == layer.padding:
             numCols = (width_fm - width_kn + 1) // stride_x
             numRows = (height_fm - height_kn + 1) // stride_y
         elif 'same' == layer.padding:
             numCols = width_fm // stride_x
             numRows = height_fm // stride_y
+            # In 'same' padding type, surround feature map with -1.
             fm = np.pad(fm, ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=-1)
         else:
             raise NotImplementedError("Border_mode {} not supported".format(layer.padding))
         
-        source = np.zeros(numCols*numRows*(height_kn*width_kn))
-        target = np.zeros(numCols*numRows*(height_kn*width_kn))
+        source = np.zeros(numCols*numRows*(height_kn*width_kn)) # Index for layer before convolutional layer(feature map).
+        target = np.zeros(numCols*numRows*(height_kn*width_kn)) # Index for layer after convolutional layer.
         weights = np.zeros(numCols*numRows*(height_kn*width_kn))
 
         idx = 0
         tar_idx = 0
-        row_idx = 0
-        col_idx = 0
         for row_idx in range(numRows):
             for col_idx in range(numCols):
                 for i in range(height_kn):
                     source[idx:idx+width_kn] = fm[row_idx + i][col_idx:col_idx + width_kn]
                     target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + tar_idx
-                    weights[idx:idx+width_kn] = weight[i, :, 0, 0] # output channel이 여러개일 때 구현 예정
+                    weights[idx:idx+width_kn] = w[i, 0:width_kn, 0, 0] # [row, col, input channel, output channel]
                     idx += height_kn
                 tar_idx += 1
+        # In 'same' padding type, remove padded index with -1.
         if 'same' == layer.padding:
             padding_idx = np.where(source == -1)[0]
             source = np.delete(source, padding_idx)
