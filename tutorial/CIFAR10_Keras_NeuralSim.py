@@ -14,7 +14,7 @@ import configparser
 from tensorflow import keras
 from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D, Flatten, Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D,GlobalAveragePooling2D, Flatten, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
@@ -52,7 +52,7 @@ x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
 x = BatchNormalization(epsilon=1e-5)(x)  # BatchNormalization 레이어 추가
 x = Conv2D(64, (3, 3), activation='relu')(x)
 x = AveragePooling2D(pool_size=(2, 2))(x)
-x = Flatten()(x)
+x = GlobalAveragePooling2D()(x)
 x = Dense(6 * 6 * 64, activation='relu')(x)
 x = Dropout(0.25)(x)
 x = Dense(128, activation='relu')(x)

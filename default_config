@@ -4,7 +4,7 @@ dataset_path =
 filename_ann = 
 
 [restrictions]
-convertible_layers = [input, conv2d, average_pooling2d, dense, flatten]
+convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling2D'}
 
 [initial]
 batch_size = 1
