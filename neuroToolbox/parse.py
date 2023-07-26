@@ -17,7 +17,7 @@ class Parser:
         - Absorbs BN parameters from BatchNormalization layers into the previous layer's weights and biases, and removes the BatchNormalization layer.
         - Replaces GlobalAveragePooling2D layers with an AveragePooling2D layer and a Flatten layer.
         - Inserts a Flatten layer before the first Dense layer if no Flatten layer has been added yet.
-        - Skips Dropout layers.
+        - Skips layers not defined as convertible in the config file.
         - Appends all other layers to the parsed model.
     
         Returns
@@ -30,12 +30,15 @@ class Parser:
         """
         
         layers = self.input_model.layers
+        convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
         flatten_added = False 
         print("\n\n####### parsing input model #######\n\n")
 
         for i, layer in enumerate(layers):
             
-            if isinstance(layer, tf.keras.layers.BatchNormalization):
+            layer_type = layer.__class__.__name__
+            print("\n current... layer type : ", layer_type)
+            if isinstance(layer, tf.keras.layers.BatchNormalization): #
                 
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
@@ -54,10 +57,6 @@ class Parser:
                 
                 # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
-                
-            elif isinstance(layer, tf.keras.layers.Dropout):
-                # Skip Dropout layers
-                print("Skipped Dropout layer.")
                 continue
             
             elif isinstance(layer, tf.keras.layers.GlobalAveragePooling2D):
@@ -89,13 +88,14 @@ class Parser:
                 self.afterParse_layer_list.append(flatten_layer)
                 flatten_added = True
                 print("Added Flatten layer before Dense layer.")
+                
+            elif layer_type not in convertible_layers:
+                print("Skipping layer {}.".format(layer_type))
+                continue
            
             self.afterParse_layer_list.append(layer)
         
     
-        for i, layer in enumerate(self.afterParse_layer_list):
-            print(f"Layer {i} {layer.name}")
-        
         parsed_model = self.build_parsed_model()
         
         return parsed_model
