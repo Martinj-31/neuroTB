@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow.keras.backend as k
+from tensorflow import keras
 import numpy as np
 
 class Parser:
@@ -145,11 +145,11 @@ class Parser:
             var (moving variance), and var_eps_sqrt_inv (inverse of the square root of the variance + epsilon).
         """
         
-        mean = k.get_value(layer.moving_mean)
-        var = k.get_value(layer.moving_variance)
+        mean = keras.backend.get_value(layer.moving_mean)
+        var = keras.backend.get_value(layer.moving_variance)
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
-        gamma = k.get_value(layer.gamma)
-        beta = k.get_value(layer.beta)
+        gamma = keras.backend.get_value(layer.gamma)
+        beta = keras.backend.get_value(layer.beta)
     
         return  gamma, beta, mean, var, var_eps_sqrt_inv
 
