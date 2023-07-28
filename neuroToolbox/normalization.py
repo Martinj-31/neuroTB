@@ -3,6 +3,8 @@ import os
 import sys
 import configparser
 import numpy as np
+#from tensorflow import keras
+from collections import OrderedDict
 from tensorflow.keras.models import Model
 
 # Add the path of the parent directory (neuroTB) to sys.path
@@ -18,6 +20,9 @@ class Normalize:
         
     def normalize_parameter(self):
         
+        config = configparser.ConfigParser()
+        config.read(config)
+        
         print("Normalization")
 
         x_norm = None
@@ -25,40 +30,44 @@ class Normalize:
         x_norm_file = np.load(os.path.join(self.config["paths"]["path_wd"], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
 
-        print("x_norm_data: \n", x_norm)
-        
-        """
         # 변수 선언 및 초기화
-        batch_size = config.getint('initial', 'batch_size')
+        batch_size = self.config.getint('initial', 'batch_size')
         
         #adjust_weight -> weight를 조정하기 위한 변수 초기화
-        adj_weights = OrderedDict({model.layers[0].name: 1.00})
+        adj_weight_facs = OrderedDict({self.model.layers[0].name: 1.00})
 
         i = 0
+        
+        print("\n Batch_size : \n",batch_size)
+        
         # parsed_model의 layer 순회
-        for layer in model.layer:
+        for layer in self.model.layers:
             # layer에 weight가 없는 경우 skip
             if len(layer.weights) == 0:
                 continue
             
-            activations = get_activations_layer(layer, model, x_norm, 
-                                             batch_size)
+            print("\nThis input layer : \n", self.model.input)
+            print("\nThis output layer : \n", layer.output)
+            
+            activations = self.get_activations_layer(self.model.input, layer.output, 
+                                                     x_norm, batch_size)
             nonzero_activations = activations[np.nonzero(activations)]
             del activations
-            perc = get_percentile(config, i)
-            cliped_max_activation = get_percentile_activation(nonzero_activations, perc)
+            perc = self.get_percentile(self.config, i)
+            cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
             print("percentile maximum activation: {:.2f}.".format(cliped_max_activation))
             
-            cliped_activations = clip_activations(nonzero_activations, cliped_max_activation)
+            cliped_activations = self.clip_activations(nonzero_activations, 
+                                                       cliped_max_activation)
             
-            adj_weights[layer.name] = cliped_max_activation
-            print("Cliped maximum activation: {:.2f}.".format(adj_weights[layer.name]))
+            adj_weight_facs[layer.name] = cliped_max_activation
+            print("Cliped maximum activation: {:.2f}.".format(adj_weight_facs[layer.name]))
             i += 1
             
             
         # scale factor를 적용하여 parsed_model layer에 대해 parameter normalize
         # normalize를 통해 model 수정
-        for layer in model.layer:
+        for layer in self.model.layers:
             
             if len(layer.weights) == 0:
                 continue
@@ -66,27 +75,27 @@ class Normalize:
             # Adjust weight part 
             parameters = layer.get_weight()
             if layer.activation.__name__ == 'softmax':
-                adj_weight = 1.0
+                adj_weight_fac = 1.0
                 print("Using cliped maximum activation: {:.2f}.".format(cliped_max_activation))
             
             else:
-                adj_weight = adj_weights[layer.name]
+                adj_weight_fac = adj_weight_facs[layer.name]
             
             #_inbound_nodes를 통해 해당 layer의 이전 layer확인
-            inbound = get_inbound_layers_with_params(layer)
+            inbound = self.get_inbound_layers_with_params(layer)
             if len(inbound) == 0: #Input layer
                 parameters_norm = [
-                    parameters[0] * adj_weights[model.layers[0].name] / adj_weight]
+                    parameters[0] * adj_weight_facs[self.model.layers[0].name] / adj_weight_fac]
            
             elif len(inbound) == 1:
                 parameters_norm = [
-                    parameters[0] * adj_weights[inbound[0].name] / adj_weight]
+                    parameters[0] * adj_weight_facs[inbound[0].name] / adj_weight_fac]
             
             else:
                 parameters_norm = [parameters[0]]
             
             
-    def get_activations_layer(layer_in, layer_out, x, batch_size=None):
+    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
         
         # 따로 batch_size가 정해져 있지 않는 경우 10으로 설정
         if batch_size is None:
@@ -97,9 +106,9 @@ class Normalize:
             # input sample list x에서 나눈 나머지만큼 지운다 
             x = x[: -(len(x) % batch_size)]
         
-        print("Calculating activations of layer {}.".format(layer.name))
+        print("Calculating activations of layer {}.".format(layer_in.name))
         # predict함수에 input sample을 넣어 해당 layer 뉴런의 activation을 계산
-        activations = Model(layer_in, layer_out).predict(x, batch_size)
+        activations = Model(inputs=layer_in, outputs=layer_out).predict(x, batch_size)
         
         '''
         # 추가로 activations을 npz파일로 저장할 코드를 따로 빼놓을지 고민...
@@ -110,7 +119,7 @@ class Normalize:
         return np.array(activations)
      
        
-    def get_percentile(config, layer_index=None):
+    def get_percentile(self, config, layer_index=None):
         
         perc = config.getfloat('normalization', 'percentile')
         
@@ -118,22 +127,20 @@ class Normalize:
     
     
     # n-th percentile에 해당하는 activation return
-    def get_percentile_activation(activations, percentile):
+    def get_percentile_activation(self, activations, percentile):
 
         return np.percentile(activations, percentile) if activations.size else 1
     
     
     # activation array와 clip된 최대 activation을 입력으로 받아
     # 최대 activation보다 큰 것들은 제거한 activation array를 return
-    def clip_activations(activations, max_activation):
+    def clip_activations(self, activations, max_activation):
         
         cliped_activations = np.clip(activations, a_min=None, 
                                      a_max=max_activation)
         
         return cliped_activations
-    
-#=======================================================================
-# 공통으로 들어가는 함수
+
     
     def get_inbound_layers_with_params(layer):
         
@@ -168,4 +175,3 @@ class Normalize:
     def has_weights(layer):
         
         return len(layer.weights)
-    """
