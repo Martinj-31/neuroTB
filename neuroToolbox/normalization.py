@@ -22,10 +22,7 @@ class Normalize:
 
         x_norm = None
 
-        config = configparser.ConfigParser()
-        config.read(self.config)
-        
-        x_norm_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_norm.npz'))
+        x_norm_file = np.load(os.path.join(self.config["paths"]["path_wd"], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
 
         print("x_norm_data: \n", x_norm)
