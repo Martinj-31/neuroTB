@@ -1,15 +1,17 @@
 import os
 import sys
+
+# Add the path of the parent directory (neuroTB) to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+
 import numpy as np
 import configparser
 from datetime import datetime
 from tensorflow import keras
 from run import main
 
-# Add the path of the parent directory (neuroTB) to sys.path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
-sys.path.append(parent_dir)
 
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))

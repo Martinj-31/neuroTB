@@ -1,25 +1,42 @@
 #This file is running for Normalization
 import os
-
+import sys
+import configparser
 import numpy as np
 from tensorflow.keras.models import Model
 
-class normalize():
+# Add the path of the parent directory (neuroTB) to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+
+class Normalize:
     
-    def normalize_parameter(model, config, **kwargs):
+    def __init__(self, model, config):
+        self.model = model
+        self.config = config
         
-        # 정규화 관련 데이터, 활성화 데이터 파일 저장 디렉터리 설정
-        norm_dir = 
+    def normalize_parameter(self):
         
-        activ_dir = 
+        print("Normalization")
+
+        x_norm = None
+
+        config = configparser.ConfigParser()
+        config.read(self.config)
         
+        x_norm_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_norm.npz'))
+        x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
+
+        print("x_norm_data: \n", x_norm)
+        
+        """
         # 변수 선언 및 초기화
-        batch_size = config.getint('simulation', 'batch_size')
+        batch_size = config.getint('initial', 'batch_size')
         
         #adjust_weight -> weight를 조정하기 위한 변수 초기화
         adj_weights = OrderedDict({model.layers[0].name: 1.00})
-        
-        x_norm = None
+
         i = 0
         # parsed_model의 layer 순회
         for layer in model.layer:
@@ -154,4 +171,4 @@ class normalize():
     def has_weights(layer):
         
         return len(layer.weights)
-    
+    """
