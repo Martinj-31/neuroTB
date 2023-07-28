@@ -6,7 +6,7 @@ from tensorflow import keras
 sys.path.append(os.getcwd())
 
 import neuroToolbox.parse as parse
-# import neuroToolbox.normalization as norm
+import neuroToolbox.normalization as normalization
 import neuroToolbox.neuPLUSNetwork as net
 
 def run_neuroTB(config_filepath):
@@ -32,6 +32,10 @@ def run_neuroTB(config_filepath):
     parsed_model.summary()
 
     # %% Normalization and convert
+    
+    normalizer = normalization.Normalize()
+
+    normalizer.normalize_parameter(parsed_model,config)
     
     # %% Generate neurons and synapse connections for SNN
     
