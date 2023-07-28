@@ -101,7 +101,7 @@ class Parser:
         return parsed_model
     
     def build_parsed_model(self):
-        
+    
         """
        Construct the parsed Keras model based on the `afterParse_layer_list`.
        
@@ -118,13 +118,12 @@ class Parser:
        
         print("\n###### build parsed model ######\n")
         
-        input_layer = tf.keras.layers.Input(shape=self.afterParse_layer_list[0].input_shape[0][1:])
-        x = input_layer
+        x = self.afterParse_layer_list[0].input
     
         for layer in self.afterParse_layer_list[1:]:
             x = layer(x)
     
-        parsed_model = tf.keras.models.Model(inputs=input_layer, outputs=x, name="parsed_model")
+        parsed_model = tf.keras.models.Model(inputs=self.afterParse_layer_list[0].input, outputs=x, name="parsed_model")
         return parsed_model
 
       
