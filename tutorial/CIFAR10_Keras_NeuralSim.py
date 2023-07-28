@@ -34,7 +34,7 @@ y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical lab
 # Save the dataset
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-# Normalizing을 위한 데이터셋 추출
+# Extracting datasets for Normalization
 np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
 
 
