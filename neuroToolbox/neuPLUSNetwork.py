@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 class networkGen:
 
-    def __init__(self, config, parsed_model):
+    def __init__(self, parsed_model, config):
         self.config = config
         self.parsed_model = parsed_model
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
