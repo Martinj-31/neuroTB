@@ -33,9 +33,9 @@ def run_neuroTB(config_filepath):
 
     # %% Normalization and convert
     
-    normalizer = normalization.Normalize()
+    normalizer = normalization.Normalize(parsed_model, config)
 
-    normalizer.normalize_parameter(parsed_model,config)
+    normalizer.normalize_parameter()
     
     # %% Generate neurons and synapse connections for SNN
     
