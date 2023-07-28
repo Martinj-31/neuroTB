@@ -2,10 +2,11 @@
 import os
 import sys
 import configparser
+import tensorflow as tf
 import numpy as np
 #from tensorflow import keras
 from collections import OrderedDict
-from tensorflow.keras.models import Model
+#from tensorflow.keras.models import Model
 
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +25,9 @@ class Normalize:
         config.read(config)
         
         print("Normalization")
-
+        print("paresd_model: \n")
+        self.model.summary()
+        
         x_norm = None
 
         x_norm_file = np.load(os.path.join(self.config["paths"]["path_wd"], 'x_norm.npz'))
@@ -33,12 +36,10 @@ class Normalize:
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
         
-        #adjust_weight -> weight를 조정하기 위한 변수 초기화
+        #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
         adj_weight_facs = OrderedDict({self.model.layers[0].name: 1.00})
 
         i = 0
-        
-        print("\n Batch_size : \n",batch_size)
         
         # parsed_model의 layer 순회
         for layer in self.model.layers:
@@ -48,6 +49,7 @@ class Normalize:
             
             print("\nThis input layer : \n", self.model.input)
             print("\nThis output layer : \n", layer.output)
+            print("\n")
             
             activations = self.get_activations_layer(self.model.input, layer.output, 
                                                      x_norm, batch_size)
@@ -55,13 +57,13 @@ class Normalize:
             del activations
             perc = self.get_percentile(self.config, i)
             cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
-            print("percentile maximum activation: {:.2f}.".format(cliped_max_activation))
+            print("\n percentile maximum activation: {:.2f}.".format(cliped_max_activation))
             
             cliped_activations = self.clip_activations(nonzero_activations, 
                                                        cliped_max_activation)
             
             adj_weight_facs[layer.name] = cliped_max_activation
-            print("Cliped maximum activation: {:.2f}.".format(adj_weight_facs[layer.name]))
+            print("\n Cliped maximum activation: {:.2f}.".format(adj_weight_facs[layer.name]))
             i += 1
             
             
@@ -73,14 +75,15 @@ class Normalize:
                 continue
             
             # Adjust weight part 
-            parameters = layer.get_weight()
+            parameters = layer.get_weights()
             if layer.activation.__name__ == 'softmax':
                 adj_weight_fac = 1.0
-                print("Using cliped maximum activation: {:.2f}.".format(cliped_max_activation))
+                print("\n Using cliped maximum activation: {:.2f}.".format(cliped_max_activation))
             
             else:
                 adj_weight_fac = adj_weight_facs[layer.name]
-            
+                print("\n Keys in adj_weight_facs dictionary:", list(adj_weight_facs.keys()))
+                
             #_inbound_nodes를 통해 해당 layer의 이전 layer확인
             inbound = self.get_inbound_layers_with_params(layer)
             if len(inbound) == 0: #Input layer
@@ -106,12 +109,12 @@ class Normalize:
             # input sample list x에서 나눈 나머지만큼 지운다 
             x = x[: -(len(x) % batch_size)]
         
-        print("Calculating activations of layer {}.".format(layer_in.name))
+        print("Calculating activations of layer {}.".format(layer_out.name))
         # predict함수에 input sample을 넣어 해당 layer 뉴런의 activation을 계산
-        activations = Model(inputs=layer_in, outputs=layer_out).predict(x, batch_size)
+        activations = tf.keras.models.Model(inputs=layer_in, outputs=layer_out).predict(x, batch_size)
         
         '''
-        # 추가로 activations을 npz파일로 저장할 코드를 따로 빼놓을지 고민...
+        # 추가로 activations을 npz파일로 저장
         print("Writing activations to disk.")
         np.savez_compressed(os.path.join(activ_dir, layer.name), activations)
         '''
@@ -121,7 +124,7 @@ class Normalize:
        
     def get_percentile(self, config, layer_index=None):
         
-        perc = config.getfloat('normalization', 'percentile')
+        perc = config.getfloat('initial', 'percentile')
         
         return perc
     
@@ -142,16 +145,16 @@ class Normalize:
         return cliped_activations
 
     
-    def get_inbound_layers_with_params(layer):
+    def get_inbound_layers_with_params(self, layer):
         
         inbound = layer
         # weight가 존재하는 layer가 나올 때 반복
         while True:
-            inbound = get_inbound_layers(inbound)
+            inbound = self.get_inbound_layers(inbound)
             # get_inbound_layers()에서 layer정보를 list에 받는데 list안에 layer정보가 있는 경우
             if len(inbound) == 1:
                 inbound = inbound[0]
-                if has_weights(inbound):
+                if self.has_weights(inbound):
                     return[inbound]
             
             # layer정보가 없는 경우 -> input layer의 경우 previous layer 존재하지 않아 빈 list return
@@ -160,7 +163,7 @@ class Normalize:
                 
                 return result
     
-    def get_inbound_layers(layer):
+    def get_inbound_layers(self, layer):
         
         #_inbound_nodes를 통해 해당 layer의 이전 layer확인
         inbound_layers = layer._inbound_nodes[0].inbound_layers
@@ -172,6 +175,6 @@ class Normalize:
         return inbound_layers
         
     
-    def has_weights(layer):
+    def has_weights(self, layer):
         
         return len(layer.weights)
