@@ -5,7 +5,7 @@ import configparser
 import tensorflow as tf
 import numpy as np
 #from tensorflow import keras
-from collections import OrderedDict
+#from collections import OrderedDict
 #from tensorflow.keras.models import Model
 
 # Add the path of the parent directory (neuroTB) to sys.path
@@ -24,9 +24,7 @@ class Normalize:
         config = configparser.ConfigParser()
         config.read(config)
         
-        print("Normalization")
-        print("paresd_model: \n")
-        self.model.summary()
+        print("\n\n######## Normalization ########\n\n")
         
         x_norm = None
 
@@ -37,7 +35,7 @@ class Normalize:
         batch_size = self.config.getint('initial', 'batch_size')
         
         #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
-        adj_weight_facs = OrderedDict({self.model.layers[0].name: 1.00})
+        adj_weight_facs = {self.model.layers[0].name: 1.00}
 
         i = 0
         
@@ -48,22 +46,23 @@ class Normalize:
                 continue
             
             print("\nThis input layer : \n", self.model.input)
-            print("\nThis output layer : \n", layer.output)
+            print("This output layer : \n", layer.output)
             print("\n")
             
             activations = self.get_activations_layer(self.model.input, layer.output, 
                                                      x_norm, batch_size)
+            print("Maximum activation: {:.5f}.".format(np.max(activations)))
             nonzero_activations = activations[np.nonzero(activations)]
             del activations
             perc = self.get_percentile(self.config, i)
+            
             cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
-            print("\n percentile maximum activation: {:.2f}.".format(cliped_max_activation))
+            #print("percentile maximum activation: {:.5f}.".format(cliped_max_activation))
             
             cliped_activations = self.clip_activations(nonzero_activations, 
                                                        cliped_max_activation)
-            
             adj_weight_facs[layer.name] = cliped_max_activation
-            print("\n Cliped maximum activation: {:.2f}.".format(adj_weight_facs[layer.name]))
+            print("Cliped maximum activation: {:.5f}.".format(adj_weight_facs[layer.name]))
             i += 1
             
             
@@ -78,12 +77,13 @@ class Normalize:
             parameters = layer.get_weights()
             if layer.activation.__name__ == 'softmax':
                 adj_weight_fac = 1.0
-                print("\n Using cliped maximum activation: {:.2f}.".format(cliped_max_activation))
+                print("\n Using cliped maximum activation: {:.2f}.".format(adj_weight_fac))
             
             else:
                 adj_weight_fac = adj_weight_facs[layer.name]
                 print("\n Keys in adj_weight_facs dictionary:", list(adj_weight_facs.keys()))
-                
+            
+            """
             #_inbound_nodes를 통해 해당 layer의 이전 layer확인
             inbound = self.get_inbound_layers_with_params(layer)
             if len(inbound) == 0: #Input layer
@@ -96,7 +96,7 @@ class Normalize:
             
             else:
                 parameters_norm = [parameters[0]]
-            
+            """
             
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
         
@@ -111,12 +111,13 @@ class Normalize:
         
         print("Calculating activations of layer {}.".format(layer_out.name))
         # predict함수에 input sample을 넣어 해당 layer 뉴런의 activation을 계산
-        activations = tf.keras.models.Model(inputs=layer_in, outputs=layer_out).predict(x, batch_size)
+        activations = tf.keras.models.Model(inputs=layer_in, 
+                                            outputs=layer_out).predict(x, batch_size)
         
         '''
         # 추가로 activations을 npz파일로 저장
         print("Writing activations to disk.")
-        np.savez_compressed(os.path.join(activ_dir, layer.name), activations)
+        np.savez_compressed(os.path.join(path_wd, layer.name), activations)
         '''
         
         return np.array(activations)
@@ -124,8 +125,11 @@ class Normalize:
        
     def get_percentile(self, config, layer_index=None):
         
+        config['initial'] = { 'percentile': 99.9 }
         perc = config.getfloat('initial', 'percentile')
         
+        print("percentile : {}".format(perc))
+    
         return perc
     
     
