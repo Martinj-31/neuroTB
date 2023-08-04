@@ -47,6 +47,11 @@ class Parser:
                 # Get the previous layer
                 prev_layer = layers[i - 1]
                 
+                # Check if the previous layer is a Conv layer
+                if not isinstance(prev_layer, tf.keras.layers.Conv2D):
+                    print("Skipping layer because previous layer is not a Conv layer.")
+                    continue
+                
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight, bias = self._get_weight_bias(prev_layer)
                 
@@ -57,6 +62,41 @@ class Parser:
                 
                 # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
+                
+                continue
+            
+            
+            elif isinstance(layer, tf.keras.layers.MaxPooling2D):
+                # Create an AveragePooling2D layer with the same pool size and strides as the MaxPooling2D layer
+                avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg")
+                self.afterParse_layer_list.append(avg_pool_layer)
+                print("Replaced MaxPooling2D layer with AveragePooling2D layer.")
+               
+                continue
+            
+            elif isinstance(layer, tf.keras.layers.Add):
+                # Replace Add layer with Concatenate plus Conv2D layer
+            
+                # Get the number of filters from the previous Conv2D layer
+                num_filters = None
+                for prev_layer in reversed(layers[:i]):
+                    if isinstance(prev_layer, tf.keras.layers.Conv2D):
+                        num_filters = prev_layer.filters
+                        break
+            
+                if num_filters is None:
+                    print("No previous Conv2D layer found.")
+                    continue
+            
+                # Create a Concatenate layer
+                concatenate_layer = tf.keras.layers.Concatenate(name=layer.name + "_concatenate")
+                self.afterParse_layer_list.append(concatenate_layer)
+                
+                # Create a Conv2D layer with the same number of filters as the previous Conv2D layer
+                conv2d_layer = tf.keras.layers.Conv2D(name=layer.name + "_conv2d", filters=num_filters, kernel_size=(1, 1), padding='same')
+                self.afterParse_layer_list.append(conv2d_layer)
+                
+                print("Replaced Add layer with Concatenate + Conv2D layer.")
                 continue
             
             elif isinstance(layer, tf.keras.layers.GlobalAveragePooling2D):
@@ -75,10 +115,12 @@ class Parser:
                 
                 continue
             
+            
             elif isinstance(layer, tf.keras.layers.Flatten):
                 # If a Flatten layer is encountered, set the flag to True
                 flatten_added = True
                 print("Encountered Flatten layer.")
+                
                 
             elif isinstance(layer, tf.keras.layers.Dense) and not flatten_added:
                 # If a Dense layer is encountered and no Flatten layer has been encountered yet,
@@ -88,9 +130,11 @@ class Parser:
                 self.afterParse_layer_list.append(flatten_layer)
                 flatten_added = True
                 print("Added Flatten layer before Dense layer.")
+              
                 
             elif layer_type not in convertible_layers:
                 print("Skipping layer {}.".format(layer_type))
+                
                 continue
            
             self.afterParse_layer_list.append(layer)
@@ -130,7 +174,7 @@ class Parser:
     def _get_BN_parameters(self, layer):
         
         """
-        Extract the parameters of a BatchNormalization layer.
+        Extract the parameters of a BatchNormalization layer.        
         
         Parameters
         ----------
@@ -143,6 +187,8 @@ class Parser:
             A tuple containing gamma (scale parameter), beta (offset parameter), mean (moving mean), 
             var (moving variance), and var_eps_sqrt_inv (inverse of the square root of the variance + epsilon).
         """
+        
+        print("get BN parameters...")
         
         mean = keras.backend.get_value(layer.moving_mean)
         var = keras.backend.get_value(layer.moving_variance)
@@ -168,7 +214,7 @@ class Parser:
         list
             A list where the first element is the weight array and the second element is the bias array.
         """
-        
+        print("get weight & bias...")
         # Get the weight and bias of the layer
         return layer.get_weights()
     
@@ -186,7 +232,7 @@ class Parser:
         bias : np.array
             The new bias array to set.
         """
-        
+        print("set weight & bias...")
         # Set the new weight and bias to the layer
         layer.set_weights([weight, bias])
         
