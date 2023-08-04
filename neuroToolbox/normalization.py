@@ -33,9 +33,10 @@ class Normalize:
 
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
+        thr = self.config.getfloat('initial', 'threshold')
         
         #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
-        adj_weight_facs = {self.model.layers[0].name: 1.00}
+        norm_facs = {self.model.layers[0].name: 1.00}
 
         i = 0
         
@@ -45,9 +46,11 @@ class Normalize:
             if len(layer.weights) == 0:
                 continue
             
+            """
             print("\nThis input layer : \n", self.model.input)
             print("This output layer : \n", layer.output)
             print("\n")
+            """
             
             activations = self.get_activations_layer(self.model.input, layer.output, 
                                                      x_norm, batch_size)
@@ -61,8 +64,8 @@ class Normalize:
             
             cliped_activations = self.clip_activations(nonzero_activations, 
                                                        cliped_max_activation)
-            adj_weight_facs[layer.name] = cliped_max_activation
-            print("Cliped maximum activation: {:.5f}.".format(adj_weight_facs[layer.name]))
+            norm_facs[layer.name] = cliped_max_activation
+            print("Cliped maximum activation: {:.5f}.\n".format(norm_facs[layer.name]))
             i += 1
             
             
@@ -75,28 +78,37 @@ class Normalize:
             
             # Adjust weight part 
             parameters = layer.get_weights()
+            ann_weights = parameters[0]
+            ann_bias = parameters[1]
+            print("layer: \n", layer)
             if layer.activation.__name__ == 'softmax':
-                adj_weight_fac = 1.0
-                print("\n Using cliped maximum activation: {:.2f}.".format(adj_weight_fac))
+                norm_fac = 1.0
+                print("\n Using norm_factor: {:.2f}.".format(norm_fac))
             
             else:
-                adj_weight_fac = adj_weight_facs[layer.name]
-                print("\n Keys in adj_weight_facs dictionary:", list(adj_weight_facs.keys()))
+                norm_fac = norm_facs[layer.name]
             
-            """
             #_inbound_nodes를 통해 해당 layer의 이전 layer확인
             inbound = self.get_inbound_layers_with_params(layer)
+            print("\ninbound layer: \n", inbound)
+            # Weight normalization
             if len(inbound) == 0: #Input layer
-                parameters_norm = [
-                    parameters[0] * adj_weight_facs[self.model.layers[0].name] / adj_weight_fac]
+                ann_weights_norm = [
+                    ann_weights * norm_facs[self.model.layers[0].name] / norm_fac,
+                    ann_bias / norm_fac]
            
-            elif len(inbound) == 1:
-                parameters_norm = [
-                    parameters[0] * adj_weight_facs[inbound[0].name] / adj_weight_fac]
+            elif len(inbound) == 1:                   
+                ann_weights_norm = [
+                    ann_weights * norm_facs[inbound[0].name] / norm_fac, 
+                    ann_bias / norm_fac]
+                
             
             else:
-                parameters_norm = [parameters[0]]
-            """
+                ann_weights_norm = [ann_weights, ann_bias]
+           
+            # threshold 
+            snn_weights = ann_weights_norm * thr
+            layer.set_weights(snn_weights)
             
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
         
@@ -152,20 +164,45 @@ class Normalize:
     def get_inbound_layers_with_params(self, layer):
         
         inbound = layer
+        prev_layer = None
         # weight가 존재하는 layer가 나올 때 반복
         while True:
             inbound = self.get_inbound_layers(inbound)
+            
+            """
+            inb = []
+            for layer in inbound:
+                if not isinstance(layer, tf.keras.layers.BatchNormalization):
+                    inb.append(layer)
+            inbound = inb
+            """
+            
             # get_inbound_layers()에서 layer정보를 list에 받는데 list안에 layer정보가 있는 경우
-            if len(inbound) == 1:
+            if len(inbound) == 1 and not isinstance(inbound[0], 
+                                                    tf.keras.layers.BatchNormalization):
                 inbound = inbound[0]
                 if self.has_weights(inbound):
-                    return[inbound]
-            
+                    return [inbound]
+                
             # layer정보가 없는 경우 -> input layer의 경우 previous layer 존재하지 않아 빈 list return
             else:
                 result = []
+                for inb in inbound:
+
+                    if isinstance(inb, tf.keras.layers.BatchNormalization):
+                        prev_layer = layer
+                        
+                    if self.has_weights(inb):
+                        result.append(inb)
+                    else:
+                        result += self.get_inbound_layers_with_params(inb)
+                        
+                        
+                if prev_layer is not None:
+                    return [prev_layer]
                 
-                return result
+                else:
+                    return result
     
     def get_inbound_layers(self, layer):
         
@@ -182,3 +219,5 @@ class Normalize:
     def has_weights(self, layer):
         
         return len(layer.weights)
+        
+        
