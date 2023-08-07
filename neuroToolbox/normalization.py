@@ -33,7 +33,7 @@ class Normalize:
 
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
-        thr = self.config.getint('initial', 'threshold')
+        thr = self.config.getfloat('initial', 'threshold')
         
         #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
         norm_facs = {self.model.layers[0].name: 1.00}
@@ -106,7 +106,7 @@ class Normalize:
                 ann_weights_norm = [ann_weights, ann_bias]
            
             # threshold 
-            snn_weights = ann_weights_norm * thr
+            snn_weights = [w * thr for w in ann_weights_norm]
             layer.set_weights(snn_weights)
             
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
