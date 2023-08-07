@@ -33,7 +33,7 @@ class Normalize:
 
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
-        thr = self.config.getfloat('initial', 'threshold')
+        thr = self.config.getint('initial', 'threshold')
         
         #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
         norm_facs = {self.model.layers[0].name: 1.00}
@@ -101,7 +101,6 @@ class Normalize:
                 ann_weights_norm = [
                     ann_weights * norm_facs[inbound[0].name] / norm_fac, 
                     ann_bias / norm_fac]
-                
             
             else:
                 ann_weights_norm = [ann_weights, ann_bias]
@@ -137,6 +136,7 @@ class Normalize:
        
     def get_percentile(self, config, layer_index=None):
         
+        # percentile modification
         config['initial'] = { 'percentile': 99.9 }
         perc = config.getfloat('initial', 'percentile')
         
@@ -169,14 +169,6 @@ class Normalize:
         while True:
             inbound = self.get_inbound_layers(inbound)
             
-            """
-            inb = []
-            for layer in inbound:
-                if not isinstance(layer, tf.keras.layers.BatchNormalization):
-                    inb.append(layer)
-            inbound = inb
-            """
-            
             # get_inbound_layers()에서 layer정보를 list에 받는데 list안에 layer정보가 있는 경우
             if len(inbound) == 1 and not isinstance(inbound[0], 
                                                     tf.keras.layers.BatchNormalization):
@@ -190,13 +182,14 @@ class Normalize:
                 for inb in inbound:
 
                     if isinstance(inb, tf.keras.layers.BatchNormalization):
-                        prev_layer = layer
-                        
+                        prev_layer = self.get_inbound_layers_with_params(inb)[0]
+                            
                     if self.has_weights(inb):
                         result.append(inb)
+                        
                     else:
                         result += self.get_inbound_layers_with_params(inb)
-                        
+                    
                         
                 if prev_layer is not None:
                     return [prev_layer]
@@ -218,6 +211,9 @@ class Normalize:
     
     def has_weights(self, layer):
         
-        return len(layer.weights)
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
+            return False
+        else:    
+            return len(layer.weights)
         
         
