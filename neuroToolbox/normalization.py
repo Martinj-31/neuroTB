@@ -1,9 +1,15 @@
+"""
+Created on Wed Jul  7 16:06:21 2023
+
+@author: Min Kim
+"""
 #This file is running for Normalization
 import os
 import sys
 import configparser
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 #from tensorflow import keras
 #from collections import OrderedDict
 #from tensorflow.keras.models import Model
@@ -30,7 +36,7 @@ class Normalize:
 
         x_norm_file = np.load(os.path.join(self.config["paths"]["path_wd"], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
-
+        
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
         thr = self.config.getfloat('initial', 'threshold')
@@ -80,33 +86,40 @@ class Normalize:
             parameters = layer.get_weights()
             ann_weights = parameters[0]
             ann_bias = parameters[1]
-            print("layer: \n", layer)
+            #print("layer: \n", layer)
             if layer.activation.__name__ == 'softmax':
                 norm_fac = 1.0
-                print("\n Using norm_factor: {:.2f}.".format(norm_fac))
+                #print("\n Using norm_factor: {:.2f}.".format(norm_fac))
             
             else:
                 norm_fac = norm_facs[layer.name]
             
             #_inbound_nodes를 통해 해당 layer의 이전 layer확인
             inbound = self.get_inbound_layers_with_params(layer)
-            print("\ninbound layer: \n", inbound)
+            #print("\ninbound layer: \n", inbound)
             # Weight normalization
             if len(inbound) == 0: #Input layer
                 ann_weights_norm = [
                     ann_weights * norm_facs[self.model.layers[0].name] / norm_fac,
                     ann_bias / norm_fac]
+                print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.model.layers[0].name])
+                print("  ---------------")
+                print(" ", norm_fac)
            
             elif len(inbound) == 1:                   
                 ann_weights_norm = [
                     ann_weights * norm_facs[inbound[0].name] / norm_fac, 
                     ann_bias / norm_fac]
+                print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
+                print("  ---------------")
+                print(" ", norm_fac)              
             
             else:
                 ann_weights_norm = [ann_weights, ann_bias]
            
-            # threshold 
-            snn_weights = [w * thr for w in ann_weights_norm]
+            # threshold
+            thr = self.set_threshold(self.config)
+            snn_weights = [w * thr for w in ann_weights_norm]  
             layer.set_weights(snn_weights)
             
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
@@ -126,14 +139,23 @@ class Normalize:
                                             outputs=layer_out).predict(x, batch_size)
         
         '''
-        # 추가로 activations을 npz파일로 저장
+        # activations을 npz파일로 저장
         print("Writing activations to disk.")
         np.savez_compressed(os.path.join(path_wd, layer.name), activations)
         '''
         
         return np.array(activations)
      
-       
+    def set_threshold(self, config):
+        
+        config['initial'] = { 'threshold': 1.0 }
+        thr = config.getfloat('initial', 'threshold')
+        
+        print("threhold : {}".format(thr))
+        
+        return thr
+            
+        
     def get_percentile(self, config, layer_index=None):
         
         # percentile modification
