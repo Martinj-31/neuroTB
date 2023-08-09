@@ -33,6 +33,8 @@ y_train = y_train.reshape(-1)  # Convert one-hot encoded labels to categorical l
 y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical labels
 
 # Save the dataset
+np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
+np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
 # Extracting datasets for Normalization
@@ -65,7 +67,7 @@ model.compile(loss='sparse_categorical_crossentropy',
 
 # Train the model
 batch_size = 128
-epochs = 10
+epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Evaluate the model
@@ -85,9 +87,26 @@ default_config = configparser.ConfigParser()
 default_config.read(default_config_path)
 
 # Update the config values with new values
-default_config['paths']['path_wd'] = path_wd
-default_config['paths']['dataset_path'] = path_wd
-default_config['paths']['filename_ann'] = model_name
+default_config['train settings'] = {
+    'loss': 'sparse_categorical_crossentropy',
+    'optimizer': 'adam',
+    'metrics': 'accuracy',
+    'validation_split': '0.1',
+    'callbacks': 'None' ,  # Callbacks can be added later if required
+    'batch_size': str(batch_size),
+    'epochs': str(epochs)
+}
+
+default_config['paths'] = {
+    'path_wd': path_wd,
+    'dataset_path': path_wd,
+    'x_train': os.path.join(path_wd, "x_train.npz"),
+    'x_test': os.path.join(path_wd, "x_test.npz"),
+    'y_train': os.path.join(path_wd, "y_train.npz"),
+    'y_test': os.path.join(path_wd, "y_test.npz"),
+    'filename_ann': model_name
+}
+
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
