@@ -28,16 +28,19 @@ class Parser:
             - GlobalAveragePooling2D layers have been replaced by an AveragePooling2D layer and a Flatten layer.
             - A Flatten layer has been inserted before the first Dense layer if no Flatten layer was in the original model.
         """
-        
+        self.afterParse_layer_list = [] # init
         layers = self.input_model.layers
         convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
-        flatten_added = False 
+        flatten_added = False
+        replace_maxpool = None
+        retrain_required = False
+        
         print("\n\n####### parsing input model #######\n\n")
 
         for i, layer in enumerate(layers):
             
             layer_type = layer.__class__.__name__
-            print("\n current... layer type : ", layer_type)
+            print("\n current parsing layer... layer type : ", layer_type)
             if isinstance(layer, tf.keras.layers.BatchNormalization): #
                 
                 # Get BN parameter
@@ -65,14 +68,26 @@ class Parser:
                 
                 continue
             
-            
             elif isinstance(layer, tf.keras.layers.MaxPooling2D):
-                # Create an AveragePooling2D layer with the same pool size and strides as the MaxPooling2D layer
-                avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg")
-                self.afterParse_layer_list.append(avg_pool_layer)
-                print("Replaced MaxPooling2D layer with AveragePooling2D layer.")
-               
+                # If the user hasn't made a decision yet, ask them
+                if replace_maxpool is None:
+                    answer = input("MaxPooling2D layer detected. Do you want to replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model? (yes/no): ")
+                    if answer.lower() == "yes":
+                        replace_maxpool = True
+                    else:
+                        replace_maxpool = False
+            
+                if replace_maxpool:
+                    # Create an AveragePooling2D layer with the same pool size and strides as the MaxPooling2D layer
+                    avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg")
+                    self.afterParse_layer_list.append(avg_pool_layer)
+                    retrain_required = True
+                    print("Replaced MaxPooling2D layer with AveragePooling2D layer. Please retrain your model.")
+                else:
+                    # Throw an error and stop parsing
+                    raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
                 continue
+                  
             
             elif isinstance(layer, tf.keras.layers.Add):
                 # Replace Add layer with Concatenate plus Conv2D layer
@@ -121,17 +136,7 @@ class Parser:
                 flatten_added = True
                 print("Encountered Flatten layer.")
                 
-                
-            elif isinstance(layer, tf.keras.layers.Dense) and not flatten_added:
-                # If a Dense layer is encountered and no Flatten layer has been encountered yet,
-                # insert a Flatten layer and set the flag to True
-                print("flatten added : ", flatten_added)
-                flatten_layer = tf.keras.layers.Flatten()
-                self.afterParse_layer_list.append(flatten_layer)
-                flatten_added = True
-                print("Added Flatten layer before Dense layer.")
-              
-                
+               
             elif layer_type not in convertible_layers:
                 print("Skipping layer {}.".format(layer_type))
                 
@@ -139,8 +144,13 @@ class Parser:
            
             self.afterParse_layer_list.append(layer)
         
-    
+
         parsed_model = self.build_parsed_model()
+        
+        if retrain_required:
+            retrain_model = self.retrain_model(parsed_model)
+            self.input_model = retrain_model
+            parsed_model = self.parse()
         
         return parsed_model
     
@@ -291,6 +301,41 @@ class Parser:
 
         
         return new_weight, new_bias
+    
+    def retrain_model(self, model):
+        # Load datasets
+        x_train_path = self.config['paths']['x_train']
+        y_train_path = self.config['paths']['y_train']
+        x_test_path = self.config['paths']['x_test']
+        y_test_path = self.config['paths']['y_test']
+    
+        x_train = np.load(x_train_path)['arr_0']
+        y_train = np.load(y_train_path)['arr_0']
+        x_test = np.load(x_test_path)['arr_0']
+        y_test = np.load(y_test_path)['arr_0']
+    
+        # Load training settings from config
+        loss = self.config['train settings']['loss']
+        optimizer = self.config['train settings']['optimizer']
+        metrics = self.config['train settings']['metrics']
+        validation_split = float(self.config['train settings']['validation_split'])
+        # Assuming callbacks are None for now. Can be added later if required.
+    
+        # Compile the model
+        model.compile(loss=loss, optimizer=optimizer, metrics=[metrics])
+    
+        # Train the model
+        batch_size = int(self.config['train settings']['batch_size'])
+        epochs = int(self.config['train settings']['epochs'])
+        model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=validation_split)
+    
+        # Evaluate the model (optional)
+        score = model.evaluate(x_test, y_test, verbose=0)
+        print('Test loss:', score[0])
+        print('Test accuracy:', score[1])
+        
+        return model
+    
     
     '''
     def print_layer_connections(self):
