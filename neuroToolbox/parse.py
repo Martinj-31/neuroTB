@@ -6,34 +6,14 @@ class Parser:
     def __init__(self, input_model, config):
         self.input_model = input_model
         self.config = config
-        self.afterParse_layer_list = []
-        
+        self.add_layer_mapping = {}
     def parse(self):
         
-        """
-        Parse a Keras model and return a model that is suitable for conversion to an SNN.
-        
-        This function goes through the layers of the input model and performs the following operations:
-        - Absorbs BN parameters from BatchNormalization layers into the previous layer's weights and biases, and removes the BatchNormalization layer.
-        - Replaces GlobalAveragePooling2D layers with an AveragePooling2D layer and a Flatten layer.
-        - Inserts a Flatten layer before the first Dense layer if no Flatten layer has been added yet.
-        - Skips layers not defined as convertible in the config file.
-        - Appends all other layers to the parsed model.
-    
-        Returns
-        -------
-        parsed_model : keras.Model
-            The parsed Keras model. This model has the same architecture as the input model, except that:
-            - BatchNormalization layers have been removed.
-            - GlobalAveragePooling2D layers have been replaced by an AveragePooling2D layer and a Flatten layer.
-            - A Flatten layer has been inserted before the first Dense layer if no Flatten layer was in the original model.
-        """
-        self.afterParse_layer_list = [] # init
         layers = self.input_model.layers
         convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
         flatten_added = False
-        replace_maxpool = None
-        retrain_required = False
+        afterParse_layer_list = []
+
         
         print("\n\n####### parsing input model #######\n\n")
 
@@ -69,49 +49,21 @@ class Parser:
                 continue
             
             elif isinstance(layer, tf.keras.layers.MaxPooling2D):
-                # If the user hasn't made a decision yet, ask them
-                if replace_maxpool is None:
-                    answer = input("MaxPooling2D layer detected. Do you want to replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model? (yes/no): ")
-                    if answer.lower() == "yes":
-                        replace_maxpool = True
-                    else:
-                        replace_maxpool = False
-            
-                if replace_maxpool:
-                    # Create an AveragePooling2D layer with the same pool size and strides as the MaxPooling2D layer
-                    avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg")
-                    self.afterParse_layer_list.append(avg_pool_layer)
-                    retrain_required = True
-                    print("Replaced MaxPooling2D layer with AveragePooling2D layer. Please retrain your model.")
-                else:
-                    # Throw an error and stop parsing
-                    raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
-                continue
+                raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
                   
             
             elif isinstance(layer, tf.keras.layers.Add):
-                # Replace Add layer with Concatenate plus Conv2D layer
+                print("Replace Add layer to concatenate + Conv2D layer")
+                # Retrieve the input tensors for the Add layer
+                add_input_tensors = layer.input
             
-                # Get the number of filters from the previous Conv2D layer
-                num_filters = None
-                for prev_layer in reversed(layers[:i]):
-                    if isinstance(prev_layer, tf.keras.layers.Conv2D):
-                        num_filters = prev_layer.filters
-                        break
+                # Create a concatenate layer but don't call it yet
+                concat_layer = tf.keras.layers.Concatenate()
+                afterParse_layer_list.append((concat_layer, add_input_tensors))
             
-                if num_filters is None:
-                    print("No previous Conv2D layer found.")
-                    continue
-            
-                # Create a Concatenate layer
-                concatenate_layer = tf.keras.layers.Concatenate(name=layer.name + "_concatenate")
-                self.afterParse_layer_list.append(concatenate_layer)
-                
-                # Create a Conv2D layer with the same number of filters as the previous Conv2D layer
-                conv2d_layer = tf.keras.layers.Conv2D(name=layer.name + "_conv2d", filters=num_filters, kernel_size=(1, 1), padding='same')
-                self.afterParse_layer_list.append(conv2d_layer)
-                
-                print("Replaced Add layer with Concatenate + Conv2D layer.")
+                # Create a Conv2D layer but don't call it yet
+                conv2d_layer = tf.keras.layers.Conv2D(filters=add_input_tensors[0].shape[-1], kernel_size=(1, 1), strides=(1,1), padding='same', activation='relu')
+                afterParse_layer_list.append((conv2d_layer, None))
                 continue
             
             elif isinstance(layer, tf.keras.layers.GlobalAveragePooling2D):
@@ -122,9 +74,9 @@ class Parser:
             
                 # Create an AveragePooling2D layer with the same spatial dimensions as the input tensor
                 avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg",pool_size=spatial_dims)
-                self.afterParse_layer_list.append(avg_pool_layer)
+                afterParse_layer_list.append((avg_pool_layer, None))
                 flatten_layer = tf.keras.layers.Flatten(name=layer.name + "_flatten")
-                self.afterParse_layer_list.append(flatten_layer)
+                afterParse_layer_list.append((flatten_layer, None))
                 flatten_added = True
                 print("Replaced GlobalAveragePooling2D layer with AveragePooling2D and Flatten layer.")
                 
@@ -135,6 +87,7 @@ class Parser:
                 # If a Flatten layer is encountered, set the flag to True
                 flatten_added = True
                 print("Encountered Flatten layer.")
+                continue
                 
                
             elif layer_type not in convertible_layers:
@@ -142,43 +95,33 @@ class Parser:
                 
                 continue
            
-            self.afterParse_layer_list.append(layer)
+            afterParse_layer_list.append((layer, None))
         
 
-        parsed_model = self.build_parsed_model()
-        
-        if retrain_required:
-            retrain_model = self.retrain_model(parsed_model)
-            self.input_model = retrain_model
-            parsed_model = self.parse()
-        
+        parsed_model = self.build_parsed_model(afterParse_layer_list)
+
         return parsed_model
     
-    def build_parsed_model(self):
-    
-        """
-       Construct the parsed Keras model based on the `afterParse_layer_list`.
-       
-       This function iterates over the list of layers stored in `afterParse_layer_list` 
-       that were modified in the parsing process and constructs a Keras model from them. 
-       The first layer of the model is an Input layer with the same shape as the input of the original model.
-       The remaining layers are the layers in the `afterParse_layer_list`, connected sequentially.
-    
-       Returns
-       -------
-       parsed_model : keras.Model
-           The parsed Keras model. This model is ready to be converted to a Spiking Neural Network (SNN).
-       """
+    def build_parsed_model(self, layer_list):
        
         print("\n###### build parsed model ######\n")
+        print("afterParse layer list : ", layer_list)
+        x = layer_list[0][0].input
+    
+        for layer, input_tensors in layer_list[1:]:
+            print("layer : ", layer.__class__.__name__)
+            print("input tensor : ", input_tensors)
+            if isinstance(layer, tf.keras.layers.Concatenate):
+                print("Concatenate layer!!!\n")
+                x = layer([input_tensors[0],input_tensors[1]])  # Pass the list of tensors to Concatenate layer
+            else:
+                print("NONE!!!\n")
+                x = layer(x)
         
-        x = self.afterParse_layer_list[0].input
-    
-        for layer in self.afterParse_layer_list[1:]:
-            x = layer(x)
-    
-        parsed_model = tf.keras.models.Model(inputs=self.afterParse_layer_list[0].input, outputs=x, name="parsed_model")
-        return parsed_model
+        model = tf.keras.models.Model(inputs=layer_list[0][0].input, outputs=x, name="parsed_model")
+        model.summary() 
+        
+        return model
 
       
     def _get_BN_parameters(self, layer):
@@ -301,50 +244,3 @@ class Parser:
 
         
         return new_weight, new_bias
-    
-    def retrain_model(self, model):
-        # Load datasets
-        x_train_path = self.config['paths']['x_train']
-        y_train_path = self.config['paths']['y_train']
-        x_test_path = self.config['paths']['x_test']
-        y_test_path = self.config['paths']['y_test']
-    
-        x_train = np.load(x_train_path)['arr_0']
-        y_train = np.load(y_train_path)['arr_0']
-        x_test = np.load(x_test_path)['arr_0']
-        y_test = np.load(y_test_path)['arr_0']
-    
-        # Load training settings from config
-        loss = self.config['train settings']['loss']
-        optimizer = self.config['train settings']['optimizer']
-        metrics = self.config['train settings']['metrics']
-        validation_split = float(self.config['train settings']['validation_split'])
-        # Assuming callbacks are None for now. Can be added later if required.
-    
-        # Compile the model
-        model.compile(loss=loss, optimizer=optimizer, metrics=[metrics])
-    
-        # Train the model
-        batch_size = int(self.config['train settings']['batch_size'])
-        epochs = int(self.config['train settings']['epochs'])
-        model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=validation_split)
-    
-        # Evaluate the model (optional)
-        score = model.evaluate(x_test, y_test, verbose=0)
-        print('Test loss:', score[0])
-        print('Test accuracy:', score[1])
-        
-        return model
-    
-    
-    '''
-    def print_layer_connections(self):
-        # Iterate over the layers in the model
-        for i in range(len(self.input_model.layers)-1):
-            # Get current layer and next layer
-            current_layer = self.input_model.layers[i]
-            next_layer = self.input_model.layers[i+1]
-            
-            # Print the connection
-            print(f"{current_layer.name} is connected to {next_layer.name}")
-    '''
