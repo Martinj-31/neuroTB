@@ -19,37 +19,98 @@ os.makedirs(path_wd)
 
 print("path wd: ", path_wd)
 
+##############
+def identity_block(input_tensor, kernel_size, filters):
+    filters1, filters2 = filters
+    
+    x = keras.layers.Conv2D(filters1, (1, 1), activation='relu')(input_tensor)
+    #x = keras.layers.BatchNormalization()(x)
+
+    x = keras.layers.Conv2D(filters2, kernel_size, padding='same', activation='relu')(x)
+    #x = keras.layers.BatchNormalization()(x)
+
+    x = keras.layers.Add()([x, input_tensor])
+    x = keras.layers.Activation('relu')(x)
+    
+    return x
+
+def conv_block(input_tensor, kernel_size, filters, strides=(2, 2)):
+    filters1, filters2 = filters
+    
+    x = keras.layers.Conv2D(filters1, (1, 1), strides=strides, activation='relu')(input_tensor)
+    #x = keras.layers.BatchNormalization()(x)
+
+    x = keras.layers.Conv2D(filters2, kernel_size, padding='same', activation='relu')(x)
+    #x = keras.layers.BatchNormalization()(x)
+    
+    shortcut = keras.layers.Conv2D(filters2, (1, 1), strides=strides)(input_tensor)
+    #shortcut = keras.layers.BatchNormalization()(shortcut)
+
+    x = keras.layers.Add()([x, shortcut])
+    x = keras.layers.Activation('relu')(x)
+    
+    return x
+
+def build_resnet50(input_shape=(32, 32, 3), num_classes=10):
+    inputs = keras.layers.Input(shape=input_shape)
+    
+    x = keras.layers.Conv2D(64, (7, 7), strides=(2, 2), padding='same', activation='relu')(inputs)
+    #x = keras.layers.BatchNormalization()(x)
+
+    # ResNet blocks
+    x = conv_block(x, 3, [64, 64])
+    x = identity_block(x, 3, [64, 64])
+    x = identity_block(x, 3, [64, 64])
+
+    x = conv_block(x, 3, [128, 128])
+    x = identity_block(x, 3, [128, 128])
+    x = identity_block(x, 3, [128, 128])
+    x = identity_block(x, 3, [128, 128])
+
+    x = conv_block(x, 3, [256, 256])
+    for _ in range(5):
+        x = identity_block(x, 3, [256, 256])
+
+    x = conv_block(x, 3, [512, 512])
+    x = identity_block(x, 3, [512, 512])
+    x = identity_block(x, 3, [512, 512])
+    
+    x = keras.layers.GlobalAveragePooling2D()(x)
+    x = keras.layers.Dense(512, activation='relu')(x)
+    outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
+    
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    return model
+#############
+
 
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
-# Normalize the data
-x_train = x_train.astype('float32') / 255.0
-x_test = x_test.astype('float32') / 255.0
+# Data preprocessing and normalization
+x_train = x_train.astype('float32') / 255
+x_test = x_test.astype('float32') / 255
 
-# Convert class vectors to binary class matrices
-y_train = keras.utils.to_categorical(y_train, 10)
-y_test = keras.utils.to_categorical(y_test, 10)
+# Convert labels to one-hot encoding
+num_classes = 10
+y_train = keras.utils.to_categorical(y_train, num_classes)
+y_test = keras.utils.to_categorical(y_test, num_classes)
 
-# Load the ResNet50 model
-base_model = keras.applications.ResNet50(weights='imagenet', include_top=False, input_shape=(32, 32, 3))
+# Save the preprocessed dataset for later use
+np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
+np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
 
-# Add a global spatial average pooling layer
-x = base_model.output
-x = keras.layers.Flatten()(x)
-# Add a fully-connected layer
-x = keras.layers.Dense(512, activation='relu')(x)
-# And a logistic layer for 10 classes
-predictions = keras.layers.Dense(10, activation='softmax')(x)
+# Build ResNet50 model
+model = build_resnet50(input_shape=(32, 32, 3), num_classes=num_classes)
 
-# This is the model we will train
-model = keras.models.Model(inputs=base_model.input, outputs=predictions)
+# Compile the model
+model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(), metrics=['accuracy'])
 
-# Compile the model (should be done *after* setting layers to non-trainable)
-model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
-
-# Train the model on the new data for a few epochs
-model.fit(x_train, y_train, batch_size=64, epochs=1, validation_data=(x_test, y_test))
+# Train the model
+batch_size = 128
+epochs = 1
+model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Evaluate the model
 score = model.evaluate(x_test, y_test, verbose=0)
