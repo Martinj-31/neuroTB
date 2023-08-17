@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, warnings
 sys.path.append(os.getcwd())
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +17,7 @@ class networkGen:
         self.config = config
         self.parsed_model = parsed_model
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
+        self.synCnt = 0
 
         self.neurons = {}
         self.synapses = {}
@@ -24,10 +25,10 @@ class networkGen:
         # mode On/Off
 
     def setup_layers(self, input_shape):
-        self.add_input_layer(input_shape)
+        self.neuron_input_layer(input_shape)
         for layer in self.parsed_model.layers[1:]:
             print(f"Building layer for {layer.name}")
-            self.add_layer(layer)
+            self.neuron_layer(layer)
             layer_type = layer.__class__.__name__
             if layer_type == 'Dense':
                 self.Synapse_dense(layer)
@@ -179,6 +180,8 @@ class networkGen:
             height_pl (): Height of pool
             sx, sy ():
         """
+        if layer.__class__.__name__ == 'MaxPooling2D':
+            warnings.warn("Layer type 'MaxPooling2D' is not supported.", RuntimeWarning)
         print(f"Connecting layer...")
 
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
