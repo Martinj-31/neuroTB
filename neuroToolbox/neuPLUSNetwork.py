@@ -38,9 +38,6 @@ class networkGen:
                 self.Synapse_pooling(layer)
             elif layer_type == 'Flatten':
                 self.Synapse_flatten(layer)
-            
-            print("Layers : ", self.layers)
-            print("Connections : ", self.connections)
 
     # Input will be made in neuralSim library.
     def neuron_input_layer(self, input_shape):
@@ -50,15 +47,24 @@ class networkGen:
         self.neurons[layer.name] = np.prod(layer.output_shape[1:])
 
     def Synapse_dense(self, layer):
-        weights, _ = layer.get_weights()
+        w, _ = layer.get_weights()
 
-        connections = []
+        length_src = w.shape[0]
+        length_tar = w.shape[1]
 
-        for source in range(weights.shape[0]):
-            for target in range(weights.shape[1]):
-                connections.append([source, target, weights[source, target]]) # remove delay
+        source = np.zeros(length_src*length_tar)
+        target = np.zeros(length_src*length_tar)
+        weights = np.zeros(length_src*length_tar)
+
+        cnt = 0
+        for i in range(length_src):
+            for j in range(length_tar):
+                source[cnt] = i
+                target[cnt] = j
+                weights[cnt] = w[i, j]
+                cnt += 1
         
-        self.connections.append(connections)
+        self.synapses[layer.name] = [source, target, weights]
 
     def Synapse_convolution(self, layer):
         """_summary_
