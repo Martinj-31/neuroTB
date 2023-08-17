@@ -7,7 +7,7 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-import configparser
+import configparser, pickle
 from tensorflow import keras
 
 sys.path.append(os.getcwd())
@@ -52,3 +52,5 @@ def run_neuroTB(config_filepath):
     
     spike_model = net.networkGen(parsed_model, config)
     spike_model.setup_layers(batch_shape)
+
+    spike_model.build()
