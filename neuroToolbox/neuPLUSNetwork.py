@@ -1,4 +1,4 @@
-import sys, os, warnings
+import sys, os, warnings, pickle
 sys.path.append(os.getcwd())
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -8,7 +8,6 @@ sys.path.append(parent_dir)
 from tensorflow import keras
 from datetime import date
 import numpy as np
-import configparser
 import matplotlib.pyplot as plt
 
 class networkGen:
@@ -240,5 +239,12 @@ class networkGen:
                 pass
 
     def build(self):
+        filepath = self.config.get['paths']['path_wd']
+        filename = self.config.get['paths']['filename_snn']
 
-        return self.layers, self.connections
+        with open(filepath + '/' + filename +'Converted_neurons', 'wb') as f:
+            pickle.dump(self.neurons, f)
+        with open(filepath + '/' + filename +'Converted_synapses', 'wb') as f:
+            pickle.dump(self.synapses, f)
+
+        print(f"Spiking neural network build completed!")
