@@ -17,6 +17,7 @@ class networkGen:
         self.config = config
         self.parsed_model = parsed_model
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
+        self.nCount = 1024
         self.synCnt = 0
 
         self.neurons = {}
@@ -26,8 +27,9 @@ class networkGen:
 
     def setup_layers(self, input_shape):
         self.neuron_input_layer(input_shape)
+        self.synCnt += self.nCount
         for layer in self.parsed_model.layers[1:]:
-            print(f"Building layer for {layer.name}")
+            print(f"Building layer for {layer.__class__.__name__}")
             self.neuron_layer(layer)
             layer_type = layer.__class__.__name__
             if layer_type == 'Dense':
@@ -37,8 +39,8 @@ class networkGen:
                 self.Synapse_convolution(layer)
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
-            elif layer_type == 'Flatten':
-                self.Synapse_flatten(layer)
+
+        print(f"Total {int(self.synCnt/1024)} neuron cores are going to be used.")
 
     # Input will be made in neuralSim library.
     def neuron_input_layer(self, input_shape):
@@ -64,6 +66,11 @@ class networkGen:
                 target[cnt] = j
                 weights[cnt] = w[i, j]
                 cnt += 1
+        
+        source = source.astype(int) + self.synCnt
+        self.synCnt += self.nCount
+        target = target.astype(int) + self.synCnt
+        self.synCnt += self.nCount
         
         self.synapses[layer.name] = [source, target, weights]
 
@@ -162,9 +169,10 @@ class networkGen:
             target = np.delete(target, padding_idx)
             weights = np.delete(weights, padding_idx)
 
-        source = source.astype(int)
-        target = target.astype(int)
-        weights = weights.astype(int)
+        source = source.astype(int) + self.synCnt
+        self.synCnt += self.nCount
+        target = target.astype(int) + self.synCnt
+        self.synCnt += self.nCount
 
         self.synapses[layer.name] = [source, target, weights]
 
@@ -217,8 +225,10 @@ class networkGen:
                 target[idx:idx+sx] = np.zeros(len(source[idx:idx+sx])) + i
                 idx += sx
 
-        source = source.astype(int)
-        target = target.astype(int)
+        source = source.astype(int) + self.synCnt
+        self.synCnt += self.nCount
+        target = target.astype(int) + self.synCnt
+        self.synCnt += self.nCount
 
         self.synapses[layer.name] = [source, target, weights]
 
