@@ -63,7 +63,7 @@ class Parser:
             
                 # Create a Conv2D layer but don't call it yet
                 conv2d_layer = tf.keras.layers.Conv2D(filters=add_input_tensors[0].shape[-1], kernel_size=(1, 1), strides=(1,1), padding='same', activation='relu')
-                afterParse_layer_list.append((conv2d_layer, None))
+                afterParse_layer_list.append(conv2d_layer)
                 continue
             
             elif isinstance(layer, tf.keras.layers.GlobalAveragePooling2D):
