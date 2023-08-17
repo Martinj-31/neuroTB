@@ -2,6 +2,7 @@
 path_wd = 
 dataset_path = 
 filename_ann = 
+filename_snn =
 x_train =
 x_test =
 y_train =
