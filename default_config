@@ -7,12 +7,17 @@ x_test =
 y_train =
 y_test =
 
+[train settings]
+loss = sparse_categorical_crossentropy
+optimizer = adam
+metrics = accuracy
+validation_split = 0.1
+callbacks = None
+batch_size = 128
+epochs = 1
+
 [restrictions]
 convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling2D'}
-
-[train settings]
-batch_size = 1
-epochs = 1
 
 [initial]
 batch_size = 1

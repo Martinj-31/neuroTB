@@ -6,7 +6,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-
 import numpy as np
 import configparser
 from datetime import datetime
@@ -20,6 +19,49 @@ os.makedirs(path_wd)
 
 print("path wd: ", path_wd)
 
+########################DEFINE MODEL STRUCTURE#################################
+
+def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
+    inputs = keras.layers.Input(shape=input_shape)
+    
+    # Block 1
+    x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+    x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.AveragePooling2D((2, 2))(x)
+
+    # Block 2
+    x = keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.AveragePooling2D((2, 2))(x)
+
+    # Block 3
+    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.AveragePooling2D((2, 2))(x)
+
+    # Block 4
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.AveragePooling2D((2, 2))(x)
+
+    # Block 5
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.AveragePooling2D((2, 2))(x)
+
+    # Fully connected layers
+    x = keras.layers.Flatten()(x)
+    x = keras.layers.Dense(4096, activation='relu')(x)
+    x = keras.layers.Dense(4096, activation='relu')(x)
+    outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
+    
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    return model
+###############################################################################
+
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
@@ -27,46 +69,24 @@ print("path wd: ", path_wd)
 x_train = x_train.astype('float32') / 255
 x_test = x_test.astype('float32') / 255
 
-# One-hot encode the labels
+# Convert labels to one-hot encoding
 num_classes = 10
-y_train = y_train.reshape(-1)  # Convert one-hot encoded labels to categorical labels
-y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical labels
+y_train = keras.utils.to_categorical(y_train, num_classes)
+y_test = keras.utils.to_categorical(y_test, num_classes)
 
-# Save the dataset
-np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
-np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
+# Save the preprocessed dataset for later use
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-# Extracting datasets for Normalization
 np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
 
-# VGG16 model, with weights pre-trained on ImageNet.
-base_model = keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(32, 32, 3))
-
-# Add a new top layer
-x = base_model.output
-x = keras.layers.GlobalAveragePooling2D()(x)  # This layer is optional
-x = keras.layers.Dense(4096, activation='relu')(x)
-x = keras.layers.Dropout(0.5)(x)
-x = keras.layers.Dense(4096, activation='relu')(x)
-
-outputs = keras.layers.Dense(num_classes, activation='softmax')(x)  # FC3
-
-# This is the model we will train
-model = keras.Model(inputs=base_model.input, outputs=outputs)
-
-# First: train only the top layers (which were randomly initialized)
-# i.e. freeze all convolutional layers to prevent large gradient updates wrecking the learned weights
-for layer in base_model.layers:
-    layer.trainable = False
+# Build ResNet50 model
+model = build_model_structure()
 
 # Compile the model
-model.compile(loss='sparse_categorical_crossentropy',
-              optimizer=keras.optimizers.Adam(learning_rate=0.001),
-              metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(), metrics=['accuracy'])
 
 # Train the model
-batch_size = 128
+batch_size = 4096
 epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
@@ -76,7 +96,7 @@ print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
 # Save the model
-model_name = 'cifar10_vgg16'
+model_name = 'VGG16_CIFAR10'
 keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
 
 # Save the config file
@@ -87,26 +107,9 @@ default_config = configparser.ConfigParser()
 default_config.read(default_config_path)
 
 # Update the config values with new values
-default_config['train settings'] = {
-    'loss': 'sparse_categorical_crossentropy',
-    'optimizer': 'adam',
-    'metrics': 'accuracy',
-    'validation_split': '0.1',
-    'callbacks': 'None' ,  # Callbacks can be added later if required
-    'batch_size': str(batch_size),
-    'epochs': str(epochs)
-}
-
-default_config['paths'] = {
-    'path_wd': path_wd,
-    'dataset_path': path_wd,
-    'x_train': os.path.join(path_wd, "x_train.npz"),
-    'x_test': os.path.join(path_wd, "x_test.npz"),
-    'y_train': os.path.join(path_wd, "y_train.npz"),
-    'y_test': os.path.join(path_wd, "y_test.npz"),
-    'filename_ann': model_name
-}
-
+default_config['paths']['path_wd'] = path_wd
+default_config['paths']['dataset_path'] = path_wd
+default_config['paths']['filename_ann'] = model_name
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
