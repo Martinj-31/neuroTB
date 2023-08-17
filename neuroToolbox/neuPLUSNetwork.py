@@ -38,9 +38,6 @@ class networkGen:
                 self.Synapse_pooling(layer)
             elif layer_type == 'Flatten':
                 self.Synapse_flatten(layer)
-            
-            print("Layers : ", self.layers)
-            print("Connections : ", self.connections)
 
     # Input will be made in neuralSim library.
     def neuron_input_layer(self, input_shape):
