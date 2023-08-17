@@ -180,26 +180,33 @@ class networkGen:
         sx = layer.strides[1]
         sy = layer.strides[0]
 
+        fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
+        FM = fm
+        for i in range(1, numFm):
+                FM = np.concatenate((FM, fm+(width_fm*height_fm*i)), axis=0)
+        FM = FM.flatten()
+
         weight = 1 / (width_pl * height_pl)
 
-        connections = []
+        source = np.zeros(width_fm*height_fm*numFm)
+        target = np.zeros(width_fm*height_fm*numFm)
+        weights = np.ones(width_fm*height_fm*numFm)*weight
 
-        for output_channel in range(numFm):
-            for y in range(0, height_fm - height_pl + 1, sy):
-                for x in range(0, width_fm - width_pl + 1, sx):
-                    target = int(x / sx + y / sy * ((width_fm - width_pl) / sx + 1) + output_channel * width_fm * height_fm / (width_pl * height_pl))
-                    for k in range(height_pl):
-                        source = x + (y + k) * width_fm + output_channel * width_fm * height_fm
-                        for j in range(width_pl):
-                            connections.append([source + j, target, weight]) # remove delay
+        idx = 0
+        row_idx = 0
+        for i in range(int((width_fm/sx)*(height_fm/sy))*numFm):
+            if 0 == i%(width_fm/sx) and i != 0:
+                row_idx += width_fm*(height_pl-1)
+            for j in range(height_pl):
+                print(FM[row_idx+i*sx+(j*width_fm):row_idx+i*sx+(j*width_fm)+sx])
+                source[idx:idx+sx] = FM[row_idx+i*sx+(j*width_fm):row_idx+i*sx+(j*width_fm)+sx]
+                target[idx:idx+sx] = np.zeros(len(source[idx:idx+sx])) + i
+                idx += sx
 
-        self.connections.append(connections)
-    
-    def Synapse_flatten(self, layer):
+        source = source.astype(int)
+        target = target.astype(int)
 
-        connections = []
-
-        self.connections.append(connections)
+        self.connections.append([source, target, weights])
 
     def Evaluate(self, datasetname):
 
