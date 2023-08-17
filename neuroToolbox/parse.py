@@ -74,9 +74,9 @@ class Parser:
             
                 # Create an AveragePooling2D layer with the same spatial dimensions as the input tensor
                 avg_pool_layer = tf.keras.layers.AveragePooling2D(name=layer.name + "_avg",pool_size=spatial_dims)
-                afterParse_layer_list.append((avg_pool_layer, None))
+                afterParse_layer_list.append(avg_pool_layer)
                 flatten_layer = tf.keras.layers.Flatten(name=layer.name + "_flatten")
-                afterParse_layer_list.append((flatten_layer, None))
+                afterParse_layer_list.append(flatten_layer)
                 flatten_added = True
                 print("Replaced GlobalAveragePooling2D layer with AveragePooling2D and Flatten layer.")
                 
@@ -95,7 +95,7 @@ class Parser:
                 
                 continue
            
-            afterParse_layer_list.append((layer, None))
+            afterParse_layer_list.append(layer)
         
 
         parsed_model = self.build_parsed_model(afterParse_layer_list)
@@ -106,20 +106,12 @@ class Parser:
        
         print("\n###### build parsed model ######\n")
         print("afterParse layer list : ", layer_list)
-        x = layer_list[0][0].input
+        x = layer_list[0].input
     
         for layer, input_tensors in layer_list[1:]:
-            print("layer : ", layer.__class__.__name__)
-            print("input tensor : ", input_tensors)
-            if isinstance(layer, tf.keras.layers.Concatenate):
-                print("Concatenate layer!!!\n")
-                x = layer([input_tensors[0],input_tensors[1]])  # Pass the list of tensors to Concatenate layer
-            else:
-                print("NONE!!!\n")
-                x = layer(x)
+            x = layer(x)
         
-        model = tf.keras.models.Model(inputs=layer_list[0][0].input, outputs=x, name="parsed_model")
-        model.summary() 
+        model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
         
         return model
 
