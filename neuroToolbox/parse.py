@@ -108,7 +108,7 @@ class Parser:
         print("afterParse layer list : ", layer_list)
         x = layer_list[0].input
     
-        for layer, input_tensors in layer_list[1:]:
+        for layer in layer_list[1:]:
             x = layer(x)
         
         model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
