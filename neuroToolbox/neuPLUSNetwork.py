@@ -68,9 +68,10 @@ class networkGen:
 
     def Synapse_convolution(self, layer):
         """_summary_
+        This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
 
         Args:
-            layer (_type_): _description_
+            layer (Keras.model): Keras CNN model with weight information.
             weights (): Data shape is [filter_height, filter_width, input_channels, output_channels].
             height_fm (int): Height of feature map
             width_fm (int): Width of feature map
@@ -85,135 +86,10 @@ class networkGen:
         """
         print(f"Connecting layer...")
 
-        weights, _ = layer.get_weights()
-        # print(weights)
+        w, _ = layer.get_weights()
 
         # 'channel_first' : [batch_size, channels, height, width]
         # 'channel_last' : [batch_size, height, width, channels]
-        ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
-
-        height_fm = layer.input_shape[1 + ii]
-        width_fm = layer.input_shape[2 + ii]
-        height_kn, width_kn = layer.kernel_size
-        stride_y, stride_x = layer.strides
-        padding_y = (height_kn - 1) // 2
-        padding_x = (width_kn - 1) // 2
-
-        if layer.padding == 'valid':
-            # In padding 'valid', the original sidelength is reduced by one less
-            # than the kernel size.
-            numCols = (width_fm - width_kn + 1) // stride_x
-            numRows = (height_fm - height_kn + 1) // stride_y
-            x0 = padding_x
-            y0 = padding_y
-        elif layer.padding == 'same':
-            # In padding 'same', output image and input image are same.
-            numCols = width_fm // stride_x
-            numRows = height_fm // stride_y
-            x0 = 0
-            y0 = 0
-        else:
-            raise NotImplementedError("Border_mode {} not supported".format(layer.padding))
-        
-        connections = []
-
-        for output_channel in range(weights.shape[3]):
-            for y in range(y0, height_fm - y0, stride_y):
-                for x in range(x0, width_fm - x0, stride_x):
-                    target = int((x - x0) / stride_x + (y - y0) / stride_y * numCols + output_channel * numCols * numRows)
-                    for input_channel in range(weights.shape[2]):
-                        for k in range(-padding_y, padding_y + 1):
-                            if not 0 <= y + k < height_fm:
-                                continue
-                            for p in range(-padding_x, padding_x + 1):
-                                if not 0 <= x + p < width_fm:
-                                    continue
-                                source = x + p + ((y + k) * width_fm) + (input_channel * width_fm * height_fm)
-                                connections.append([source, target, weights[padding_y - k, padding_x - p, input_channel, output_channel]]) # remove delay
-        # cons = np.array(connections)
-        # print(cons)
-        # np.savetxt('connections', cons, fmt='%d')
-        print("Length : ", len(connections))
-        self.connections.append(connections)
-
-    def Synapse_convolution_update(self, layer):
-        """_summary_
-        This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
-
-        Args:
-            layer (Keras.model): Keras CNN model with weight information.
-
-        Raises:
-            NotImplementedError: _description_
-        """
-        print(f"Connecting layer...")
-
-        w, _ = layer.get_weights()
-
-        ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
-
-        input_channels = w.shape[2] # It is related to input feature map, which is the number of feature map.
-        output_channels = w.shape[3] # It is related to the number of filter.
-        height_fm = layer.input_shape[1 + ii] # Height of feature map.
-        width_fm = layer.input_shape[2 + ii] # Width of feature map.
-        height_kn, width_kn = layer.kernel_size # Width and height of kernel.
-        stride_y, stride_x = layer.strides # Strides.
-        padding_y = (height_kn - 1) // 2 # Zero-padding rows. It is (filter_size-1)/2.
-        padding_x = (width_kn - 1) // 2 # Zero-padding columns. It is (filter_size-1)/2.
-
-        # To map neuron index, we need virtual feature map with CNN neuron index.
-        fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
-
-        # numCols : Number of columns in output filters (horizontal moves).
-        # numRows : Number of rows in output filters (vertical moves).
-        if 'valid' == layer.padding:
-            numCols = (width_fm - width_kn + 1) // stride_x
-            numRows = (height_fm - height_kn + 1) // stride_y
-        elif 'same' == layer.padding:
-            numCols = width_fm // stride_x
-            numRows = height_fm // stride_y
-            # In 'same' padding type, surround feature map with -1.
-            fm = np.pad(fm, ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=-1)
-        else:
-            raise NotImplementedError("Border_mode {} not supported".format(layer.padding))
-        
-        source = np.zeros(numCols*numRows*(height_kn*width_kn)) # Index for layer before convolutional layer(feature map).
-        target = np.zeros(numCols*numRows*(height_kn*width_kn)) # Index for layer after convolutional layer.
-        weights = np.zeros(numCols*numRows*(height_kn*width_kn))
-
-        idx = 0
-        tar_idx = 0
-        for row_idx in range(numRows):
-            for col_idx in range(numCols):
-                for i in range(height_kn):
-                    source[idx:idx+width_kn] = fm[row_idx + i][col_idx:col_idx + width_kn]
-                    target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + tar_idx
-                    weights[idx:idx+width_kn] = w[i, 0:width_kn, 0, 0] # [row, col, input channel, output channel]
-                    idx += height_kn
-                tar_idx += 1
-        # In 'same' padding type, remove padded index with -1.
-        if 'same' == layer.padding:
-            padding_idx = np.where(source == -1)[0]
-            source = np.delete(source, padding_idx)
-            target = np.delete(target, padding_idx)
-            weights = np.delete(weights, padding_idx)
-
-        self.connections.append([source, target, weights])
-
-    def Synapse_convolution_indexing(self, layer):
-        """_summary_
-        This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
-
-        Args:
-            layer (Keras.model): Keras CNN model with weight information.
-
-        Raises:
-            NotImplementedError: _description_
-        """
-        print(f"Connecting layer...")
-
-        w, _ = layer.get_weights()
-
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
         input_channels = w.shape[2]
