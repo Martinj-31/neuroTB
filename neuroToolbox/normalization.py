@@ -40,11 +40,11 @@ class Normalize:
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
         thr = self.config.getfloat('initial', 'threshold')
-        tau = self.config.getfloat('initial', 'tau')
+        #tau = self.config.getfloat('initial', 'tau')
         
         #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
         norm_facs = {self.model.layers[0].name: 1.0}
-        f_in = 1.0
+        #f_in = 1.0
 
         i = 0
         
@@ -77,10 +77,7 @@ class Normalize:
             
         # scale factor를 적용하여 parsed_model layer에 대해 parameter normalize
         # normalize를 통해 model 수정
-        
-        tau = ##### configparser로 받기
-        fin = 1
-        
+
         for layer in self.model.layers:
             
             if len(layer.weights) == 0:
@@ -106,26 +103,13 @@ class Normalize:
                 ann_weights_norm = [
                     ann_weights * norm_facs[self.model.layers[0].name] / norm_fac,
                     ann_bias / norm_fac ]
-                #print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.model.layers[0].name])
-                #print("  ---------------")
-                #print(" ", norm_fac)
-           
-            elif len(inbound) == 1:                   
-                ann_weights_norm = [
-                    ann_weights * norm_facs[inbound[0].name] / norm_fac, 
-                    ann_bias / norm_fac ]
-                #print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
-                #print("  ---------------")
-                #print(" ", norm_fac)              
-                    ann_weights * norm_facs[self.model.layers[0].name] / norm_fac * np.exp(-1/(tau * fin)),
-                    ann_bias / norm_fac]
                 print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.model.layers[0].name])
                 print("  ---------------")
                 print(" ", norm_fac)
            
             elif len(inbound) == 1:                   
                 ann_weights_norm = [
-                    ann_weights * norm_facs[inbound[0].name] / norm_fac * np.exp(-1/(tau * fin)), 
+                    ann_weights * norm_facs[inbound[0].name] / norm_fac, 
                     ann_bias / norm_fac]
                 print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
                 print("  ---------------")
@@ -152,8 +136,6 @@ class Normalize:
             # threshold
             snn_weights = [w * thr for w in ann_weights_norm]
             layer.set_weights(snn_weights)
-            
-            ##### fin 계산해주기
             
             
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
