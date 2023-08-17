@@ -168,15 +168,26 @@ class networkGen:
         self.connections.append([source, target, weights])
 
     def Synapse_pooling(self, layer):
+        """_summary_
+
+        Args:
+            layer (Keras.model): Keras CNN model with weight information.
+            width_fm (): Width of feature map
+            height_fm (): Height of feature map
+            numFm (): Number of feature maps
+            width_pl (): Width of pool
+            height_pl (): Height of pool
+            sx, sy ():
+        """
         print(f"Connecting layer...")
 
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
 
-        width_fm = layer.input_shape[2 + ii]  # Width of feature map
-        height_fm = layer.input_shape[1 + ii]  # Height of feature map
-        numFm = layer.input_shape[3 - 2 * ii]  # Number of feature maps
-        width_pl = layer.pool_size[1]  # Width of pool
-        height_pl = layer.pool_size[0]  # Height of pool
+        width_fm = layer.input_shape[2 + ii]
+        height_fm = layer.input_shape[1 + ii]
+        numFm = layer.input_shape[3 - 2 * ii]
+        width_pl = layer.pool_size[1]
+        height_pl = layer.pool_size[0]
         sx = layer.strides[1]
         sy = layer.strides[0]
 
