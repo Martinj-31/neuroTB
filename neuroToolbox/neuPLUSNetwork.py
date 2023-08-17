@@ -18,8 +18,8 @@ class networkGen:
         self.parsed_model = parsed_model
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
 
-        self.layers = []
-        self.connections = []
+        self.neurons = {}
+        self.synapses = {}
 
         # mode On/Off
 
@@ -43,17 +43,11 @@ class networkGen:
             print("Connections : ", self.connections)
 
     # Input will be made in neuralSim library.
-    def add_input_layer(self, input_shape):
-        neurongroup = {}
-        neurongroup['N'] = np.prod(input_shape[1:])
+    def neuron_input_layer(self, input_shape):
+        self.neurons['input_layer'] = np.prod(input_shape[1:])
 
-        self.layers.append(neurongroup)
-
-    def add_layer(self, layer):
-        neurongroup = {}
-        neurongroup['N'] = np.prod(layer.output_shape[1:])
-
-        self.layers.append(neurongroup)
+    def neuron_layer(self, layer):
+        self.neurons[layer.name] = np.prod(layer.output_shape[1:])
 
     def Synapse_dense(self, layer):
         weights, _ = layer.get_weights()
@@ -165,7 +159,7 @@ class networkGen:
         target = target.astype(int)
         weights = weights.astype(int)
 
-        self.connections.append([source, target, weights])
+        self.synapses[layer.name] = [source, target, weights]
 
     def Synapse_pooling(self, layer):
         """_summary_
@@ -217,7 +211,7 @@ class networkGen:
         source = source.astype(int)
         target = target.astype(int)
 
-        self.connections.append([source, target, weights])
+        self.synapses[layer.name] = [source, target, weights]
 
     def Evaluate(self, datasetname):
 
