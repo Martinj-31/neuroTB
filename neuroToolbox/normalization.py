@@ -9,7 +9,7 @@ import sys
 import configparser
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 #from tensorflow import keras
 #from collections import OrderedDict
 #from tensorflow.keras.models import Model
@@ -40,9 +40,11 @@ class Normalize:
         # 변수 선언 및 초기화
         batch_size = self.config.getint('initial', 'batch_size')
         thr = self.config.getfloat('initial', 'threshold')
+        #tau = self.config.getfloat('initial', 'tau')
         
         #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
-        norm_facs = {self.model.layers[0].name: 1.00}
+        norm_facs = {self.model.layers[0].name: 1.0}
+        #f_in = 1.0
 
         i = 0
         
@@ -67,9 +69,7 @@ class Normalize:
             
             cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
             #print("percentile maximum activation: {:.5f}.".format(cliped_max_activation))
-            
-            cliped_activations = self.clip_activations(nonzero_activations, 
-                                                       cliped_max_activation)
+
             norm_facs[layer.name] = cliped_max_activation
             print("Cliped maximum activation: {:.5f}.\n".format(norm_facs[layer.name]))
             i += 1
@@ -77,10 +77,7 @@ class Normalize:
             
         # scale factor를 적용하여 parsed_model layer에 대해 parameter normalize
         # normalize를 통해 model 수정
-        
-        tau = ##### configparser로 받기
-        fin = 1
-        
+
         for layer in self.model.layers:
             
             if len(layer.weights) == 0:
@@ -104,15 +101,15 @@ class Normalize:
             # Weight normalization
             if len(inbound) == 0: #Input layer
                 ann_weights_norm = [
-                    ann_weights * norm_facs[self.model.layers[0].name] / norm_fac * np.exp(-1/(tau * fin)),
-                    ann_bias / norm_fac]
+                    ann_weights * norm_facs[self.model.layers[0].name] / norm_fac,
+                    ann_bias / norm_fac ]
                 print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.model.layers[0].name])
                 print("  ---------------")
                 print(" ", norm_fac)
            
             elif len(inbound) == 1:                   
                 ann_weights_norm = [
-                    ann_weights * norm_facs[inbound[0].name] / norm_fac * np.exp(-1/(tau * fin)), 
+                    ann_weights * norm_facs[inbound[0].name] / norm_fac, 
                     ann_bias / norm_fac]
                 print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
                 print("  ---------------")
@@ -120,13 +117,25 @@ class Normalize:
             
             else:
                 ann_weights_norm = [ann_weights, ann_bias]
-           
-            # threshold
-            thr = self.set_threshold(self.config)
-            snn_weights = [w * thr for w in ann_weights_norm]  
-            layer.set_weights(snn_weights)
             
-            ##### fin 계산해주기
+            """
+            flattened_weights = ann_weights_norm[0].flatten()
+    
+            # Sum the flattened weights and bias
+            summed_weights = np.sum(flattened_weights)
+            
+            print("\n summed_weights: ",summed_weights)
+            #print(" summed_bias: ", summed_bias)
+            
+            f_out = self._get_firing_rate(summed_weights, thr, tau, f_in)
+
+            f_in = f_out
+            
+            print("firing_rate: {}.\n".format(f_in))
+            """
+            # threshold
+            snn_weights = [w * thr for w in ann_weights_norm]
+            layer.set_weights(snn_weights)
             
             
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
@@ -152,21 +161,10 @@ class Normalize:
         '''
         
         return np.array(activations)
-     
-    def set_threshold(self, config):
-        
-        config['initial'] = { 'threshold': 1.0 }
-        thr = config.getfloat('initial', 'threshold')
-        
-        print("threhold : {}".format(thr))
-        
-        return thr
-            
+
         
     def get_percentile(self, config, layer_index=None):
         
-        # percentile modification
-        config['initial'] = { 'percentile': 99.9 }
         perc = config.getfloat('initial', 'percentile')
         
         print("percentile : {}".format(perc))
@@ -178,17 +176,14 @@ class Normalize:
     def get_percentile_activation(self, activations, percentile):
 
         return np.percentile(activations, percentile) if activations.size else 1
-    
-    
-    # activation array와 clip된 최대 activation을 입력으로 받아
-    # 최대 activation보다 큰 것들은 제거한 activation array를 return
-    def clip_activations(self, activations, max_activation):
-        
-        cliped_activations = np.clip(activations, a_min=None, 
-                                     a_max=max_activation)
-        
-        return cliped_activations
 
+    """
+    def _get_firing_rate(self, weights, thr, tau, f_in):
+
+        f_out = ((weights * f_in) * np.exp(-1/(f_in*tau))) / thr
+        
+        return f_out
+    """
     
     def get_inbound_layers_with_params(self, layer):
         
@@ -218,7 +213,6 @@ class Normalize:
                         
                     else:
                         result += self.get_inbound_layers_with_params(inb)
-                    
                         
                 if prev_layer is not None:
                     return [prev_layer]
@@ -231,7 +225,6 @@ class Normalize:
         #_inbound_nodes를 통해 해당 layer의 이전 layer확인
         inbound_layers = layer._inbound_nodes[0].inbound_layers
         
-        # _inbound_nodes[]에서 return된 layer의 정보는 <>의 형식이므로 layer 정보를 list에 넣어줌
         if not isinstance(inbound_layers, (list, tuple)):
             inbound_layers = [inbound_layers]
             
@@ -242,6 +235,7 @@ class Normalize:
         
         if isinstance(layer, tf.keras.layers.BatchNormalization):
             return False
+        
         else:    
             return len(layer.weights)
         
