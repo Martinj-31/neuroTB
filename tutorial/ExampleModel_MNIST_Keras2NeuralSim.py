@@ -91,6 +91,7 @@ default_config.read(default_config_path)
 default_config['paths']['path_wd'] = path_wd
 default_config['paths']['dataset_path'] = path_wd
 default_config['paths']['filename_ann'] = model_name
+default_config['paths']['filename_snn'] = model_name + '_for_SNN'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
