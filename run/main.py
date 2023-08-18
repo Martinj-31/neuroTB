@@ -47,10 +47,12 @@ def run_neuroTB(config_filepath):
     # %% Generate neurons and synapse connections for SNN
     
     batch_size = config["initial"]["batch_size"]
-    batch_shape = list(parsed_model.layers[0].input_shape)
+    batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
     
     spike_model = net.networkGen(parsed_model, config)
     spike_model.setup_layers(batch_shape)
 
     spike_model.build()
+
+    spike_model.summary()
