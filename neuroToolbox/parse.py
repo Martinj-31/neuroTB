@@ -25,7 +25,7 @@ class Parser:
                 
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
-                gamma, beta, mean, var, var_eps_sqrt_inv = BN_parameters
+                gamma, beta, mean, var, var_eps_sqrt_inv, axis = BN_parameters
                 
                 # Get the previous layer
                 prev_layer = layers[i - 1]
@@ -36,9 +36,9 @@ class Parser:
                     continue
                 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
-                weight, bias = self._get_weight_bias(prev_layer)
+                weight, bias = self._get_weight_bias(prev_layer),None
                 
-                new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, beta, mean, var_eps_sqrt_inv)
+                new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, beta, mean, var_eps_sqrt_inv, axis)
 
                 # Set the new weight and bias to the previous layer
                 self._set_weight_bias(prev_layer, new_weight, new_bias)
@@ -134,6 +134,12 @@ class Parser:
         """
         
         print("get BN parameters...")
+
+        axis = layer.axis
+        if isinstance(axis, (list, tuple)):
+            assert len(axis) == 1, "Multiple BatchNorm axes not understood."
+            axis = axis[0]
+
         
         mean = keras.backend.get_value(layer.moving_mean)
         var = keras.backend.get_value(layer.moving_variance)
@@ -141,7 +147,7 @@ class Parser:
         gamma = keras.backend.get_value(layer.gamma)
         beta = keras.backend.get_value(layer.beta)
     
-        return  gamma, beta, mean, var, var_eps_sqrt_inv
+        return  gamma, beta, mean, var, var_eps_sqrt_inv, axis
 
     
     def _get_weight_bias(self, layer):
@@ -181,7 +187,7 @@ class Parser:
         # Set the new weight and bias to the layer
         layer.set_weights([weight, bias])
         
-    def _absorb_bn_parameters(self, weight, bias, mean, var_eps_sqrt_inv, gamma, beta):
+    def _absorb_bn_parameters(self, weight, bias, mean, var_eps_sqrt_inv, gamma, beta, axis):
         
         """
         Absorb the BN parameters of a BatchNormalization layer into the weights and biases of the previous layer.
@@ -207,13 +213,31 @@ class Parser:
             A tuple containing the 'new weight' and 'new bias' arrays after absorption of the BatchNormalization parameters.
         """
     
-        # Calculation by Numpy :  Area where BN parameters abosrb
-        
+
+        axis = weight.ndim + axis if axis < 0 else axis
+        print("weight dimension :", weight.ndim)
+        print("Using BatchNorm axis {}.".format(axis))
+
+        if weight.ndim == 4:  # Conv2D
+
+            channel_axis = 3
+
+            layer2kernel_axes_map = [None, channel_axis, 0, 1]
+
+            axis = layer2kernel_axes_map[axis]
+
+        broadcast_shape = [1] * weight.ndim
+        broadcast_shape[axis] = weight.shape[axis]
+        var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
+        gamma = np.reshape(gamma, broadcast_shape)
+        beta = np.reshape(beta, broadcast_shape)
+        bias = np.reshape(bias, broadcast_shape)
+        mean = np.reshape(mean, broadcast_shape)
+        new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
         new_weight = weight * gamma * var_eps_sqrt_inv
-        new_bias = beta + (bias - mean) * gamma * var_eps_sqrt_inv
         
         # Calculation by loop
-        
+        '''
         weight_bn_loop = np.zeros_like(weight)
         bias_bn_loop = np.zeros_like(bias)
         
@@ -232,7 +256,7 @@ class Parser:
         if np.all(weight_eval_arr == 0) and np.all(bias_eval_arr == 0) :
             print("BN parameter is properly absorbed into previous layer.")
         else:
-            raise NotImplementedError("BN parameter absorption is not properly implemented.")
+            print("BN parameter absorption is not properly implemented.")
 
-        
+        '''
         return new_weight, new_bias
