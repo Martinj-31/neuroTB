@@ -43,12 +43,12 @@ np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::50])
 inputs = keras.Input(shape=(28, 28, 1))
 
 # Convolutional layers
-x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', use_bias = False)(inputs)
+x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
 x = keras.layers.BatchNormalization(epsilon=1e-5)(x)
 x = keras.layers.GlobalAveragePooling2D()(x)
-x = keras.layers.Dense(32, activation='relu', use_bias = False)(x)
+x = keras.layers.Dense(32, activation='relu')(x)
 
-outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias = False)(x)
+outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
