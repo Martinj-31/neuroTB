@@ -26,15 +26,17 @@ class networkGen:
 
     def setup_layers(self, input_shape):
         self.neuron_input_layer(input_shape)
-        self.synCnt += self.nCount
         for layer in self.parsed_model.layers[1:]:
             print(f"Building layer for {layer.__class__.__name__}")
-            self.neuron_layer(layer)
             layer_type = layer.__class__.__name__
+            if layer_type == 'Flatten':
+                print("Flatten layer is skipped.")
+                continue
+            self.neuron_layer(layer)
             if layer_type == 'Dense':
                 self.Synapse_dense(layer)
             # There are two types of convolution layer. 1D or 2D
-            elif 'Conv' in layer_type: 
+            elif 'Conv' in layer_type:
                 self.Synapse_convolution(layer)
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
@@ -49,6 +51,8 @@ class networkGen:
         self.neurons[layer.name] = np.prod(layer.output_shape[1:])
 
     def Synapse_dense(self, layer):
+        print(f"Connecting layer...")
+        
         w, _ = layer.get_weights()
 
         length_src = w.shape[0]
@@ -69,7 +73,6 @@ class networkGen:
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-        self.synCnt += self.nCount
         
         self.synapses[layer.name] = [source, target, weights]
 
@@ -171,7 +174,6 @@ class networkGen:
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-        self.synCnt += self.nCount
 
         self.synapses[layer.name] = [source, target, weights]
 
@@ -226,7 +228,6 @@ class networkGen:
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-        self.synCnt += self.nCount
 
         self.synapses[layer.name] = [source, target, weights]
 
@@ -247,3 +248,16 @@ class networkGen:
             pickle.dump(self.synapses, f)
 
         print(f"Spiking neural network build completed!")
+
+    def summary(self):
+        print(f"_________________________________________________________________")
+        print(f"{'Model: '}{self.config.get('paths', 'filename_snn')}")
+        print(f"=================================================================")
+        print(f"{'Network':<40}{'Parameters #':<40}")
+        print(f"=================================================================")
+        for i in range(len(self.neurons)):
+            print(f"Neurons for")
+            print(f"{list(self.neurons.keys())[i]:<40}{list(self.neurons.values())[i]:<40}")
+            print(f"_________________________________________________________________")
+        print(f"=================================================================")
+        print(f"_________________________________________________________________")
