@@ -7,6 +7,7 @@ class Parser:
         self.input_model = input_model
         self.config = config
         self.add_layer_mapping = {}
+
     def parse(self):
         
         layers = self.input_model.layers
@@ -21,7 +22,7 @@ class Parser:
             
             layer_type = layer.__class__.__name__
             print("\n current parsing layer... layer type : ", layer_type)
-            if isinstance(layer, tf.keras.layers.BatchNormalization): #
+            if isinstance(layer, tf.keras.layers.BatchNormalization): 
                 
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
@@ -36,7 +37,7 @@ class Parser:
                     continue
                 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
-                weight, bias = self._get_weight_bias(prev_layer),None
+                weight, bias = self._get_weight_bias(prev_layer)
                 
                 new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, beta, mean, var_eps_sqrt_inv, axis)
 
@@ -222,7 +223,7 @@ class Parser:
 
             channel_axis = 3
 
-            layer2kernel_axes_map = [None, channel_axis, 0, 1]
+            layer2kernel_axes_map = [None, 0, 1, channel_axis]
 
             axis = layer2kernel_axes_map[axis]
 
