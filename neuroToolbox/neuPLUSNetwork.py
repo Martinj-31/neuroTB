@@ -219,7 +219,6 @@ class networkGen:
             if 0 == i%(width_fm/sx) and i != 0:
                 row_idx += width_fm*(height_pl-1)
             for j in range(height_pl):
-                print(FM[row_idx+i*sx+(j*width_fm):row_idx+i*sx+(j*width_fm)+sx])
                 source[idx:idx+sx] = FM[row_idx+i*sx+(j*width_fm):row_idx+i*sx+(j*width_fm)+sx]
                 target[idx:idx+sx] = np.zeros(len(source[idx:idx+sx])) + i
                 idx += sx
@@ -239,12 +238,12 @@ class networkGen:
                 pass
 
     def build(self):
-        filepath = self.config.get['paths']['path_wd']
-        filename = self.config.get['paths']['filename_snn']
+        filepath = self.config.get('paths', 'path_wd')
+        filename = self.config.get('paths', 'filename_snn')
 
-        with open(filepath + '/' + filename +'Converted_neurons', 'wb') as f:
+        with open(filepath + '/' + filename +'Converted_neurons.pkl', 'wb') as f:
             pickle.dump(self.neurons, f)
-        with open(filepath + '/' + filename +'Converted_synapses', 'wb') as f:
+        with open(filepath + '/' + filename +'Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
 
         print(f"Spiking neural network build completed!")
