@@ -37,7 +37,7 @@ y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical lab
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
 # Extracting datasets for Normalization
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
+np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::50])
 
 # Define the input layer
 inputs = keras.Input(shape=(28, 28, 1))
@@ -45,16 +45,8 @@ inputs = keras.Input(shape=(28, 28, 1))
 # Convolutional layers
 x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
 x = keras.layers.BatchNormalization(epsilon=1e-5)(x)  # Add BatchNormalization layer
-x = keras.layers.Conv2D(32, (3, 3), activation='relu')(x)
-x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
-x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
-x = keras.layers.BatchNormalization(epsilon=1e-5)(x)  # Add BatchNormalization layer
-x = keras.layers.Conv2D(64, (3, 3), activation='relu')(x)
-x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 x = keras.layers.GlobalAveragePooling2D()(x)
-x = keras.layers.Dense(64, activation='relu')(x)  # Adjusted the dense layer size
-x = keras.layers.Dropout(0.25)(x)
-x = keras.layers.Dense(128, activation='relu')(x)
+x = keras.layers.Dense(32, activation='relu')(x)  # Adjusted the dense layer size
 
 outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
 
@@ -68,7 +60,7 @@ model.compile(loss='sparse_categorical_crossentropy',
 
 # Train the model
 batch_size = 128
-epochs = 5
+epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Evaluate the model
