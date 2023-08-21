@@ -50,7 +50,7 @@ class networkGen:
     def neuron_layer(self, layer):
         self.neurons[layer.name] = np.prod(layer.output_shape[1:])
 
-    def Synapse_dense(self, layer):
+    def Synapse_dense(self, layer, evaluation=False):
         print(f"Connecting layer...")
         
         w, _ = layer.get_weights()
@@ -74,9 +74,12 @@ class networkGen:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
         
-        self.synapses[layer.name] = [source, target, weights]
+        if evaluation == False:
+            self.synapses[layer.name] = [source, target, weights]
+        else:
+            return # 한 layer 당 weight connection 확인하기
 
-    def Synapse_convolution(self, layer):
+    def Synapse_convolution(self, layer, evaluation=False):
         """_summary_
         This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
 
@@ -175,7 +178,8 @@ class networkGen:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
 
-        self.synapses[layer.name] = [source, target, weights]
+        if evaluation == False:
+            self.synapses[layer.name] = [source, target, weights]
 
     def Synapse_pooling(self, layer):
         """_summary_
