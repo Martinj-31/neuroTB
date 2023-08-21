@@ -41,7 +41,7 @@ inputs = keras.Input(shape=(28, 28, 1))
 
 # Convolutional layers
 x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', use_bias = False)(inputs)
-x = keras.layers.BatchNormalization(epsilon=1e-5)(x)  # Add BatchNormalization layer
+x = keras.layers.BatchNormalization(epsilon=1e-5, center = False)(x)  # Add BatchNormalization layer
 x = keras.layers.GlobalAveragePooling2D()(x)
 x = keras.layers.Dense(32, activation='relu', use_bias = False)(x)  # Adjusted the dense layer size
 
