@@ -231,13 +231,6 @@ class networkGen:
 
         self.synapses[layer.name] = [source, target, weights]
 
-    def Evaluate(self, datasetname):
-
-            if datasetname == 'cifar10':
-                pass
-            elif datasetname == 'mnist':
-                pass
-
     def build(self):
         filepath = self.config.get('paths', 'path_wd')
         filename = self.config.get('paths', 'filename_snn')
