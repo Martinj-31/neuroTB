@@ -38,20 +38,10 @@ def run_neuroTB(config_filepath):
     parsed_model = parser.parse()
     
     parsed_model.summary()
-    
-    # evaluate parsed model
-    x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
-    y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
 
-    x_test = x_test_file['arr_0']
-    y_test = y_test_file['arr_0']
-    parsed_model.compile(loss='sparse_categorical_crossentropy',
-              optimizer=keras.optimizers.Adam(learning_rate=0.001),
-              metrics=['accuracy'])
-    score = parsed_model.evaluate(x_test, y_test, verbose=0)
+    score = parse.evaluate(parsed_model, config)
     print('Parsed model Test loss:', score[0])
     print('Parsed model Test accuracy:', score[1])
-
     # %% Normalization and convert
     
     normalizer = normalization.Normalize(parsed_model, config)
