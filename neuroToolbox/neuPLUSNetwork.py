@@ -206,7 +206,7 @@ class networkGen:
         fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
         FM = fm
         for i in range(1, numFm):
-                FM = np.concatenate((FM, fm+(width_fm*height_fm*i)), axis=0)
+            FM = np.concatenate((FM, fm+(width_fm*height_fm*i)), axis=0)
         FM = FM.flatten()
 
         weight = 1 / (width_pl * height_pl)
