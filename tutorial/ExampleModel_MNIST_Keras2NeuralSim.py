@@ -10,9 +10,6 @@ import numpy as np
 import configparser
 from datetime import datetime
 from tensorflow import keras
-
-
-
 from run import main
 
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
@@ -43,12 +40,12 @@ np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::50])
 inputs = keras.Input(shape=(28, 28, 1))
 
 # Convolutional layers
-x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
-x = keras.layers.BatchNormalization(epsilon=1e-5)(x)
+x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', use_bias = False)(inputs)
+x = keras.layers.BatchNormalization(epsilon=1e-5)(x)  # Add BatchNormalization layer
 x = keras.layers.GlobalAveragePooling2D()(x)
-x = keras.layers.Dense(32, activation='relu')(x)
+x = keras.layers.Dense(32, activation='relu', use_bias = False)(x)  # Adjusted the dense layer size
 
-outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
+outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias = False)(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
@@ -60,7 +57,7 @@ model.compile(loss='sparse_categorical_crossentropy',
 
 # Train the model
 batch_size = 128
-epochs = 3
+epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Evaluate the model
@@ -69,7 +66,7 @@ print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
 # Save the model
-model_name = 'cifar10_cnn'
+model_name = 'MNIST_CNN'
 keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
 
 # Save the config file

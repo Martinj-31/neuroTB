@@ -10,7 +10,7 @@ sys.path.append(parent_dir)
 from run.main import run_neuroTB
 
 # Set the relative path of the config file
-config_filepath = '../temp/08-14/154018/config'
+config_filepath = '..neuroTB/temp/08-21/135406/config'
 
 # Call the run_neuroTB function with the config_filepath
 run_neuroTB(config_filepath)
