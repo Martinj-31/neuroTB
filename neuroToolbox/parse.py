@@ -37,12 +37,14 @@ class Parser:
                     continue
                 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
-                weight, bias = self._get_weight_bias(prev_layer)
-                
-                new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, beta, mean, var_eps_sqrt_inv, axis)
+                weight = prev_layer.get_weights()[0] # Only Weight, No bias
+                print("get weight...")
+
+                new_weight = self._absorb_bn_parameters(weight, gamma, beta, mean, var_eps_sqrt_inv, axis)
 
                 # Set the new weight and bias to the previous layer
-                self._set_weight_bias(prev_layer, new_weight, new_bias)
+                print("Set Weight with Absorbing BN params")                
+                prev_layer.set_weights([new_weight])
                 
                 # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
@@ -150,45 +152,7 @@ class Parser:
     
         return  gamma, beta, mean, var, var_eps_sqrt_inv, axis
 
-    
-    def _get_weight_bias(self, layer):
-        
-        """
-        Get the weights and biases of a layer.
-    
-        Parameters
-        ----------
-        layer : keras.layers.Layer
-            The layer to extract weights and biases from.
-    
-        Returns
-        -------
-        list
-            A list where the first element is the weight array and the second element is the bias array.
-        """
-        print("get weight & bias...")
-        # Get the weight and bias of the layer
-        return layer.get_weights()
-    
-    def _set_weight_bias(self, layer, weight, bias):
-        
-        """
-        Set the weights and biases of a layer.
-        
-        Parameters
-        ----------
-        layer : keras.layers.Layer
-            The layer to set weights and biases.
-        weight : np.array
-            The new weight array to set.
-        bias : np.array
-            The new bias array to set.
-        """
-        print("set weight & bias...")
-        # Set the new weight and bias to the layer
-        layer.set_weights([weight, bias])
-        
-    def _absorb_bn_parameters(self, weight, bias, mean, var_eps_sqrt_inv, gamma, beta, axis):
+    def _absorb_bn_parameters(self, weight, mean, var_eps_sqrt_inv, gamma, beta, axis):
         
         """
         Absorb the BN parameters of a BatchNormalization layer into the weights and biases of the previous layer.
@@ -197,8 +161,6 @@ class Parser:
         ----------
         weight : np.array
             The weight array of the previous layer.
-        bias : np.array
-            The bias array of the previous layer.
         mean : np.array
             The moving mean from the BatchNormalization layer.
         var_eps_sqrt_inv : np.array
@@ -226,16 +188,19 @@ class Parser:
             layer2kernel_axes_map = [None, 0, 1, channel_axis]
 
             axis = layer2kernel_axes_map[axis]
+            print("axis : ", axis)
 
         broadcast_shape = [1] * weight.ndim
         broadcast_shape[axis] = weight.shape[axis]
+
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         gamma = np.reshape(gamma, broadcast_shape)
         beta = np.reshape(beta, broadcast_shape)
-        bias = np.reshape(bias, broadcast_shape)
         mean = np.reshape(mean, broadcast_shape)
-        new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
+        # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
         new_weight = weight * gamma * var_eps_sqrt_inv
+
+        print("new weight :", new_weight)
         
         # Calculation by loop
         '''
@@ -260,4 +225,4 @@ class Parser:
             print("BN parameter absorption is not properly implemented.")
 
         '''
-        return new_weight, new_bias
+        return new_weight
