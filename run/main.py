@@ -38,7 +38,7 @@ def run_neuroTB(config_filepath):
     parsed_model = parser.parse()
     
     parsed_model.summary()
-
+    
     # evaluate parsed model
     x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
     y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
