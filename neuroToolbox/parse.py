@@ -1,3 +1,11 @@
+import os
+import sys
+
+# Add the path of the parent directory (neuroTB) to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
@@ -178,17 +186,12 @@ class Parser:
     
 
         axis = weight.ndim + axis if axis < 0 else axis
-        print("weight dimension :", weight.ndim)
-        print("Using BatchNorm axis {}.".format(axis))
 
         if weight.ndim == 4:  # Conv2D
 
             channel_axis = 3
-
             layer2kernel_axes_map = [None, 0, 1, channel_axis]
-
             axis = layer2kernel_axes_map[axis]
-            print("axis : ", axis)
 
         broadcast_shape = [1] * weight.ndim
         broadcast_shape[axis] = weight.shape[axis]
@@ -199,8 +202,6 @@ class Parser:
         mean = np.reshape(mean, broadcast_shape)
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
         new_weight = weight * gamma * var_eps_sqrt_inv
-
-        print("new weight :", new_weight)
         
         # Calculation by loop
         '''
@@ -226,3 +227,16 @@ class Parser:
 
         '''
         return new_weight
+
+def evaluate(model, config):
+    x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
+    x_test = x_test_file['arr_0']
+    y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
+    y_test = y_test_file['arr_0']
+
+    model.compile(loss='sparse_categorical_crossentropy',
+              optimizer=keras.optimizers.Adam(learning_rate=0.001),
+              metrics=['accuracy'])
+    score = model.evaluate(x_test, y_test, verbose=0)
+
+    return score
