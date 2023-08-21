@@ -34,7 +34,7 @@ class Parser:
                 
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
-                gamma, beta, mean, var, var_eps_sqrt_inv, axis = BN_parameters
+                gamma, mean, var, var_eps_sqrt_inv, axis = BN_parameters
                 
                 # Get the previous layer
                 prev_layer = layers[i - 1]
@@ -48,7 +48,7 @@ class Parser:
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
                 print("get weight...")
 
-                new_weight = self._absorb_bn_parameters(weight, gamma, beta, mean, var_eps_sqrt_inv, axis)
+                new_weight = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, axis)
 
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
@@ -129,21 +129,6 @@ class Parser:
       
     def _get_BN_parameters(self, layer):
         
-        """
-        Extract the parameters of a BatchNormalization layer.        
-        
-        Parameters
-        ----------
-        layer : keras.layers.BatchNormalization
-            The BatchNormalization layer to extract parameters from.
-        
-        Returns
-        -------
-        tuple
-            A tuple containing gamma (scale parameter), beta (offset parameter), mean (moving mean), 
-            var (moving variance), and var_eps_sqrt_inv (inverse of the square root of the variance + epsilon).
-        """
-        
         print("get BN parameters...")
 
         axis = layer.axis
@@ -155,36 +140,15 @@ class Parser:
         mean = keras.backend.get_value(layer.moving_mean)
         var = keras.backend.get_value(layer.moving_variance)
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
+        print("var_eps_sqrt_inv : ", var_eps_sqrt_inv)
         gamma = keras.backend.get_value(layer.gamma)
-        beta = keras.backend.get_value(layer.beta)
+        #beta = keras.backend.get_value(layer.beta)
+        #print("Beta : ", beta)
     
-        return  gamma, beta, mean, var, var_eps_sqrt_inv, axis
+        return  gamma, mean, var, var_eps_sqrt_inv, axis
 
-    def _absorb_bn_parameters(self, weight, mean, var_eps_sqrt_inv, gamma, beta, axis):
+    def _absorb_bn_parameters(self, weight, mean, var_eps_sqrt_inv, gamma, axis):
         
-        """
-        Absorb the BN parameters of a BatchNormalization layer into the weights and biases of the previous layer.
-    
-        Parameters
-        ----------
-        weight : np.array
-            The weight array of the previous layer.
-        mean : np.array
-            The moving mean from the BatchNormalization layer.
-        var_eps_sqrt_inv : np.array
-            The inverse of the square root of the variance plus a small constant for numerical stability.
-        gamma : np.array
-            The scale parameter from the BatchNormalization layer.
-        beta : np.array
-            The offset parameter from the BatchNormalization layer.
-    
-        Returns
-        -------
-        tuple
-            A tuple containing the 'new weight' and 'new bias' arrays after absorption of the BatchNormalization parameters.
-        """
-    
-
         axis = weight.ndim + axis if axis < 0 else axis
 
         if weight.ndim == 4:  # Conv2D
@@ -198,7 +162,8 @@ class Parser:
 
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         gamma = np.reshape(gamma, broadcast_shape)
-        beta = np.reshape(beta, broadcast_shape)
+        #beta = np.reshape(beta, broadcast_shape)
+        #print("beta : ", beta)
         mean = np.reshape(mean, broadcast_shape)
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
         new_weight = weight * gamma * var_eps_sqrt_inv
