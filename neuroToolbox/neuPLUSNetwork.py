@@ -58,6 +58,9 @@ class networkGen:
         length_src = w.shape[0]
         length_tar = w.shape[1]
 
+        if evaluation == True:
+            length_src = np.prod(self.parsed_model.layers[0].input_shape[0][1:])
+
         source = np.zeros(length_src*length_tar)
         target = np.zeros(length_src*length_tar)
         weights = np.zeros(length_src*length_tar)
@@ -77,7 +80,7 @@ class networkGen:
         if evaluation == False:
             self.synapses[layer.name] = [source, target, weights]
         else:
-            return # 한 layer 당 weight connection 확인하기
+            return [source, target]
 
     def Synapse_convolution(self, layer, evaluation=False):
         """_summary_
@@ -111,6 +114,10 @@ class networkGen:
         width_fm = layer.input_shape[2 + ii]
         height_kn, width_kn = layer.kernel_size
         stride_y, stride_x = layer.strides
+        
+        if evaluation == True:
+            height_fm = self.parsed_model.layers[0].input_shape[0][1 + ii]
+            width_fm = self.parsed_model.layers[0].input_shape[0][1 + ii]
 
         fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
         if 'valid' == layer.padding:
@@ -180,6 +187,8 @@ class networkGen:
 
         if evaluation == False:
             self.synapses[layer.name] = [source, target, weights]
+        else:
+            return [source, target]
 
     def Synapse_pooling(self, layer):
         """_summary_
@@ -239,9 +248,9 @@ class networkGen:
         filepath = self.config.get('paths', 'path_wd')
         filename = self.config.get('paths', 'filename_snn')
 
-        with open(filepath + '/' + filename +'Converted_neurons.pkl', 'wb') as f:
+        with open(filepath + '/' + filename +'_Converted_neurons.pkl', 'wb') as f:
             pickle.dump(self.neurons, f)
-        with open(filepath + '/' + filename +'Converted_synapses.pkl', 'wb') as f:
+        with open(filepath + '/' + filename +'_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
 
         print(f"Spiking neural network build completed!")
