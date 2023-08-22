@@ -1,7 +1,8 @@
 [paths]
 path_wd = 
 dataset_path = 
-evaluation_path = 
+converted_model = 
+evaluation_layers =
 filename_ann = 
 filename_snn =
 x_train =
