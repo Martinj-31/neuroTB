@@ -32,9 +32,11 @@ y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical lab
 
 # Save the dataset
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
 # Extracting datasets for Normalization
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::50])
+x_norm = x_train[::100]
+np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
 # Define the input layer
 inputs = keras.Input(shape=(28, 28, 1))
@@ -60,14 +62,27 @@ batch_size = 128
 epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
+# Print the output of the BatchNormalization layer
+bn_layer_output_model = keras.Model(inputs=model.input, outputs=[model.layers[0].output, model.layers[1].output])  # Assuming BatchNormalization is the second layer
+sample_input = x_train[:1]
+#print("sample input : \n", sample_input)
+bn_layer_output = bn_layer_output_model.predict(sample_input)
+print("Output of the BatchNormalization layer:")
+print(bn_layer_output[1])
+
+# Save the model
+model_name = 'MNIST_CNN'
+keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+
 # Evaluate the model
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
-# Save the model
-model_name = 'MNIST_CNN'
-keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+print("Summary of", model_name) # Print the summary of the loaded model
+model.summary()
+
+
 
 # Save the config file
 default_config_path = os.path.abspath(os.path.join(current_dir, "..", "default_config"))
