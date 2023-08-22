@@ -53,7 +53,7 @@ class networkGen:
     def Synapse_dense(self, layer, evaluation=False):
         print(f"Connecting layer...")
         
-        w, _ = layer.get_weights()
+        w = list(layer.get_weights())[0]
 
         length_src = w.shape[0]
         length_tar = w.shape[1]
@@ -99,7 +99,7 @@ class networkGen:
         """
         print(f"Connecting layer...")
 
-        w, _ = layer.get_weights()
+        w = list(layer.get_weights())[0]
 
         # 'channel_first' : [batch_size, channels, height, width]
         # 'channel_last' : [batch_size, height, width, channels]
