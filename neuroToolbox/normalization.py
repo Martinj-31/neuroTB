@@ -6,7 +6,7 @@ Created on Wed Jul  7 16:06:21 2023
 #This file is running for Normalization
 import os
 import sys
-import configparser
+# import configparser
 import tensorflow as tf
 import numpy as np
 #import matplotlib.pyplot as plt
@@ -27,14 +27,14 @@ class Normalize:
         
     def normalize_parameter(self):
         
-        config = configparser.ConfigParser()
-        config.read(config)
+        activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
+        os.makedirs(activation_dir, exist_ok=True)
         
         print("\n\n######## Normalization ########\n\n")
         
         x_norm = None
 
-        x_norm_file = np.load(os.path.join(self.config["paths"]["path_wd"], 'x_norm.npz'))
+        x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
         
         # 변수 선언 및 초기화
@@ -42,26 +42,20 @@ class Normalize:
         thr = self.config.getfloat('initial', 'threshold')
         #tau = self.config.getfloat('initial', 'tau')
         
-        #adjust_weight_factors -> weight를 조정하기 위한 변수 초기화
+        # Norm factors -> weight를 조정하기 위한 변수 초기화
         norm_facs = {self.model.layers[0].name: 1.0}
-        #f_in = 1.0
 
         i = 0
-        
+               
         # parsed_model의 layer 순회
         for layer in self.model.layers:
             # layer에 weight가 없는 경우 skip
             if len(layer.weights) == 0:
                 continue
             
-            """
-            print("\nThis input layer : \n", self.model.input)
-            print("This output layer : \n", layer.output)
-            print("\n")
-            """
-            
             activations = self.get_activations_layer(self.model.input, layer.output, 
-                                                     x_norm, batch_size)
+                                                     x_norm, batch_size, activation_dir)
+
             print("Maximum activation: {:.5f}.".format(np.max(activations)))
             nonzero_activations = activations[np.nonzero(activations)]
             del activations
@@ -84,9 +78,8 @@ class Normalize:
                 continue
             
             # Adjust weight part 
-            parameters = layer.get_weights()
-            ann_weights = parameters[0]
-            ann_bias = parameters[1]
+            ann_weights = list(layer.get_weights())[0]
+            print(ann_weights)
             #print("layer: \n", layer)
             if layer.activation.__name__ == 'softmax':
                 norm_fac = 1.0
@@ -100,45 +93,32 @@ class Normalize:
             #print("\ninbound layer: \n", inbound)
             # Weight normalization
             if len(inbound) == 0: #Input layer
-                ann_weights_norm = [
-                    ann_weights * norm_facs[self.model.layers[0].name] / norm_fac,
-                    ann_bias / norm_fac ]
+                ann_weights_norm = \
+                    ann_weights * norm_facs[self.model.layers[0].name] / norm_fac
                 print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.model.layers[0].name])
                 print("  ---------------")
                 print(" ", norm_fac)
            
             elif len(inbound) == 1:                   
-                ann_weights_norm = [
-                    ann_weights * norm_facs[inbound[0].name] / norm_fac, 
-                    ann_bias / norm_fac]
+                ann_weights_norm = \
+                    ann_weights * norm_facs[inbound[0].name] / norm_fac
                 print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
                 print("  ---------------")
                 print(" ", norm_fac)              
             
             else:
-                ann_weights_norm = [ann_weights, ann_bias]
+                ann_weights_norm = ann_weights
             
-            """
-            flattened_weights = ann_weights_norm[0].flatten()
-    
-            # Sum the flattened weights and bias
-            summed_weights = np.sum(flattened_weights)
-            
-            print("\n summed_weights: ",summed_weights)
-            #print(" summed_bias: ", summed_bias)
-            
-            f_out = self._get_firing_rate(summed_weights, thr, tau, f_in)
-
-            f_in = f_out
-            
-            print("firing_rate: {}.\n".format(f_in))
-            """
             # threshold
-            snn_weights = [w * thr for w in ann_weights_norm]
-            layer.set_weights(snn_weights)
+            # snn_weights = [w * thr for w in ann_weights_norm]
+            
+            snn_weights = np.array(ann_weights_norm)
+            print("SNN weights: \n", snn_weights)
+
+            layer.set_weights([snn_weights])
             
             
-    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None):
+    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
         
         # 따로 batch_size가 정해져 있지 않는 경우 10으로 설정
         if batch_size is None:
@@ -150,15 +130,15 @@ class Normalize:
             x = x[: -(len(x) % batch_size)]
         
         print("Calculating activations of layer {}.".format(layer_out.name))
-        # predict함수에 input sample을 넣어 해당 layer 뉴런의 activation을 계산
+
         activations = tf.keras.models.Model(inputs=layer_in, 
                                             outputs=layer_out).predict(x, batch_size)
         
-        '''
         # activations을 npz파일로 저장
         print("Writing activations to disk.")
-        np.savez_compressed(os.path.join(path_wd, layer.name), activations)
-        '''
+        if path is not None:  # 경로가 설정되어 있다면
+            np.savez_compressed(os.path.join(path, 'activations'), activations)
+        
         
         return np.array(activations)
 
