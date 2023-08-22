@@ -70,7 +70,8 @@ class networkGen:
             for j in range(length_tar):
                 source[cnt] = i
                 target[cnt] = j
-                weights[cnt] = w[i, j]
+                if evaluation == False:
+                    weights[cnt] = w[i, j]
                 cnt += 1
         
         source = source.astype(int) + self.synCnt
@@ -169,7 +170,8 @@ class networkGen:
                 for j in range(height_kn):
                     source[idx:idx+width_kn] = FM[row_idx+i+(j*width_fm):row_idx+i+(j*width_fm)+width_kn]
                     target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + target_cnt
-                    weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
+                    if evaluation == False:
+                        weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
                     idx += width_kn
                 row_idx += (stride_x-1)
                 target_cnt += 1
@@ -245,15 +247,18 @@ class networkGen:
         self.synapses[layer.name] = [source, target, weights]
 
     def build(self):
-        filepath = self.config.get('paths', 'path_wd')
+        filepath = self.config.get('paths', 'converted_model')
         filename = self.config.get('paths', 'filename_snn')
-
-        with open(filepath + '/' + filename +'_Converted_neurons.pkl', 'wb') as f:
+        os.makedirs(filepath)
+        with open(filepath + filename + '_Converted_neurons.pkl', 'wb') as f:
             pickle.dump(self.neurons, f)
-        with open(filepath + '/' + filename +'_Converted_synapses.pkl', 'wb') as f:
+        with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
 
         print(f"Spiking neural network build completed!")
+
+    def layers(self):
+        return self.neurons
 
     def summary(self):
         print(f"_________________________________________________________________")
