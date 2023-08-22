@@ -28,8 +28,6 @@ def run_neuroTB(config_filepath):
     input_model_name = config["paths"]["filename_ann"]
     # Load the model using the input_model_name
     input_model = keras.models.load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5")) 
-    print("Summary of", input_model_name) # Print the summary of the loaded model
-    input_model.summary()
     
     # %% Parse model
     
