@@ -6,7 +6,6 @@ Created on Wed Jul  7 16:06:21 2023
 #This file is running for Normalization
 import os
 import sys
-# import configparser
 import tensorflow as tf
 import numpy as np
 #import matplotlib.pyplot as plt
@@ -53,7 +52,7 @@ class Normalize:
             if len(layer.weights) == 0:
                 continue
             
-            activations = self.get_activations_layer(self.model.input, layer.output, 
+            activations = self.get_activations_layer(self.model, layer, 
                                                      x_norm, batch_size, activation_dir)
 
             print("Maximum activation: {:.5f}.".format(np.max(activations)))
@@ -79,7 +78,6 @@ class Normalize:
             
             # Adjust weight part 
             ann_weights = list(layer.get_weights())[0]
-            print(ann_weights)
             #print("layer: \n", layer)
             if layer.activation.__name__ == 'softmax':
                 norm_fac = 1.0
@@ -113,8 +111,6 @@ class Normalize:
             # snn_weights = [w * thr for w in ann_weights_norm]
             
             snn_weights = np.array(ann_weights_norm)
-            print("SNN weights: \n", snn_weights)
-
             layer.set_weights([snn_weights])
             
             
@@ -130,14 +126,14 @@ class Normalize:
             x = x[: -(len(x) % batch_size)]
         
         print("Calculating activations of layer {}.".format(layer_out.name))
-
-        activations = tf.keras.models.Model(inputs=layer_in, 
-                                            outputs=layer_out).predict(x, batch_size)
+        # predict함수에 input sample을 넣어 해당 layer 뉴런의 activation을 계산
+        activations = tf.keras.models.Model(inputs=layer_in.input, 
+                                            outputs=layer_out.output).predict(x, batch_size)
         
         # activations을 npz파일로 저장
         print("Writing activations to disk.")
         if path is not None:  # 경로가 설정되어 있다면
-            np.savez_compressed(os.path.join(path, 'activations'), activations)
+            np.savez_compressed(os.path.join(path, f'{layer_out.name}.npz'), activations)
         
         
         return np.array(activations)
@@ -147,7 +143,7 @@ class Normalize:
         
         perc = config.getfloat('initial', 'percentile')
         
-        print("percentile : {}".format(perc))
+        #print("percentile : {}".format(perc))
     
         return perc
     
