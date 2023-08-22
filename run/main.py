@@ -16,6 +16,7 @@ sys.path.append(os.getcwd())
 import neuroToolbox.parse as parse
 import neuroToolbox.normalization as normalization
 import neuroToolbox.neuPLUSNetwork as net
+import neuroToolbox.evaluation as evaluation
 
 def run_neuroTB(config_filepath):
     ###### 1. Load data ######
@@ -58,3 +59,7 @@ def run_neuroTB(config_filepath):
     spike_model.build()
 
     spike_model.summary()
+
+    eval_model = evaluation.evaluation(parsed_model, config)
+
+    eval_model.genLayer()
