@@ -30,18 +30,26 @@ class Parser:
             
             layer_type = layer.__class__.__name__
             print("\n current parsing layer... layer type : ", layer_type)
+
+            # Check for bias in the layer before parse
+            if hasattr(layer, 'use_bias') and layer.use_bias:
+                raise ValueError("Layer {} has bias enabled. Please set use_bias=False for all layers.".format(layer_type))
+
+
             if isinstance(layer, tf.keras.layers.BatchNormalization): 
                 
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
                 gamma, mean, var, var_eps_sqrt_inv, axis = BN_parameters
-                
-                # Get the previous layer
+
+                # Find the nearest Conv2D layer by iterating backward
                 prev_layer = layers[i - 1]
-                
-                # Check if the previous layer is a Conv layer
+                while not isinstance(prev_layer, tf.keras.layers.Conv2D) and i > 0:
+                    i -= 1
+                    prev_layer = layers[i - 1]
+
                 if not isinstance(prev_layer, tf.keras.layers.Conv2D):
-                    print("Skipping layer because previous layer is not a Conv layer.")
+                    print("Skipping BatchNormalization layer because no previous Conv2D layer was found.")
                     continue
                 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
@@ -98,13 +106,14 @@ class Parser:
                 # If a Flatten layer is encountered, set the flag to True
                 flatten_added = True
                 print("Encountered Flatten layer.")
-                continue
-                
+                continue         
+
                
             elif layer_type not in convertible_layers:
                 print("Skipping layer {}.".format(layer_type))
                 
                 continue
+
            
             afterParse_layer_list.append(layer)
         
@@ -123,7 +132,7 @@ class Parser:
             x = layer(x)
         
         model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
-        
+      
         return model
 
       
@@ -138,35 +147,56 @@ class Parser:
 
         
         mean = keras.backend.get_value(layer.moving_mean)
+        #print("get.. mean : \n", mean)
+
         var = keras.backend.get_value(layer.moving_variance)
+        #print("get.. var : \n", var)
+
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
-        print("var_eps_sqrt_inv : ", var_eps_sqrt_inv)
+        #print("get.. var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
+
         gamma = keras.backend.get_value(layer.gamma)
+        #print("get.. gamma : \n", gamma)
+
         #beta = keras.backend.get_value(layer.beta)
         #print("Beta : ", beta)
     
         return  gamma, mean, var, var_eps_sqrt_inv, axis
 
-    def _absorb_bn_parameters(self, weight, mean, var_eps_sqrt_inv, gamma, axis):
-        
+    def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
+
         axis = weight.ndim + axis if axis < 0 else axis
+
 
         if weight.ndim == 4:  # Conv2D
 
             channel_axis = 3
             layer2kernel_axes_map = [None, 0, 1, channel_axis]
             axis = layer2kernel_axes_map[axis]
-
+        
         broadcast_shape = [1] * weight.ndim
         broadcast_shape[axis] = weight.shape[axis]
 
+        #print("before reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
+        #print("After reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
+
+        #print("before reshape... gamma : \n", gamma)
         gamma = np.reshape(gamma, broadcast_shape)
+        #print("After reshape... gamma : \n", gamma)
+
         #beta = np.reshape(beta, broadcast_shape)
         #print("beta : ", beta)
+
+        #print("before reshape... mean : \n", mean)
         mean = np.reshape(mean, broadcast_shape)
+        #print("After reshape... mean : \n", mean)
+
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
+
+        #print("before absorb... weight : \n", weight)
         new_weight = weight * gamma * var_eps_sqrt_inv
+        #print("After absorb... weight (new_weight): \n", new_weight)
         
         # Calculation by loop
         '''
@@ -194,6 +224,20 @@ class Parser:
         return new_weight
 
 def evaluate(model, config):
+
+    # Print the output of the BatchNormalization layer
+    conv2D_absorbBN_output_model = keras.Model(inputs=model.input, outputs=model.layers[0].output)  # Assuming BatchNormalization is the second layer
+
+    x_train = None
+
+    x_train_file = np.load(os.path.join(config['paths']['path_wd'], 'x_train.npz'))
+    x_train = x_train_file['arr_0']  # Access the data stored in the .npz file
+
+    sample_input = x_train[:1]
+    conv2D_absorbBN_output = conv2D_absorbBN_output_model.predict(sample_input)
+    print("Output of the Conv2D (Absorb BN params) layer:")
+    print(conv2D_absorbBN_output)
+
     x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
     x_test = x_test_file['arr_0']
     y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
