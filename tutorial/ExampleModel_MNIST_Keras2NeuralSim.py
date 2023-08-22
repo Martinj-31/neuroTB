@@ -96,6 +96,8 @@ default_config['paths']['path_wd'] = path_wd
 default_config['paths']['dataset_path'] = path_wd
 default_config['paths']['filename_ann'] = model_name
 default_config['paths']['filename_snn'] = model_name + '_for_SNN'
+default_config['paths']['converted_model'] = path_wd + '/converted_model/'
+default_config['paths']['evaluation_layers'] = path_wd + '/evaluation_layers/'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
