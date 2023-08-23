@@ -50,16 +50,13 @@ class networkGen:
     def neuron_layer(self, layer):
         self.neurons[layer.name] = np.prod(layer.output_shape[1:])
 
-    def Synapse_dense(self, layer, evaluation=False):
+    def Synapse_dense(self, layer):
         print(f"Connecting layer...")
         
         w = list(layer.get_weights())[0]
 
         length_src = w.shape[0]
         length_tar = w.shape[1]
-
-        if evaluation == True:
-            length_src = np.prod(self.parsed_model.layers[0].input_shape[0][1:])
 
         source = np.zeros(length_src*length_tar)
         target = np.zeros(length_src*length_tar)
@@ -70,20 +67,16 @@ class networkGen:
             for j in range(length_tar):
                 source[cnt] = i
                 target[cnt] = j
-                if evaluation == False:
-                    weights[cnt] = w[i, j]
+                weights[cnt] = w[i, j]
                 cnt += 1
         
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
         
-        if evaluation == False:
-            self.synapses[layer.name] = [source, target, weights]
-        else:
-            return [source, target]
+        self.synapses[layer.name] = [source, target, weights]
 
-    def Synapse_convolution(self, layer, evaluation=False):
+    def Synapse_convolution(self, layer):
         """_summary_
         This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
 
@@ -115,10 +108,6 @@ class networkGen:
         width_fm = layer.input_shape[2 + ii]
         height_kn, width_kn = layer.kernel_size
         stride_y, stride_x = layer.strides
-        
-        if evaluation == True:
-            height_fm = self.parsed_model.layers[0].input_shape[0][1 + ii]
-            width_fm = self.parsed_model.layers[0].input_shape[0][1 + ii]
 
         fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
         if 'valid' == layer.padding:
@@ -170,8 +159,7 @@ class networkGen:
                 for j in range(height_kn):
                     source[idx:idx+width_kn] = FM[row_idx+i+(j*width_fm):row_idx+i+(j*width_fm)+width_kn]
                     target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + target_cnt
-                    if evaluation == False:
-                        weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
+                    weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
                     idx += width_kn
                 row_idx += (stride_x-1)
                 target_cnt += 1
@@ -187,10 +175,7 @@ class networkGen:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
 
-        if evaluation == False:
-            self.synapses[layer.name] = [source, target, weights]
-        else:
-            return [source, target]
+        self.synapses[layer.name] = [source, target, weights]
 
     def Synapse_pooling(self, layer):
         """_summary_
@@ -258,7 +243,7 @@ class networkGen:
         print(f"Spiking neural network build completed!")
 
     def layers(self):
-        return self.neurons
+        return self.synapses
 
     def summary(self):
         print(f"_________________________________________________________________")
@@ -272,3 +257,30 @@ class networkGen:
             print(f"_________________________________________________________________")
         print(f"=================================================================")
         print(f"_________________________________________________________________")
+
+
+class networkGenEval:
+
+    def __init__(self, spike_model, config):
+        self.config = config
+        self.spike_model = spike_model
+
+    def get_spikes_layers(self):
+        print(f"")
+        print(f"SNN model will be stored layer by layer for evaluation.")
+        print(f"")
+        filepath = self.config.get('paths', 'evaluation_layers')
+        filename = self.config.get('paths', 'filename_snn')
+        os.makedirs(filepath)
+
+        for i in range(len(self.spike_model.layers())):
+            print(f"Generate {list(self.spike_model.layers().keys())[i]} for evaluation.")
+            if 'pooling' in list(self.spike_model.layers().keys())[i]:
+                continue
+            eval_layer = {layer: self.spike_model.layers()[layer] for layer in list(self.spike_model.layers().keys())[:i]}
+            with open(filepath + filename + '_' + list(self.spike_model.layers().keys())[i] + '_eval.pkl', 'wb') as f:
+                pickle.dump(eval_layer, f)
+        
+        print(f"")
+        print(f"All work is done.")
+        print(f"Take to your hardware.")
