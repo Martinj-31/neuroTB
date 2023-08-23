@@ -1,22 +1,17 @@
-import os
-import sys
+import os, sys, configparser
 
 # Define the path of the working directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-
-import configparser, pickle
 from tensorflow import keras
-import numpy as np
 
 sys.path.append(os.getcwd())
 
 import neuroToolbox.parse as parse
 import neuroToolbox.normalization as normalization
 import neuroToolbox.neuPLUSNetwork as net
-import neuroToolbox.evaluation as evaluation
 
 def run_neuroTB(config_filepath):
     ###### 1. Load data ######
