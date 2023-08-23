@@ -27,7 +27,7 @@ class Parser:
         print("\n\n####### parsing input model #######\n\n")
 
         for i, layer in enumerate(layers):
-            
+            print(i)
             layer_type = layer.__class__.__name__
             print("\n current parsing layer... layer type : ", layer_type)
 
@@ -37,14 +37,16 @@ class Parser:
 
 
             if isinstance(layer, tf.keras.layers.BatchNormalization): 
-                
+
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
                 gamma, mean, var, var_eps_sqrt_inv, axis = BN_parameters
 
                 # Find the nearest Conv2D layer by iterating backward
                 prev_layer = layers[i - 1]
+                print("prev_layer type : ", prev_layer.__class__.__name__)
                 while not isinstance(prev_layer, tf.keras.layers.Conv2D) and i > 0:
+                    print("prev_layer type : ", prev_layer.__class__.__name__)
                     i -= 1
                     prev_layer = layers[i - 1]
 
@@ -58,9 +60,13 @@ class Parser:
 
                 new_weight = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, axis)
 
+                print("new weight Befoer absorb : \n", new_weight)
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
                 prev_layer.set_weights([new_weight])
+
+                eval_new_weight = prev_layer.get_weights()[0]
+                print("new weight After absorb : \n", eval_new_weight)
                 
                 # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
@@ -132,6 +138,7 @@ class Parser:
             x = layer(x)
         
         model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
+        model.summary
       
         return model
 
@@ -235,8 +242,8 @@ def evaluate(model, config):
 
     sample_input = x_train[:1]
     conv2D_absorbBN_output = conv2D_absorbBN_output_model.predict(sample_input)
-    print("Output of the Conv2D (Absorb BN params) layer:")
-    print(conv2D_absorbBN_output)
+    #print("Output of the Conv2D (Absorb BN params) layer:")
+    #print(conv2D_absorbBN_output)
 
     x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
     x_test = x_test_file['arr_0']
