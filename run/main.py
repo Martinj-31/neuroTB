@@ -60,6 +60,6 @@ def run_neuroTB(config_filepath):
 
     spike_model.summary()
 
-    eval_model = evaluation.evaluation(parsed_model, config)
+    eval_model = net.networkGenEval(spike_model, config)
 
-    eval_model.genLayer()
+    eval_model.get_spikes_layers()
