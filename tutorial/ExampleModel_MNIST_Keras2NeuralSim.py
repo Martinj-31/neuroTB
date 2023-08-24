@@ -34,6 +34,7 @@ y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical lab
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
 np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
+np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
 # Extracting datasets for Normalization
 x_norm = x_train[::100]
 np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
@@ -43,7 +44,7 @@ inputs = keras.Input(shape=(28, 28, 1))
 
 # Convolutional layers
 x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', use_bias = False)(inputs)
-x = keras.layers.BatchNormalization(epsilon=1e-5, center = False)(x)  # Add BatchNormalization layer
+#x = keras.layers.BatchNormalization(epsilon=1e-5, center = False)(x)  # Add BatchNormalization layer
 x = keras.layers.GlobalAveragePooling2D()(x)
 x = keras.layers.Dense(32, activation='relu', use_bias = False)(x)  # Adjusted the dense layer size
 
@@ -62,14 +63,6 @@ batch_size = 128
 epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
-# Print the output of the BatchNormalization layer
-bn_layer_output_model = keras.Model(inputs=model.input, outputs=[model.layers[0].output, model.layers[1].output])  # Assuming BatchNormalization is the second layer
-sample_input = x_train[:1]
-#print("sample input : \n", sample_input)
-bn_layer_output = bn_layer_output_model.predict(sample_input)
-print("Output of the BatchNormalization layer:")
-print(bn_layer_output[1])
-
 # Save the model
 model_name = 'MNIST_CNN'
 keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
@@ -82,6 +75,8 @@ print('Test accuracy:', score[1])
 print("Summary of", model_name) # Print the summary of the loaded model
 model.summary()
 
+result_1 = keras.Model(inputs = model.input, outputs = model.layers[2].output).predict(x_test)
+print("This is OG model's BN output : \n", result_1)
 
 
 # Save the config file
