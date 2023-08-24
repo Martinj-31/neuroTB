@@ -14,6 +14,8 @@ class Parser:
     def __init__(self, input_model, config):
         self.input_model = input_model
         self.config = config
+        self._parsed_layer_list = []
+        
         self.add_layer_mapping = {}
 
     def parse(self):
@@ -22,10 +24,11 @@ class Parser:
         convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
         flatten_added = False
         afterParse_layer_list = []
+        layer_id_map = {}
 
         
         print("\n\n####### parsing input model #######\n\n")
-
+            
         for i, layer in enumerate(layers):
             print(i)
             layer_type = layer.__class__.__name__
@@ -36,62 +39,57 @@ class Parser:
                 raise ValueError("Layer {} has bias enabled. Please set use_bias=False for all layers.".format(layer_type))
 
 
-            if isinstance(layer, tf.keras.layers.BatchNormalization): 
+            if  layer_type == 'BatchNormalization': 
+                
+                # Find the previous layer
+                inbound = self.get_inbound_layers_parameters(layer)
+                prev_layer = inbound[0]
+                print("prev_layer type : ", prev_layer.__class__.__name__)                
 
                 # Get BN parameter
                 BN_parameters = list(self._get_BN_parameters(layer))
+                
+                # print("This is BN params : ", BN_parameters)
                 gamma, mean, var, var_eps_sqrt_inv, axis = BN_parameters
 
-                # Find the nearest Conv2D layer by iterating backward
-                prev_layer = layers[i - 1]
-                print("prev_layer type : ", prev_layer.__class__.__name__)
-                while not isinstance(prev_layer, tf.keras.layers.Conv2D) and i > 0:
-                    print("prev_layer type : ", prev_layer.__class__.__name__)
-                    i -= 1
-                    prev_layer = layers[i - 1]
-
-                if not isinstance(prev_layer, tf.keras.layers.Conv2D):
-                    print("Skipping BatchNormalization layer because no previous Conv2D layer was found.")
-                    continue
-                
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
                 print("get weight...")
 
                 new_weight = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, axis)
 
-                print("new weight Befoer absorb : \n", new_weight)
+                # print("new weight Befoer absorb : \n", new_weight)
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
                 prev_layer.set_weights([new_weight])
 
                 eval_new_weight = prev_layer.get_weights()[0]
-                print("new weight After absorb : \n", eval_new_weight)
+                # print("new weight After absorb : \n", eval_new_weight)
                 
-                # Remove the current layer (which is a BatchNormalization layer) from the afterParse_layers
+                # Remove the current layer (BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
                 
                 continue
             
-            elif isinstance(layer, tf.keras.layers.MaxPooling2D):
+            elif layer_type == 'MaxPooling2D':
                 raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
                   
             
-            elif isinstance(layer, tf.keras.layers.Add):
+            elif layer_type == 'Add':
                 print("Replace Add layer to concatenate + Conv2D layer")
                 # Retrieve the input tensors for the Add layer
                 add_input_tensors = layer.input
             
-                # Create a concatenate layer but don't call it yet
+                # Create a concatenate layer
                 concat_layer = tf.keras.layers.Concatenate()
                 afterParse_layer_list.append((concat_layer, add_input_tensors))
             
-                # Create a Conv2D layer but don't call it yet
+                # Create a Conv2D layer
                 conv2d_layer = tf.keras.layers.Conv2D(filters=add_input_tensors[0].shape[-1], kernel_size=(1, 1), strides=(1,1), padding='same', activation='relu')
                 afterParse_layer_list.append(conv2d_layer)
                 continue
             
-            elif isinstance(layer, tf.keras.layers.GlobalAveragePooling2D):
+            elif layer_type == 'GlobalAveragePooling2D':
                 # Replace GlobalAveragePooling2D layer with AveragePooling2D plus Flatten layer
                 
                 # Get the spatial dimensions of the input tensor
@@ -108,7 +106,7 @@ class Parser:
                 continue
             
             
-            elif isinstance(layer, tf.keras.layers.Flatten):
+            elif layer_type == 'Flatten':
                 # If a Flatten layer is encountered, set the flag to True
                 flatten_added = True
                 print("Encountered Flatten layer.")
@@ -138,21 +136,24 @@ class Parser:
             x = layer(x)
         
         model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
-        model.summary
-      
+        
+        model.compile(loss='sparse_categorical_crossentropy',
+                  optimizer=keras.optimizers.Adam(learning_rate=0.001),
+                  metrics=['accuracy'])
+        
         return model
 
       
     def _get_BN_parameters(self, layer):
         
-        print("get BN parameters...")
+        print("get BN parameters...")        
 
         axis = layer.axis
         if isinstance(axis, (list, tuple)):
             assert len(axis) == 1, "Multiple BatchNorm axes not understood."
             axis = axis[0]
 
-        
+        #print("layer : ", layer.__class__.__name__)
         mean = keras.backend.get_value(layer.moving_mean)
         #print("get.. mean : \n", mean)
 
@@ -165,7 +166,7 @@ class Parser:
         gamma = keras.backend.get_value(layer.gamma)
         #print("get.. gamma : \n", gamma)
 
-        #beta = keras.backend.get_value(layer.beta)
+        beta = keras.backend.get_value(layer.beta)
         #print("Beta : ", beta)
     
         return  gamma, mean, var, var_eps_sqrt_inv, axis
@@ -185,7 +186,7 @@ class Parser:
         broadcast_shape[axis] = weight.shape[axis]
 
         #print("before reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
-        var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
+        var = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         #print("After reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
 
         #print("before reshape... gamma : \n", gamma)
@@ -202,7 +203,7 @@ class Parser:
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
 
         #print("before absorb... weight : \n", weight)
-        new_weight = weight * gamma * var_eps_sqrt_inv
+        new_weight = weight * gamma / var
         #print("After absorb... weight (new_weight): \n", new_weight)
         
         # Calculation by loop
@@ -214,7 +215,10 @@ class Parser:
             for j in range(weight.shape[1]):
                 for k in range(weight.shape[2]):
                     for l in range(weight.shape[3]):
-                        weight_bn_loop[i, j, k, l] = weight[i, j, k, l] * gamma[l] * var_eps_sqrt_inv[l]
+                        weight_bn_loop[i, j, k, l] = 
+                        
+                        
+                        weight[i, j, k, l] * gamma[l] * var_eps_sqrt_inv[l]
                         bias_bn_loop[l] = beta[l] + (bias[l] - mean[l]) * gamma[l] * var_eps_sqrt_inv[l]
     
         
@@ -229,30 +233,70 @@ class Parser:
 
         '''
         return new_weight
+    
+    def get_inbound_layers_parameters(self, layer):
+
+        inbound = layer
+        while True:
+            inbound = self.get_inbound_layers(inbound)
+            if len(inbound) == 1:
+                inbound = inbound[0]
+                if self.has_weights(inbound):
+                    return [inbound]
+            else:
+                result = []
+                for inb in inbound:
+                    if self.has_weights(inb):
+                        result.append(inb)
+                    else:
+                        result += self.get_inbound_layers_parameters(inb)
+        return result
+    
+    def get_inbound_layers(self, layer):
+        
+        inbound_layers = layer._inbound_nodes[0].inbound_layers
+        
+        if not isinstance(inbound_layers, (list, tuple)):
+            inbound_layers = [inbound_layers]
+            
+        return inbound_layers
+        
+    
+    def has_weights(self, layer):
+        
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
+            return False
+        
+        else:    
+            return len(layer.weights)
 
 def evaluate(model, config):
 
-    # Print the output of the BatchNormalization layer
-    conv2D_absorbBN_output_model = keras.Model(inputs=model.input, outputs=model.layers[0].output)  # Assuming BatchNormalization is the second layer
+    x_train_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_train.npz'))
+    x_train = x_train_file['arr_0']
+    y_train_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_train.npz'))
+    y_train = y_train_file['arr_0']
+    
 
-    x_train = None
-
-    x_train_file = np.load(os.path.join(config['paths']['path_wd'], 'x_train.npz'))
-    x_train = x_train_file['arr_0']  # Access the data stored in the .npz file
-
-    sample_input = x_train[:1]
-    conv2D_absorbBN_output = conv2D_absorbBN_output_model.predict(sample_input)
-    #print("Output of the Conv2D (Absorb BN params) layer:")
-    #print(conv2D_absorbBN_output)
-
+    
     x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
     x_test = x_test_file['arr_0']
     y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
     y_test = y_test_file['arr_0']
+    
+    y_train = y_train.reshape(-1)  # Convert one-hot encoded labels to categorical labels
+    y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical labels
+    
+    np.set_printoptions(precision=5, suppress=True,
+                    threshold=np.inf, linewidth=np.inf)
+    
+    result_2 = keras.Model(inputs = model.input, outputs = model.layers[1].output).predict(x_test)
+    print("This is Parsed model's Conv output : \n", result_2)
+    
+    #model.fit(x_train, y_train, batch_size=128, epochs=5, validation_data=(x_test, y_test))
 
-    model.compile(loss='sparse_categorical_crossentropy',
-              optimizer=keras.optimizers.Adam(learning_rate=0.001),
-              metrics=['accuracy'])
     score = model.evaluate(x_test, y_test, verbose=0)
 
     return score
+
+
