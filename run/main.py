@@ -24,7 +24,11 @@ def run_neuroTB(config_filepath):
     input_model_name = config["paths"]["filename_ann"]
     # Load the model using the input_model_name
     input_model = keras.models.load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5")) 
-    
+    '''
+    score1 = parse.evaluate(input_model, config)
+    print('Parsed model Test loss:', score1[0])
+    print('Parsed model Test accuracy:', score1[1])
+    '''
     # %% Parse model
     
     parser = parse.Parser(input_model, config)
@@ -33,9 +37,11 @@ def run_neuroTB(config_filepath):
     
     parsed_model.summary()
 
-    score = parse.evaluate(parsed_model, config)
-    print('Parsed model Test loss:', score[0])
-    print('Parsed model Test accuracy:', score[1])
+    
+    score2 = parse.evaluate(parsed_model, config)
+    print('Parsed model Test loss:', score2[0])
+    print('Parsed model Test accuracy:', score2[1])
+    
     # %% Normalization and convert
     
     normalizer = normalization.Normalize(parsed_model, config)
