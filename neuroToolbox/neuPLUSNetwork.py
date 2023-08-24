@@ -6,9 +6,7 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 from tensorflow import keras
-from datetime import date
 import numpy as np
-import matplotlib.pyplot as plt
 
 class networkGen:
 
@@ -257,30 +255,3 @@ class networkGen:
             print(f"_________________________________________________________________")
         print(f"=================================================================")
         print(f"_________________________________________________________________")
-
-
-class networkGenEval:
-
-    def __init__(self, spike_model, config):
-        self.config = config
-        self.spike_model = spike_model
-
-    def get_spikes_layers(self):
-        print(f"")
-        print(f"SNN model will be stored layer by layer for evaluation.")
-        print(f"")
-        filepath = self.config.get('paths', 'evaluation_layers')
-        filename = self.config.get('paths', 'filename_snn')
-        os.makedirs(filepath)
-
-        for i in range(len(self.spike_model.layers())):
-            print(f"Generate {list(self.spike_model.layers().keys())[i]} for evaluation.")
-            if 'pooling' in list(self.spike_model.layers().keys())[i]:
-                continue
-            eval_layer = {layer: self.spike_model.layers()[layer] for layer in list(self.spike_model.layers().keys())[:i]}
-            with open(filepath + filename + '_' + list(self.spike_model.layers().keys())[i] + '_eval.pkl', 'wb') as f:
-                pickle.dump(eval_layer, f)
-        
-        print(f"")
-        print(f"All work is done.")
-        print(f"Take to your hardware.")

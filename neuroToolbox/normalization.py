@@ -8,7 +8,8 @@ import os
 import sys
 import tensorflow as tf
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import pickle
 #from tensorflow import keras
 #from collections import OrderedDict
 #from tensorflow.keras.models import Model
@@ -29,23 +30,22 @@ class Normalize:
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
         os.makedirs(activation_dir, exist_ok=True)
         
-        print("\n\n######## Normalization ########\n\n")
-        
         x_norm = None
-
         x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
         
-        # 변수 선언 및 초기화
-        batch_size = self.config.getint('initial', 'batch_size')
-        thr = self.config.getfloat('initial', 'threshold')
-        #tau = self.config.getfloat('initial', 'tau')
+        print("\n\n######## Normalization ########\n\n")
         
-        # Norm factors -> weight를 조정하기 위한 변수 초기화
-        norm_facs = {self.model.layers[0].name: 1.0}
+        # Declare and initialize variables
+        batch_size = self.config.getint('initial', 'batch_size')
+        #thr = self.config.getfloat('initial', 'threshold')
+        #tau = self.config.getfloat('initial', 'tau')
 
-        i = 0
-               
+        # Norm factors initialization
+        norm_facs = {self.model.layers[0].name: 1.0}
+        max_weight_values = {}
+
+        i = 0          
         # parsed_model의 layer 순회
         for layer in self.model.layers:
             # layer에 weight가 없는 경우 skip
@@ -61,8 +61,6 @@ class Normalize:
             perc = self.get_percentile(self.config, i)
             
             cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
-            #print("percentile maximum activation: {:.5f}.".format(cliped_max_activation))
-
             norm_facs[layer.name] = cliped_max_activation
             print("Cliped maximum activation: {:.5f}.\n".format(norm_facs[layer.name]))
             i += 1
@@ -78,17 +76,16 @@ class Normalize:
             
             # Adjust weight part 
             ann_weights = list(layer.get_weights())[0]
-            #print("layer: \n", layer)
             if layer.activation.__name__ == 'softmax':
                 norm_fac = 1.0
-                #print("\n Using norm_factor: {:.2f}.".format(norm_fac))
+                print("\n Using norm_factor: {:.2f}.".format(norm_fac))
             
             else:
                 norm_fac = norm_facs[layer.name]
             
             #_inbound_nodes를 통해 해당 layer의 이전 layer확인
             inbound = self.get_inbound_layers_with_params(layer)
-            #print("\ninbound layer: \n", inbound)
+
             # Weight normalization
             if len(inbound) == 0: #Input layer
                 ann_weights_norm = \
@@ -111,6 +108,26 @@ class Normalize:
             # snn_weights = [w * thr for w in ann_weights_norm]
             
             snn_weights = np.array(ann_weights_norm)
+            # Flatten the weights for plotting
+            flattened_weights = snn_weights.flatten()
+
+            # Plot the weight distribution
+            plt.hist(flattened_weights, bins=100)
+            plt.xlabel('Weight Value')
+            plt.ylabel('Frequency')
+            plt.title('Weight Distribution for {}'.format(layer.name))
+            plt.show()
+            
+            max_weight_value = np.max(np.abs(snn_weights))
+            max_weight_values[layer.name] = max_weight_value
+            
+            print(max_weight_values)
+            
+            filename = f"Max_Weight.pkl"
+            filepath = os.path.join(self.config['paths']['path_wd'], filename)
+            with open(filepath, 'wb') as f:
+                pickle.dump(max_weight_values, f)
+
             layer.set_weights([snn_weights])
             
             
@@ -133,7 +150,7 @@ class Normalize:
         # activations을 npz파일로 저장
         print("Writing activations to disk.")
         if path is not None:  # 경로가 설정되어 있다면
-            np.savez_compressed(os.path.join(path, f'{layer_out.name}.npz'), activations)
+            np.savez_compressed(os.path.join(path, layer_out.name), activations)
         
         
         return np.array(activations)
