@@ -21,14 +21,30 @@ print("path wd: ", path_wd)
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 
-# Data preprocessing and normalization
-x_train = x_train.reshape(x_train.shape[0], 28, 28, 1).astype('float32') / 255
-x_test = x_test.reshape(x_test.shape[0], 28, 28, 1).astype('float32') / 255
 
-# One-hot encode the labels
-num_classes = 10
-y_train = y_train.reshape(-1)  # Convert one-hot encoded labels to categorical labels
-y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical labels
+# Add a channel dimension.
+axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
+
+# Data preprocessing and normalization
+x_train = x_train.reshape(x_train.shape[0], 28, 28, axis).astype('float32') / 255
+x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32') / 255
+
+print("x test size : ", x_test.size)
+
+print("x train shape : ", x_train.shape)
+print("y train shape : ", y_train.shape)
+
+print("x test shape : ", x_test.shape)
+print("y test shape : ", y_test.shape)
+
+# One-hot encode target vectors.
+y_train = keras.utils.to_categorical(y_train, 10)
+y_test = keras.utils.to_categorical(y_test, 10)
+
+print("! y train shape : ", y_train.shape)
+print("!y test shape : ", y_test.shape)
+
+print("y test size : ", y_test.size)
 
 # Save the dataset
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
@@ -40,21 +56,25 @@ x_norm = x_train[::100]
 np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
 # Define the input layer
-inputs = keras.Input(shape=(28, 28, 1))
+
+input_shape = x_train.shape[1:]
+inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', use_bias = False)(inputs)
-#x = keras.layers.BatchNormalization(epsilon=1e-5, center = False)(x)  # Add BatchNormalization layer
+x = keras.layers.Conv2D(16, (5, 5), strides=(2,2), activation='relu', use_bias = False)(inputs)
+x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)  
+x = keras.layers.Activation(activation='relu')(x)
 x = keras.layers.GlobalAveragePooling2D()(x)
-x = keras.layers.Dense(32, activation='relu', use_bias = False)(x)  # Adjusted the dense layer size
-
-outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias = False)(x)
+x = keras.layers.Dense(units = 16, activation='relu', use_bias = False)(x)
+outputs = keras.layers.Dense(units = 10, activation='softmax', use_bias = False)(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
 
+model.summary()   
+
 # Compile the model
-model.compile(loss='sparse_categorical_crossentropy',
+model.compile(loss='categorical_crossentropy',
               optimizer=keras.optimizers.Adam(learning_rate=0.001),
               metrics=['accuracy'])
 
@@ -75,8 +95,8 @@ print('Test accuracy:', score[1])
 print("Summary of", model_name) # Print the summary of the loaded model
 model.summary()
 
-result_1 = keras.Model(inputs = model.input, outputs = model.layers[2].output).predict(x_test)
-print("This is OG model's BN output : \n", result_1)
+result_1 = keras.Model(inputs = model.input, outputs = model.layers[1].output).predict(x_test)
+#print("This is OG model's BN output : \n", result_1)
 
 
 # Save the config file
