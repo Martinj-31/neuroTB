@@ -137,7 +137,7 @@ class Parser:
         
         model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
         
-        model.compile(loss='sparse_categorical_crossentropy',
+        model.compile(loss='categorical_crossentropy',
                   optimizer=keras.optimizers.Adam(learning_rate=0.001),
                   metrics=['accuracy'])
         
@@ -186,7 +186,7 @@ class Parser:
         broadcast_shape[axis] = weight.shape[axis]
 
         #print("before reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
-        var = np.reshape(var_eps_sqrt_inv, broadcast_shape)
+        var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         #print("After reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
 
         #print("before reshape... gamma : \n", gamma)
@@ -203,7 +203,7 @@ class Parser:
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
 
         #print("before absorb... weight : \n", weight)
-        new_weight = weight * gamma / var
+        new_weight = weight * gamma * var_eps_sqrt_inv
         #print("After absorb... weight (new_weight): \n", new_weight)
         
         # Calculation by loop
@@ -270,30 +270,19 @@ class Parser:
         else:    
             return len(layer.weights)
 
-def evaluate(model, config):
+def evaluate(model, x_test, y_test):
 
-    x_train_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_train.npz'))
-    x_train = x_train_file['arr_0']
-    y_train_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_train.npz'))
-    y_train = y_train_file['arr_0']
-    
-
-    
-    x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
-    x_test = x_test_file['arr_0']
-    y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
-    y_test = y_test_file['arr_0']
-    
-    y_train = y_train.reshape(-1)  # Convert one-hot encoded labels to categorical labels
-    y_test = y_test.reshape(-1)  # Convert one-hot encoded labels to categorical labels
-    
-    np.set_printoptions(precision=5, suppress=True,
-                    threshold=np.inf, linewidth=np.inf)
-    
-    result_2 = keras.Model(inputs = model.input, outputs = model.layers[1].output).predict(x_test)
-    print("This is Parsed model's Conv output : \n", result_2)
-    
-    #model.fit(x_train, y_train, batch_size=128, epochs=5, validation_data=(x_test, y_test))
+    for i, layer in enumerate(model.layers):
+        output_activation = keras.Model(inputs = model.input, outputs = model.layers[i].output).predict(x_test)
+        
+        sums = []
+        for matrix_2d in output_activation:
+             sum_2d = np.sum(matrix_2d)
+             sums.append(sum_2d)
+        
+        print("\n model Layer {}'s output (numpy 2D sum) activation \n".format(layer.__class__.__name__), sums)
+        
+    score = model.evaluate(x_test, y_test, verbose=0)
 
     score = model.evaluate(x_test, y_test, verbose=0)
 
