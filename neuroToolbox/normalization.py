@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+import neuroToolbox.neuPLUSNetwork as net
 #from tensorflow import keras
 #from collections import OrderedDict
 #from tensorflow.keras.models import Model
@@ -38,7 +39,7 @@ class Normalize:
         
         # Declare and initialize variables
         batch_size = self.config.getint('initial', 'batch_size')
-        #thr = self.config.getfloat('initial', 'threshold')
+        thr = self.config.getfloat('initial', 'threshold')
         #tau = self.config.getfloat('initial', 'tau')
 
         # Norm factors initialization
@@ -106,8 +107,9 @@ class Normalize:
             
             # threshold
             # snn_weights = [w * thr for w in ann_weights_norm]
-            
             snn_weights = np.array(ann_weights_norm)
+            
+            """
             # Flatten the weights for plotting
             flattened_weights = snn_weights.flatten()
 
@@ -117,7 +119,7 @@ class Normalize:
             plt.ylabel('Frequency')
             plt.title('Weight Distribution for {}'.format(layer.name))
             plt.show()
-            
+            """
             max_weight_value = np.max(np.abs(snn_weights))
             max_weight_values[layer.name] = max_weight_value
             
@@ -129,8 +131,8 @@ class Normalize:
                 pickle.dump(max_weight_values, f)
 
             layer.set_weights([snn_weights])
-            
-            
+        
+          
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
         
         # 따로 batch_size가 정해져 있지 않는 경우 10으로 설정
@@ -170,13 +172,13 @@ class Normalize:
 
         return np.percentile(activations, percentile) if activations.size else 1
 
-    """
-    def _get_firing_rate(self, weights, thr, tau, f_in):
+    
+    def _get_firing_rate(self, weights, thr, f_in):
 
-        f_out = ((weights * f_in) * np.exp(-1/(f_in*tau))) / thr
+        f_out = (weights * f_in) / thr
         
         return f_out
-    """
+    
     
     def get_inbound_layers_with_params(self, layer):
         
