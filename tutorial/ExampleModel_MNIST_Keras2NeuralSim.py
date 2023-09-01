@@ -29,22 +29,9 @@ axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 x_train = x_train.reshape(x_train.shape[0], 28, 28, axis).astype('float32') / 255
 x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32') / 255
 
-print("x test size : ", x_test.size)
-
-print("x train shape : ", x_train.shape)
-print("y train shape : ", y_train.shape)
-
-print("x test shape : ", x_test.shape)
-print("y test shape : ", y_test.shape)
-
 # One-hot encode target vectors.
 y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
-
-print("! y train shape : ", y_train.shape)
-print("!y test shape : ", y_test.shape)
-
-print("y test size : ", y_test.size)
 
 # Save the dataset
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
@@ -80,7 +67,7 @@ model.compile(loss='categorical_crossentropy',
 
 # Train the model
 batch_size = 128
-epochs = 1
+epochs = 10
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Save the model
