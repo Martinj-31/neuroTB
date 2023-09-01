@@ -9,6 +9,7 @@ sys.path.append(parent_dir)
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Parser:
     def __init__(self, input_model, config):
@@ -100,6 +101,7 @@ class Parser:
                 afterParse_layer_list.append(avg_pool_layer)
                 flatten_layer = tf.keras.layers.Flatten(name=layer.name + "_flatten")
                 afterParse_layer_list.append(flatten_layer)
+                
                 flatten_added = True
                 print("Replaced GlobalAveragePooling2D layer with AveragePooling2D and Flatten layer.")
                 
@@ -129,7 +131,6 @@ class Parser:
     def build_parsed_model(self, layer_list):
        
         print("\n###### build parsed model ######\n")
-        print("afterParse layer list : ", layer_list)
         x = layer_list[0].input
     
         for layer in layer_list[1:]:
@@ -270,22 +271,49 @@ class Parser:
         else:    
             return len(layer.weights)
 
-def evaluate(model, x_test, y_test):
-
-    for i, layer in enumerate(model.layers):
-        output_activation = keras.Model(inputs = model.input, outputs = model.layers[i].output).predict(x_test)
+def evaluate(model_1, model_2, x_test, y_test):
+    
+    cnt = 0
+    for i, layer_1 in enumerate(model_1.layers):
+        output_activation_1 = keras.Model(inputs=model_1.input, outputs=model_1.layers[i].output).predict(x_test)
         
-        sums = []
-        for matrix_2d in output_activation:
-             sum_2d = np.sum(matrix_2d)
-             sums.append(sum_2d)
+        sum_1 = []
+        for matrix_1_2d in output_activation_1:
+            sum_2d = np.sum(matrix_1_2d)
+            sum_1.append(sum_2d)
         
-        print("\n model Layer {}'s output (numpy 2D sum) activation \n".format(layer.__class__.__name__), sums)
+        layer_name_1 = model_1.layers[i].name        
         
-    score = model.evaluate(x_test, y_test, verbose=0)
+        
+        for j, layer_2 in enumerate(model_2.layers):
+            output_activation_2 = keras.Model(inputs=model_2.input, outputs=model_2.layers[j].output).predict(x_test)
+            
+            sum_2 = []
+            for matrix_2_2d in output_activation_2:
+                sum_2d = np.sum(matrix_2_2d)
+                sum_2.append(sum_2d)
+            
+            layer_name_2 = model_2.layers[j].name
+            
+        
+        
+            correlation = np.corrcoef(sum_1, sum_2)[0, 1]
+    
+            plt.figure(figsize=(8,6))
+            plt.scatter(sum_1, sum_2, color='b', marker='o', label=f'Correlation: {correlation:.2f}')
+            plt.xlabel(f'input_model : "{layer_name_1}" layer Activation Sum')
+            plt.ylabel(f'parsed_model : "{layer_name_2}" layer Activation Sum')
+            plt.title('Correlation Plot')
+            
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+            cnt += 1
+    
+    score1 = model_1.evaluate(x_test, y_test, verbose=0)
 
-    score = model.evaluate(x_test, y_test, verbose=0)
+    score2 = model_2.evaluate(x_test, y_test, verbose=0)
 
-    return score
+    return score1, score2
 
 
