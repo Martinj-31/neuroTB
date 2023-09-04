@@ -12,7 +12,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Parser:
+    """
+    Class for parsing an ANN model into a format suitable for ANN to SNN conversion.
+    """
+
     def __init__(self, input_model, config):
+        """
+        Initialize the Parser instance.
+        
+        Parameters:
+        - input_model (tf.keras.Model): The input model to be parsed.
+        - config (configparser.ConfigParser): Configuration settings for parsing.
+        
+        This class is responsible for parsing a given TensorFlow/Keras model according to specified rules in the configuration file.
+        """
         self.input_model = input_model
         self.config = config
         self._parsed_layer_list = []
@@ -20,6 +33,23 @@ class Parser:
         self.add_layer_mapping = {}
 
     def parse(self):
+        """
+        Parse the input model according to the specified rules for ANN to SNN conversion.
+    
+        Returns:
+        - tf.keras.Model: The parsed model with modified layers.
+    
+        This method parses the input model by applying specific rules for ANN to SNN conversion. The rules include:
+    
+        1. Absorbing BatchNormalization layers: BatchNormalization layer parameters are absorbed into the previous layer's weights.
+        2. Handling MaxPooling2D layers: If MaxPooling2D layers are present, it raises a ValueError since SNNs typically use AveragePooling2D.
+        3. Transforming Add layers: Add layers are replaced with a Concatenate layer followed by a Conv2D layer (Note: This transformation is incomplete).
+        4. Replacing GlobalAveragePooling2D layers: GlobalAveragePooling2D layers are replaced with an AveragePooling2D layer followed by a Flatten layer.
+        5. Ensuring the presence of a Flatten layer: If a Flatten layer is missing in the input model, it raises an error as it's essential for building the parsed model.
+        6. Skipping unnecessary layers: Layers not required for SNN modeling, such as Dropout and Activation layers, are skipped.
+    
+        The method returns the parsed model with the specified modifications.
+        """
         
         layers = self.input_model.layers
         convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
@@ -31,7 +61,7 @@ class Parser:
         print("\n\n####### parsing input model #######\n\n")
             
         for i, layer in enumerate(layers):
-            print(i)
+            
             layer_type = layer.__class__.__name__
             print("\n current parsing layer... layer type : ", layer_type)
 
@@ -59,14 +89,10 @@ class Parser:
 
                 new_weight = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, axis)
 
-                # print("new weight Befoer absorb : \n", new_weight)
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
                 prev_layer.set_weights([new_weight])
 
-                eval_new_weight = prev_layer.get_weights()[0]
-                # print("new weight After absorb : \n", eval_new_weight)
-                
                 # Remove the current layer (BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
                 
@@ -113,6 +139,9 @@ class Parser:
                 flatten_added = True
                 print("Encountered Flatten layer.")
                 continue         
+            
+            elif flatten_added == False:
+                raise ValueError("input model doesn't have flatten layer. please check again")
 
                
             elif layer_type not in convertible_layers:
@@ -129,6 +158,17 @@ class Parser:
         return parsed_model
     
     def build_parsed_model(self, layer_list):
+        """
+        Build and compile the parsed model.
+
+        Parameters:
+        - layer_list (list): List of layers for the parsed model.
+
+        Returns:
+        - tf.keras.Model: The compiled parsed model.
+
+        This method constructs the parsed model by connecting the layers provided in the layer_list (afterParse_layer_list)
+        """
        
         print("\n###### build parsed model ######\n")
         x = layer_list[0].input
@@ -146,6 +186,20 @@ class Parser:
 
       
     def _get_BN_parameters(self, layer):
+        """
+        Extract the parameters of a BatchNormalization layer.        
+        
+        Parameters
+        ----------
+        layer : keras.layers.BatchNormalization
+            The BatchNormalization layer to extract parameters from.
+        
+        Returns
+        -------
+        tuple
+            A tuple containing gamma (scale parameter), mean (moving mean), 
+            var (moving variance), var_eps_sqrt_inv (inverse of the square root of the variance + epsilon) and axis
+        """
         
         print("get BN parameters...")        
 
@@ -154,25 +208,40 @@ class Parser:
             assert len(axis) == 1, "Multiple BatchNorm axes not understood."
             axis = axis[0]
 
-        #print("layer : ", layer.__class__.__name__)
         mean = keras.backend.get_value(layer.moving_mean)
-        #print("get.. mean : \n", mean)
+
 
         var = keras.backend.get_value(layer.moving_variance)
-        #print("get.. var : \n", var)
+
 
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
-        #print("get.. var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
+
 
         gamma = keras.backend.get_value(layer.gamma)
-        #print("get.. gamma : \n", gamma)
 
-        beta = keras.backend.get_value(layer.beta)
-        #print("Beta : ", beta)
+
+        # beta = keras.backend.get_value(layer.beta) 
+
     
         return  gamma, mean, var, var_eps_sqrt_inv, axis
 
     def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
+        """
+        Absorb BatchNormalization parameters into previous layer's weights.
+        
+        Parameters:
+        - weight (np.ndarray): The previous layer's weight matrix.
+        - gamma (np.ndarray): The gamma parameter of BatchNormalization.
+        - mean (np.ndarray): The mean parameter of BatchNormalization.
+        - var_eps_sqrt_inv (np.ndarray): The inverse square root of the variance epsilon parameter of BatchNormalization.
+        - axis (int): The axis along which to perform the absorption.
+        
+        Returns:
+        - np.ndarray: The modified layer weight matrix after absorbing BatchNormalization parameters.
+        
+        This method absorbs BatchNormalization parameters (gamma, mean, var_eps_sqrt_inv) into the previous layer's weight matrix.
+        It adjusts the weights to incorporate the effect of BatchNormalization, resulting in a modified weight matrix.
+        """
 
         axis = weight.ndim + axis if axis < 0 else axis
 
@@ -186,56 +255,27 @@ class Parser:
         broadcast_shape = [1] * weight.ndim
         broadcast_shape[axis] = weight.shape[axis]
 
-        #print("before reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
-        #print("After reshape... var_eps_sqrt_inv : \n", var_eps_sqrt_inv)
-
-        #print("before reshape... gamma : \n", gamma)
         gamma = np.reshape(gamma, broadcast_shape)
-        #print("After reshape... gamma : \n", gamma)
-
-        #beta = np.reshape(beta, broadcast_shape)
-        #print("beta : ", beta)
-
-        #print("before reshape... mean : \n", mean)
+        #beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
         mean = np.reshape(mean, broadcast_shape)
-        #print("After reshape... mean : \n", mean)
-
-        # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
-
-        #print("before absorb... weight : \n", weight)
+        # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv) # we don't use bias
         new_weight = weight * gamma * var_eps_sqrt_inv
-        #print("After absorb... weight (new_weight): \n", new_weight)
         
-        # Calculation by loop
-        '''
-        weight_bn_loop = np.zeros_like(weight)
-        bias_bn_loop = np.zeros_like(bias)
-        
-        for i in range(weight.shape[0]):
-            for j in range(weight.shape[1]):
-                for k in range(weight.shape[2]):
-                    for l in range(weight.shape[3]):
-                        weight_bn_loop[i, j, k, l] = 
-                        
-                        
-                        weight[i, j, k, l] * gamma[l] * var_eps_sqrt_inv[l]
-                        bias_bn_loop[l] = beta[l] + (bias[l] - mean[l]) * gamma[l] * var_eps_sqrt_inv[l]
-    
-        
-        # evaluation
-        weight_eval_arr = new_weight - weight_bn_loop
-        bias_eval_arr = new_bias - bias_bn_loop
-    
-        if np.all(weight_eval_arr == 0) and np.all(bias_eval_arr == 0) :
-            print("BN parameter is properly absorbed into previous layer.")
-        else:
-            print("BN parameter absorption is not properly implemented.")
-
-        '''
         return new_weight
     
     def get_inbound_layers_parameters(self, layer):
+        """
+        Retrieve inbound layers with weights for a given layer.
+        
+        Parameters:
+        - layer (tf.keras.layers.Layer): The target layer for which to find inbound layers.
+        
+        Returns:
+        - list: A list of layers that are predecessors of the target layer and have weights.
+        
+        This method recursively searches for inbound layers of the target layer that have weights (excluding BatchNormalization layers) and returns a list of such layers.
+        """
 
         inbound = layer
         while True:
@@ -254,6 +294,17 @@ class Parser:
         return result
     
     def get_inbound_layers(self, layer):
+        """
+        Get inbound layers of a given layer.
+    
+        Parameters:
+        - layer (tf.keras.layers.Layer): The target layer for which to retrieve inbound layers.
+    
+        Returns:
+        - list: A list of inbound layers connected to the target layer.
+    
+        This method retrieves the inbound layers connected to the target layer and returns them as a list.
+        """
         
         inbound_layers = layer._inbound_nodes[0].inbound_layers
         
@@ -264,6 +315,17 @@ class Parser:
         
     
     def has_weights(self, layer):
+        """
+        Check if a layer has trainable weights.
+    
+        Parameters:
+        - layer (tf.keras.layers.Layer): The layer to check for trainable weights.
+    
+        Returns:
+        - bool: True if the layer has trainable weights, False otherwise.
+    
+        This method checks whether a layer has trainable weights and returns True if it has weights, excluding BatchNormalization layers.
+        """
         
         if isinstance(layer, tf.keras.layers.BatchNormalization):
             return False
@@ -272,7 +334,22 @@ class Parser:
             return len(layer.weights)
 
 def evaluate(model_1, model_2, x_test, y_test):
+    """
+    Evaluate and compare two models on a given test dataset.
+
+    Parameters:
+    - model_1 (tf.keras.Model): The model before parsed 
+    - model_2 (tf.keras.Model): The model after parsed
+    - x_test (np.ndarray): The test input data.
+    - y_test (np.ndarray): The test target data.
+
+    Returns:
+    - tuple: A tuple containing two evaluation scores, one for each model.
+
+    This function evaluates two models, `model_1` and `model_2`, on the provided test dataset (`x_test` and `y_test`). It computes evaluation metrics for each model and returns them as a tuple, allowing for comparison between the two models.
+    """
     
+    ''' plot code
     cnt = 0
     for i, layer_1 in enumerate(model_1.layers):
         output_activation_1 = keras.Model(inputs=model_1.input, outputs=model_1.layers[i].output).predict(x_test)
@@ -309,6 +386,7 @@ def evaluate(model_1, model_2, x_test, y_test):
             plt.grid(True)
             plt.show()
             cnt += 1
+    '''
     
     score1 = model_1.evaluate(x_test, y_test, verbose=0)
 
