@@ -8,9 +8,8 @@ import os
 import sys
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import pickle
-import neuroToolbox.neuPLUSNetwork as net
 #from tensorflow import keras
 #from collections import OrderedDict
 #from tensorflow.keras.models import Model
@@ -39,17 +38,17 @@ class Normalize:
         
         # Declare and initialize variables
         batch_size = self.config.getint('initial', 'batch_size')
-        thr = self.config.getfloat('initial', 'threshold')
-        #tau = self.config.getfloat('initial', 'tau')
+        # thr = self.config.getfloat('initial', 'threshold')
+        # tau = self.config.getfloat('initial', 'tau')
 
         # Norm factors initialization
         norm_facs = {self.model.layers[0].name: 1.0}
         max_weight_values = {}
 
         i = 0          
-        # parsed_model의 layer 순회
+        # Layer rotation of the parsed_model
         for layer in self.model.layers:
-            # layer에 weight가 없는 경우 skip
+            # Skip if there is no weight in the layer
             if len(layer.weights) == 0:
                 continue
             
@@ -66,10 +65,8 @@ class Normalize:
             print("Cliped maximum activation: {:.5f}.\n".format(norm_facs[layer.name]))
             i += 1
             
-            
-        # scale factor를 적용하여 parsed_model layer에 대해 parameter normalize
-        # normalize를 통해 model 수정
-
+          
+        # Apply scale factor to normalize parameters for parsed_model layer
         for layer in self.model.layers:
             
             if len(layer.weights) == 0:
@@ -84,7 +81,7 @@ class Normalize:
             else:
                 norm_fac = norm_facs[layer.name]
             
-            #_inbound_nodes를 통해 해당 layer의 이전 layer확인
+            # Check the previous layer of that layer through _inbound_nodes
             inbound = self.get_inbound_layers_with_params(layer)
 
             # Weight normalization
@@ -108,18 +105,7 @@ class Normalize:
             # threshold
             # snn_weights = [w * thr for w in ann_weights_norm]
             snn_weights = np.array(ann_weights_norm)
-            
-            """
-            # Flatten the weights for plotting
-            flattened_weights = snn_weights.flatten()
 
-            # Plot the weight distribution
-            plt.hist(flattened_weights, bins=100)
-            plt.xlabel('Weight Value')
-            plt.ylabel('Frequency')
-            plt.title('Weight Distribution for {}'.format(layer.name))
-            plt.show()
-            """
             max_weight_value = np.max(np.abs(snn_weights))
             max_weight_values[layer.name] = max_weight_value
             
@@ -131,28 +117,30 @@ class Normalize:
                 pickle.dump(max_weight_values, f)
 
             layer.set_weights([snn_weights])
+        #"""
         
           
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
         
-        # 따로 batch_size가 정해져 있지 않는 경우 10으로 설정
+        # Set to 10 if batch_size is not specified
         if batch_size is None:
             batch_size = 10
         
-        # input sample x와 batch_size를 나눈 나머지가 0이 아닌 경우 
+        # If input sample x and batch_size are divided and the remainder is nonzero
         if len(x) % batch_size != 0:
-            # input sample list x에서 나눈 나머지만큼 지운다 
+            # Delete the remainder divided by input sample list x
             x = x[: -(len(x) % batch_size)]
         
         print("Calculating activations of layer {}.".format(layer_out.name))
-        # predict함수에 input sample을 넣어 해당 layer 뉴런의 activation을 계산
+        # Calculate the activation of the corresponding layer neuron by putting 
+        # an input sample in the predict function
         activations = tf.keras.models.Model(inputs=layer_in.input, 
                                             outputs=layer_out.output).predict(x, batch_size)
         
-        # activations을 npz파일로 저장
+        # Save activations as an npz file
         print("Writing activations to disk.")
-        if path is not None:  # 경로가 설정되어 있다면
-            np.savez_compressed(os.path.join(path, layer_out.name), activations)
+        if path is not None:
+            np.savez_compressed(os.path.join(path, f'activation_{layer_out.name}.npz'), activations)
         
         
         return np.array(activations)
@@ -162,40 +150,34 @@ class Normalize:
         
         perc = config.getfloat('initial', 'percentile')
         
-        #print("percentile : {}".format(perc))
+        # print("percentile : {}".format(perc))
     
         return perc
     
     
-    # n-th percentile에 해당하는 activation return
+    # Activation return corresponding to n-th percentile
     def get_percentile_activation(self, activations, percentile):
 
         return np.percentile(activations, percentile) if activations.size else 1
 
     
-    def _get_firing_rate(self, weights, thr, f_in):
-
-        f_out = (weights * f_in) / thr
-        
-        return f_out
-    
-    
     def get_inbound_layers_with_params(self, layer):
         
         inbound = layer
         prev_layer = None
-        # weight가 존재하는 layer가 나올 때 반복
+        # Repeat when a layer with weight exists
         while True:
             inbound = self.get_inbound_layers(inbound)
             
-            # get_inbound_layers()에서 layer정보를 list에 받는데 list안에 layer정보가 있는 경우
             if len(inbound) == 1 and not isinstance(inbound[0], 
                                                     tf.keras.layers.BatchNormalization):
                 inbound = inbound[0]
                 if self.has_weights(inbound):
                     return [inbound]
                 
-            # layer정보가 없는 경우 -> input layer의 경우 previous layer 존재하지 않아 빈 list return
+            # If there is no layer information
+            # In the case of input layer, the previous layer does not exist, 
+            # so it is empty list return
             else:
                 result = []
                 for inb in inbound:
@@ -217,7 +199,7 @@ class Normalize:
     
     def get_inbound_layers(self, layer):
         
-        #_inbound_nodes를 통해 해당 layer의 이전 layer확인
+        # Check the previous layer of that layer through _inbound_nodes
         inbound_layers = layer._inbound_nodes[0].inbound_layers
         
         if not isinstance(inbound_layers, (list, tuple)):
