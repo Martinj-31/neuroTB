@@ -12,6 +12,7 @@ sys.path.append(os.getcwd())
 import neuroToolbox.parse as parse
 import neuroToolbox.normalization as normalization
 import neuroToolbox.neuPLUSNetwork as net
+import neuroToolbox.networkAnalysis as networkAnalysis
 import numpy as np
 
 def run_neuroTB(config_filepath):
@@ -27,7 +28,10 @@ def run_neuroTB(config_filepath):
     y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
     y_test = y_test_file['arr_0']
 
-    
+    x_norm = None
+    x_norm_file = np.load(os.path.join(config['paths']['path_wd'], 'x_norm.npz'))
+    x_norm = x_norm_file['arr_0']
+
     # Read 'input_model' value from config.ini
     input_model_name = config["paths"]["filename_ann"]
     # Load the model using the input_model_name
@@ -67,3 +71,7 @@ def run_neuroTB(config_filepath):
     spike_model.build()
 
     spike_model.summary()
+
+    evaluation = networkAnalysis(x_norm, parsed_model, spike_model)
+
+    evaluation.conversionPlot()
