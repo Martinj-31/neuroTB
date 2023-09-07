@@ -58,9 +58,9 @@ class Normalize:
             print("Maximum activation: {:.5f}.".format(np.max(activations)))
             nonzero_activations = activations[np.nonzero(activations)]
             del activations
-            perc = self.get_percentile(self.config, i)
+            perc = self.config.getfloat('initial', 'percentile')
             
-            cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
+            cliped_max_activation = np.percentile(nonzero_activations, perc) if activations.size else 1
             norm_facs[layer.name] = cliped_max_activation
             print("Cliped maximum activation: {:.5f}.\n".format(norm_facs[layer.name]))
             i += 1
@@ -117,8 +117,6 @@ class Normalize:
                 pickle.dump(max_weight_values, f)
 
             layer.set_weights([snn_weights])
-        #"""
-        
           
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
         
@@ -144,22 +142,6 @@ class Normalize:
         
         
         return np.array(activations)
-
-        
-    def get_percentile(self, config, layer_index=None):
-        
-        perc = config.getfloat('initial', 'percentile')
-        
-        # print("percentile : {}".format(perc))
-    
-        return perc
-    
-    
-    # Activation return corresponding to n-th percentile
-    def get_percentile_activation(self, activations, percentile):
-
-        return np.percentile(activations, percentile) if activations.size else 1
-
     
     def get_inbound_layers_with_params(self, layer):
         
