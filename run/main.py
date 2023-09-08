@@ -72,6 +72,6 @@ def run_neuroTB(config_filepath):
 
     spike_model.summary()
 
-    evaluation = networkAnalysis(x_norm, parsed_model, spike_model)
+    evaluation = networkAnalysis.Analysis(x_norm, parsed_model, spike_model, config)
 
     evaluation.conversionPlot()
