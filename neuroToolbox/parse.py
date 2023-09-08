@@ -140,8 +140,8 @@ class Parser:
                 print("Encountered Flatten layer.")
                 continue         
             
-            elif flatten_added == False:
-                raise ValueError("input model doesn't have flatten layer. please check again")
+            # elif flatten_added == False:
+            #     raise ValueError("input model doesn't have flatten layer. please check again")
 
                
             elif layer_type not in convertible_layers:
