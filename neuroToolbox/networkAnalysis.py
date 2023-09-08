@@ -82,10 +82,14 @@ class Analysis:
                     for oc in range(activations.shape[-1]):
                         acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
 
-            plt.xlabel(f"Activations in {layer}")
-            plt.ylabel(f"Firing rate in {layer}")
-            plt.scatter(acts_list, fr_list)
-            plt.plot(np.arange(0, 1, 0.05), np.arange(0, 1, 0.05), 'r')
+            correlation = np.corrcoef(acts_list, fr_list)[0, 1]
+            print(correlation)
+            plt.xlabel(f"Activations in {layer}", size=20)
+            plt.ylabel(f"Firing rate in {layer}", size=20)
+            plt.xticks(size=15)
+            plt.yticks(size=15)
+            plt.scatter(acts_list, fr_list, label=f"Correlation: {correlation:.2f}")
+            # plt.plot(np.arange(0, 1, 0.05), np.arange(0, 1, 0.05), 'r')
             plt.show()
 
     def batchnormEval(self):
