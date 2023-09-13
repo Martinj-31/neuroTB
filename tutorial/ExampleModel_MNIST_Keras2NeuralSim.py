@@ -48,7 +48,7 @@ input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(16, (5, 5), strides=(2,2), activation='relu', use_bias = False)(inputs)
+x = keras.layers.Conv2D(16, (5, 5), strides=(1,1), activation='relu', use_bias = False)(inputs)
 x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)  
 x = keras.layers.Activation(activation='relu')(x)
 x = keras.layers.GlobalAveragePooling2D()(x)
@@ -99,7 +99,11 @@ default_config['paths']['dataset_path'] = path_wd
 default_config['paths']['filename_ann'] = model_name
 default_config['paths']['filename_snn'] = model_name + '_for_SNN'
 default_config['paths']['converted_model'] = path_wd + '/converted_model/'
-default_config['paths']['evaluation_layers'] = path_wd + '/evaluation_layers/'
+
+# SNN configuration
+default_config['initial']['w_mag'] = '64.0'
+default_config['initial']['th_rate'] = '0.8'
+
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
