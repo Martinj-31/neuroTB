@@ -26,3 +26,4 @@ convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling
 batch_size = 1
 percentile = 99.9
 threshold = 1.0
+w_mag = 64
