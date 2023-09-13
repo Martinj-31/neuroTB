@@ -232,7 +232,7 @@ class networkGen:
     def build(self):
         filepath = self.config.get('paths', 'converted_model')
         filename = self.config.get('paths', 'filename_snn')
-        os.makedirs(filepath)
+        # os.makedirs(filepath)
         with open(filepath + filename + '_Converted_neurons.pkl', 'wb') as f:
             pickle.dump(self.neurons, f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
