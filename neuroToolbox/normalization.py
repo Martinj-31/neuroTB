@@ -107,13 +107,19 @@ class Normalize:
             max_weight_value = np.max(np.abs(snn_weights_norm))
             snn_weights_norm = snn_weights_norm / max_weight_value * self.config.getfloat('initial', 'w_mag')
 
-            filename = f"Max_Weight.pkl"
-            filepath = os.path.join(self.config['paths']['path_wd'], filename)
-            with open(filepath, 'wb') as f:
-                pickle.dump(max_weight_values, f)
-
             layer.set_weights([snn_weights_norm])
-        
+
+        threshold = {}
+        for layer in self.model.layers:
+            activations = self.get_activations_layer(self.model, layer, x_norm)
+            print("Maximum activation: {:.5f}.".format(np.max(activations)))
+            threshold[layer.name] = np.max(activations) * self.config.getfloat('initial', 'th_rate')
+
+        filename = f"threshold.pkl"
+        filepath = self.config['paths']['converted_model']
+        os.makedirs(filepath)
+        with open(filepath + filename, 'wb') as f:
+            pickle.dump(threshold, f)
           
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
         
