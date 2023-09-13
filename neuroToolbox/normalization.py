@@ -8,7 +8,7 @@ import os
 import sys
 import tensorflow as tf
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import pickle
 #from tensorflow import keras
 #from collections import OrderedDict
@@ -102,22 +102,17 @@ class Normalize:
             else:
                 ann_weights_norm = ann_weights
             
-            # threshold
-            # snn_weights = [w * thr for w in ann_weights_norm]
-            snn_weights = np.array(ann_weights_norm)
+            snn_weights_norm = np.array(ann_weights_norm)
 
-            max_weight_value = np.max(np.abs(snn_weights))
-            max_weight_values[layer.name] = max_weight_value
-            
-            print(max_weight_values)
-            
+            max_weight_value = np.max(np.abs(snn_weights_norm))
+            snn_weights_norm = snn_weights_norm / max_weight_value * self.config.getfloat('initial', 'w_mag')
+
             filename = f"Max_Weight.pkl"
             filepath = os.path.join(self.config['paths']['path_wd'], filename)
             with open(filepath, 'wb') as f:
                 pickle.dump(max_weight_values, f)
 
-            layer.set_weights([snn_weights])
-        #"""
+            layer.set_weights([snn_weights_norm])
         
           
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
