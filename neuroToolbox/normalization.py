@@ -111,9 +111,14 @@ class Normalize:
 
         threshold = {}
         for layer in self.model.layers:
-            activations = self.get_activations_layer(self.model, layer, x_norm)
+            if len(layer.weights) == 0:
+                continue
+            activations = self.get_activations_layer(self.model, layer, x_norm, normalize=False)
             print("Maximum activation: {:.5f}.".format(np.max(activations)))
-            threshold[layer.name] = np.max(activations) * self.config.getfloat('initial', 'th_rate')
+            if layer.activation.__name__ == 'softmax':
+                threshold[layer.name] = np.max(activations)
+            else:
+                threshold[layer.name] = np.max(activations) * self.config.getfloat('initial', 'th_rate')
 
         filename = f"threshold.pkl"
         filepath = self.config['paths']['converted_model']
@@ -121,7 +126,7 @@ class Normalize:
         with open(filepath + filename, 'wb') as f:
             pickle.dump(threshold, f)
           
-    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
+    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None, normalize=True):
         
         # Set to 10 if batch_size is not specified
         if batch_size is None:
@@ -139,9 +144,10 @@ class Normalize:
                                             outputs=layer_out.output).predict(x, batch_size)
         
         # Save activations as an npz file
-        print("Writing activations to disk.")
-        if path is not None:
-            np.savez_compressed(os.path.join(path, f'activation_{layer_out.name}.npz'), activations)
+        if normalize:
+            print("Writing activations to disk.")
+            if path is not None:
+                np.savez_compressed(os.path.join(path, f'activation_{layer_out.name}.npz'), activations)
         
         
         return np.array(activations)    
