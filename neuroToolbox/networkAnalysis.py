@@ -29,6 +29,8 @@ class Analysis:
             neurons = pickle.load(f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'rb') as f:
             synapses = pickle.load(f)
+        with open(filepath + 'threshold.pkl', 'rb') as f:
+            threshold = pickle.load(f)
 
         w_list = []
         synCnt = 0
@@ -60,16 +62,18 @@ class Analysis:
             fr_list = []
             for input_idx in range(len(self.x_norm)):
                 firing_rate = self.x_norm[input_idx].flatten()
-                for w in w_list:
+                for i, w in enumerate(w_list):
+                    # firing_rate = np.dot(firing_rate, w) / list(threshold.values())[i]
                     firing_rate = np.dot(firing_rate, w)
                     neg_idx = np.where(firing_rate < 0)[0]
                     firing_rate[neg_idx] = 0
                 fr_list = np.concatenate((fr_list, firing_rate))
+            fr_max = np.max(fr_list)
+            fr_list = fr_list / fr_max
 
             if 'pooling' in layer:
                 continue
-
-            if 'conv' in layer:
+            elif 'conv' in layer:
                 for ic in range(activations.shape[0]):
                     for oc in range(activations.shape[-1]):
                         acts_list = np.concatenate((acts_list, activations[ic, :, :, oc].flatten()))
@@ -77,10 +81,13 @@ class Analysis:
                 for ic in range(activations.shape[0]):
                     for oc in range(activations.shape[-1]):
                         acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
-            elif 'pooling' in layer:
-                for ic in range(activations.shape[0]):
-                    for oc in range(activations.shape[-1]):
-                        acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
+            acts_max = np.max(acts_list)
+            acts_list = acts_list / acts_max
+
+            print(f"Activation list")
+            print(acts_list[:10])
+            print(f"Firing arte list")
+            print(fr_list[:10])
 
             correlation = np.corrcoef(acts_list, fr_list)[0, 1]
             print(correlation)
