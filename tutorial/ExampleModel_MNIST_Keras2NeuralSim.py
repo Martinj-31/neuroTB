@@ -39,7 +39,7 @@ np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
 np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
 # Extracting datasets for Normalization
-x_norm = x_train[::100]
+x_norm = x_train[::6000]
 np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
 # Define the input layer
@@ -48,12 +48,13 @@ input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(16, (5, 5), strides=(1,1), activation='relu', use_bias = False)(inputs)
+x = keras.layers.Conv2D(2, (5, 5), strides=(1, 1), activation='relu', use_bias = False)(inputs)
 x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)  
-x = keras.layers.Activation(activation='relu')(x)
-x = keras.layers.GlobalAveragePooling2D()(x)
-x = keras.layers.Dense(units = 16, activation='relu', use_bias = False)(x)
-outputs = keras.layers.Dense(units = 10, activation='softmax', use_bias = False)(x)
+x = keras.layers.AveragePooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+x = keras.layers.Flatten()(x)
+# x = keras.layers.Dense(units=288, activation='relu', use_bias=False)(x)
+x = keras.layers.Dense(units=16, activation='relu', use_bias = False)(x)
+outputs = keras.layers.Dense(units=10, activation='softmax', use_bias = False)(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
@@ -67,7 +68,7 @@ model.compile(loss='categorical_crossentropy',
 
 # Train the model
 batch_size = 128
-epochs = 10
+epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Save the model
