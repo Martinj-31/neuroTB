@@ -59,7 +59,7 @@ class Parser:
 
         
         print("\n\n####### parsing input model #######\n\n")
-            
+        
         for i, layer in enumerate(layers):
             
             layer_type = layer.__class__.__name__
@@ -133,13 +133,6 @@ class Parser:
                 
                 continue
             
-            
-            elif layer_type == 'Flatten':
-                # If a Flatten layer is encountered, set the flag to True
-                flatten_added = True
-                print("Encountered Flatten layer.")
-                continue         
-            
             # elif flatten_added == False:
             #     raise ValueError("input model doesn't have flatten layer. please check again")
 
@@ -171,12 +164,19 @@ class Parser:
         """
        
         print("\n###### build parsed model ######\n")
+        # input_shape = layer_list[0].input_shape[0][1:]
+        # batch_size = self.config.getint('initial', 'batch_size')
+        # batch_shape = (batch_size,) + input_shape
+        # new_input_layer = keras.layers.Input(batch_shape=batch_shape, name=layer_list[0].name)
+        # x = new_input_layer
+
         x = layer_list[0].input
     
         for layer in layer_list[1:]:
             x = layer(x)
-        
-        model = tf.keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
+
+        # model = keras.models.Model(inputs=new_input_layer, outputs=x, name="parsed_model")
+        model = keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
         
         model.compile(loss='categorical_crossentropy',
                   optimizer=keras.optimizers.Adam(learning_rate=0.001),
