@@ -41,6 +41,8 @@ class Analysis:
 
             if 'pooling' in layer:
                 pass
+            elif 'flatten' in layer:
+                pass
             else:
                 activations_file = np.load(os.path.join(activation_dir, f'activation_{layer}.npz'))
                 activations = activations_file['arr_0']
