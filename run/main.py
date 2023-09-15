@@ -45,9 +45,8 @@ def run_neuroTB(config_filepath):
     parsed_model = parser.parse()
     
     parsed_model.summary()
-    input_model.summary()
+    
     score1, score2 = parse.evaluate(input_model, parsed_model, x_test, y_test)
-    input_model.summary()
     # print("input model Test loss : ", score1[0])
     # print("input model Test accuracy : ", score1[1])
     print("parsed model Test loss : ", score2[0])
@@ -72,6 +71,6 @@ def run_neuroTB(config_filepath):
 
     spike_model.summary()
 
-    evaluation = networkAnalysis.Analysis(x_norm, parsed_model, spike_model, config)
+    evaluation = networkAnalysis.Analysis(x_norm, parsed_model, config)
 
     evaluation.conversionPlot()
