@@ -11,10 +11,9 @@ import matplotlib.pyplot as plt
 
 class Analysis:
 
-    def __init__(self, x_norm, parsed_model, spike_model, config):
+    def __init__(self, x_norm, parsed_model, config):
         self.x_norm = x_norm
         self.parsed_model = parsed_model
-        self.spike_model = spike_model
 
         self.config = config
 
@@ -73,6 +72,8 @@ class Analysis:
 
             if 'pooling' in layer:
                 continue
+            elif 'flatten' in layer:
+                continue
             elif 'conv' in layer:
                 for ic in range(activations.shape[0]):
                     for oc in range(activations.shape[-1]):
@@ -84,11 +85,11 @@ class Analysis:
             acts_max = np.max(acts_list)
             acts_list = acts_list / acts_max
 
-            print(f"Activation list")
-            print(acts_list[:10])
-            print(f"Firing arte list")
-            print(fr_list[:10])
-
+            plt.plot(acts_list, 'b.')
+            plt.plot(fr_list, 'r.')
+            plt.show()
+            print(len(acts_list))
+            print(len(fr_list))
             correlation = np.corrcoef(acts_list, fr_list)[0, 1]
             print(correlation)
             plt.xlabel(f"Activations in {layer}", size=20)
@@ -96,8 +97,8 @@ class Analysis:
             plt.xticks(size=15)
             plt.yticks(size=15)
             plt.scatter(acts_list, fr_list, label=f"Correlation: {correlation:.2f}")
-            # plt.plot(np.arange(0, 1, 0.05), np.arange(0, 1, 0.05), 'r')
             plt.show()
+            print('')
 
     def batchnormEval(self):
         b = 1
