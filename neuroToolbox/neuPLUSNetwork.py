@@ -16,6 +16,7 @@ class networkGen:
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
         self.nCount = 1024
         self.synCnt = 0
+        self.flatten_shapes = []
 
         self.neurons = {}
         self.synapses = {}
@@ -24,12 +25,13 @@ class networkGen:
 
     def setup_layers(self, input_shape):
         self.neuron_input_layer(input_shape)
+        layers = []
         for layer in self.parsed_model.layers[1:]:
+            layers.append(layer)
             print(f"Building layer for {layer.__class__.__name__}")
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
-                print("Flatten layer is skipped.")
-                continue
+                self.flatten_shapes.append(layers[-2])
             self.neuron_layer(layer)
             if layer_type == 'Dense':
                 self.Synapse_dense(layer)
@@ -61,18 +63,35 @@ class networkGen:
         weights = np.zeros(length_src*length_tar)
 
         cnt = 0
-        for i in range(length_src):
-            for j in range(length_tar):
-                source[cnt] = i
-                target[cnt] = j
-                weights[cnt] = w[i, j]
-                cnt += 1
+        if len(self.flatten_shapes) == 1:
+            shape = self.flatten_shapes.pop().output_shape[1:]
+            print(f"Shape : {shape}")
+            y_in, x_in, f_in = shape
+            for i in range(length_src):
+                f = i % f_in
+                y = i // (f_in * x_in)
+                x = (i // f_in) % x_in
+                new_i = f * x_in * y_in + x_in * y + x
+                for j in range(length_tar):
+                    source[cnt] = new_i
+                    target[cnt] = j
+                    weights[cnt] = w[i, j]
+                    cnt += 1
+        else:
+            for i in range(length_src):
+                for j in range(length_tar):
+                    source[cnt] = i
+                    target[cnt] = j
+                    weights[cnt] = w[i, j]
+                    cnt += 1
         
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
         
         self.synapses[layer.name] = [source, target, weights]
+
+        self.flatten_flag = False
 
     def Synapse_convolution(self, layer):
         """_summary_
