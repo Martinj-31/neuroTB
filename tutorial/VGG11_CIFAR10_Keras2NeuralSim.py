@@ -71,8 +71,12 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 
 # Save the preprocessed dataset for later use
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
+np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
+# Extracting datasets for Normalization
+x_norm = x_train[::6000]
+np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
 # Build VGG11 model
 model = build_model_structure()
@@ -105,6 +109,12 @@ default_config.read(default_config_path)
 default_config['paths']['path_wd'] = path_wd
 default_config['paths']['dataset_path'] = path_wd
 default_config['paths']['filename_ann'] = model_name
+default_config['paths']['filename_snn'] = model_name + '_for_SNN'
+default_config['paths']['converted_model'] = path_wd + '/converted_model/'
+
+# SNN configuration
+default_config['initial']['w_mag'] = '64.0'
+default_config['initial']['th_rate'] = '0.8'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
