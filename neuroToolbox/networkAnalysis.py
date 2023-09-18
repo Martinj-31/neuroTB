@@ -82,15 +82,9 @@ class Analysis:
                         acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
             acts_max = np.max(acts_list)
             acts_list = acts_list / acts_max
-
-            plt.plot(acts_list, 'b.')
-            plt.plot(fr_list, 'r.')
-            plt.show()
-            print(len(acts_list))
-            print(len(fr_list))
             
             correlation = np.corrcoef(acts_list, fr_list)[0, 1]
-            print(correlation)
+            print(f"Correlation of this layer : {correlation}")
             plt.xlabel(f"Activations in {layer}", size=20)
             plt.ylabel(f"Firing rate in {layer}", size=20)
             plt.xticks(size=15)
