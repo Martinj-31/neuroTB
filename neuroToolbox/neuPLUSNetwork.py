@@ -82,9 +82,6 @@ class networkGen:
                     target[cnt] = n
                     weights[cnt] = w[m, n]
                     cnt += 1
-                print(source[:25])
-                print(target[:25])
-                print('')
         else:
             for m in range(length_src):
                 for n in range(length_tar):
