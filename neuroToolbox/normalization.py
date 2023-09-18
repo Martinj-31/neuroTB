@@ -113,7 +113,7 @@ class Normalize:
         for layer in self.model.layers:
             if len(layer.weights) == 0:
                 continue
-            activations = self.get_activations_layer(self.model, layer, x_norm, normalize=False)
+            activations = self.get_activations_layer(self.model, layer, x_norm, batch_size, normalize=False)
             print("Maximum activation: {:.5f}.".format(np.max(activations)))
             if layer.activation.__name__ == 'softmax':
                 threshold[layer.name] = np.max(activations)
