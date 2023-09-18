@@ -66,7 +66,7 @@ model.compile(loss='categorical_crossentropy',
 
 # Train the model
 batch_size = 128
-epochs = 1
+epochs = 10
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Save the model
