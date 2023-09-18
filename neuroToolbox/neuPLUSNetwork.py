@@ -268,10 +268,11 @@ class networkGen:
 
     def neuronCoreNum(self):
         neuron_num = {}
-        for i in range(len(self.neuron)):
+        for i in range(len(self.neurons)):
             neuron_num[list(self.neurons.keys())[i]] = list(self.neurons.values())[i]
             for j in range(math.ceil(list(self.neurons.values())[i]/1024)):
                 self.core_cnt += 1
+        return self.core_cnt
 
     def summary(self):
         print(f"_________________________________________________________________")
@@ -285,5 +286,5 @@ class networkGen:
             print(f"_________________________________________________________________")
         print(f"=================================================================")
         print(f"Total neurons : {0}")
-        print(f"Total {self.core_cnt} of neuron cores are needed.")
+        print(f"Total {self.neuronCoreNum()} of neuron cores are needed.")
         print(f"_________________________________________________________________")
