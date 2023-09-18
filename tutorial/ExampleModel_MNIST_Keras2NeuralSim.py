@@ -59,8 +59,6 @@ outputs = keras.layers.Dense(units=10, activation='softmax', use_bias = False)(x
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
 
-model.summary()   
-
 # Compile the model
 model.compile(loss='categorical_crossentropy',
               optimizer=keras.optimizers.Adam(learning_rate=0.001),
@@ -85,7 +83,6 @@ model.summary()
 
 result_1 = keras.Model(inputs = model.input, outputs = model.layers[1].output).predict(x_test)
 #print("This is OG model's BN output : \n", result_1)
-
 
 # Save the config file
 default_config_path = os.path.abspath(os.path.join(current_dir, "..", "default_config"))
