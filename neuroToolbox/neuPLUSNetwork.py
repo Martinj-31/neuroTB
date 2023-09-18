@@ -7,6 +7,7 @@ sys.path.append(parent_dir)
 
 from tensorflow import keras
 import numpy as np
+import math
 
 class networkGen:
 
@@ -16,6 +17,7 @@ class networkGen:
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
         self.nCount = 1024
         self.synCnt = 0
+        self.core_cnt = 0
         self.flatten_shapes = []
 
         self.neurons = {}
@@ -264,6 +266,13 @@ class networkGen:
     def layers(self):
         return self.synapses
 
+    def neuronCoreNum(self):
+        neuron_num = {}
+        for i in range(len(self.neuron)):
+            neuron_num[list(self.neurons.keys())[i]] = list(self.neurons.values())[i]
+            for j in range(math.ceil(list(self.neurons.values())[i]/1024)):
+                self.core_cnt += 1
+
     def summary(self):
         print(f"_________________________________________________________________")
         print(f"{'Model: '}{self.config.get('paths', 'filename_snn')}")
@@ -275,4 +284,6 @@ class networkGen:
             print(f"{list(self.neurons.keys())[i]:<40}{list(self.neurons.values())[i]:<40}")
             print(f"_________________________________________________________________")
         print(f"=================================================================")
+        print(f"Total neurons : {0}")
+        print(f"Total {self.core_cnt} of neuron cores are needed.")
         print(f"_________________________________________________________________")
