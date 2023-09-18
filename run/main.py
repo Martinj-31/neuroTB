@@ -6,14 +6,15 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 from tensorflow import keras
-
+import numpy as np
+import time
 sys.path.append(os.getcwd())
 
 import neuroToolbox.parse as parse
 import neuroToolbox.normalization as normalization
 import neuroToolbox.neuPLUSNetwork as net
 import neuroToolbox.networkAnalysis as networkAnalysis
-import numpy as np
+
 
 def run_neuroTB(config_filepath):
     ###### 1. Load data ######
@@ -37,7 +38,7 @@ def run_neuroTB(config_filepath):
     # Load the model using the input_model_name
     input_model = keras.models.load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5")) 
 
-    
+    start = time.time()
     # %% Parse model
     
     parser = parse.Parser(input_model, config)
@@ -74,3 +75,7 @@ def run_neuroTB(config_filepath):
     evaluation = networkAnalysis.Analysis(x_norm, parsed_model, config)
 
     evaluation.conversionPlot()
+    
+    took = time.time() - start
+    
+    print(f"Total simulation time : {took}")
