@@ -53,7 +53,7 @@ x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x
 x = keras.layers.AveragePooling2D(pool_size=(2, 2), strides=(2, 2))(x)
 x = keras.layers.Flatten()(x)
 # x = keras.layers.Dense(units=288, activation='relu', use_bias=False)(x)
-x = keras.layers.Dense(units=16, activation='relu', use_bias = False)(x)
+x = keras.layers.Dense(units=100, activation='relu', use_bias = False)(x)
 outputs = keras.layers.Dense(units=10, activation='softmax', use_bias = False)(x)
 
 # Create the model
