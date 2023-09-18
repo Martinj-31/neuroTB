@@ -51,7 +51,6 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
     x = keras.layers.Flatten()(x)
     x = keras.layers.Dense(4096, activation='relu', use_bias=False)(x)
     x = keras.layers.Dense(4096, activation='relu', use_bias=False)(x)
-    x = keras.layers.Dense(1000, activation='relu', use_bias=False)(x)
     outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias=False)(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -83,7 +82,7 @@ np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 model = build_model_structure()
 
 # Compile the model
-model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(), metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(learning_rate=0.001), metrics=['accuracy'])
 
 # Train the model
 batch_size = 4096
