@@ -76,31 +76,40 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 
 # Save the preprocessed dataset for later use
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
 np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_train[::10])
+np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
+# Extracting datasets for Normalization
+x_norm = x_train[::6000]
+np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
 # Build ResNet50 model
 model = build_model_structure()
 
 # Compile the model
-model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(), metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', 
+              optimizer=keras.optimizers.Adam(learning_rate=0.001), 
+              metrics=['accuracy'])
 
 # Train the model
 batch_size = 4096
 epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
+# Save the model
+model_name = 'VGG16_CIFAR10'
+keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+
 # Evaluate the model
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
-# Save the model
-model_name = 'VGG16_CIFAR10'
-keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+print("Summary of", model_name) # Print the summary of the loaded model
+model.summary()
 
 # Save the config file
-default_config_path = os.path.join("..", "default_config")
+default_config_path = os.path.abspath(os.path.join(current_dir, "..", "default_config"))
 
 # Load the default config file
 default_config = configparser.ConfigParser()
@@ -110,6 +119,12 @@ default_config.read(default_config_path)
 default_config['paths']['path_wd'] = path_wd
 default_config['paths']['dataset_path'] = path_wd
 default_config['paths']['filename_ann'] = model_name
+default_config['paths']['filename_snn'] = model_name + '_for_SNN'
+default_config['paths']['converted_model'] = path_wd + '/converted_model/'
+
+# SNN configuration
+default_config['initial']['w_mag'] = '64.0'
+default_config['initial']['th_rate'] = '0.8'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
