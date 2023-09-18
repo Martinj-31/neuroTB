@@ -41,8 +41,6 @@ class Analysis:
 
             if 'pooling' in layer:
                 pass
-            elif 'flatten' in layer:
-                pass
             else:
                 activations_file = np.load(os.path.join(activation_dir, f'activation_{layer}.npz'))
                 activations = activations_file['arr_0']
@@ -74,8 +72,6 @@ class Analysis:
 
             if 'pooling' in layer:
                 continue
-            elif 'flatten' in layer:
-                continue
             elif 'conv' in layer:
                 for ic in range(activations.shape[0]):
                     for oc in range(activations.shape[-1]):
@@ -92,6 +88,7 @@ class Analysis:
             plt.show()
             print(len(acts_list))
             print(len(fr_list))
+            
             correlation = np.corrcoef(acts_list, fr_list)[0, 1]
             print(correlation)
             plt.xlabel(f"Activations in {layer}", size=20)
