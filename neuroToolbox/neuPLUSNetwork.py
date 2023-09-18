@@ -28,10 +28,12 @@ class networkGen:
         layers = []
         for layer in self.parsed_model.layers[1:]:
             layers.append(layer)
-            print(f"Building layer for {layer.__class__.__name__}")
+            print(f"\nBuilding layer for {layer.__class__.__name__}")
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
+                print(f"Flatten layer is not going to be conoverted to SNN. (Skipped)")
                 self.flatten_shapes.append(layers[-2])
+                continue
             self.neuron_layer(layer)
             if layer_type == 'Dense':
                 self.Synapse_dense(layer)
@@ -65,24 +67,30 @@ class networkGen:
         cnt = 0
         if len(self.flatten_shapes) == 1:
             shape = self.flatten_shapes.pop().output_shape[1:]
-            print(f"Shape : {shape}")
+            print(f"Flatten was detected.")
+            print(f"Data format is '{keras.backend.image_data_format()}'")
             y_in, x_in, f_in = shape
-            for i in range(length_src):
-                f = i % f_in
-                y = i // (f_in * x_in)
-                x = (i // f_in) % x_in
-                new_i = f * x_in * y_in + x_in * y + x
-                for j in range(length_tar):
-                    source[cnt] = new_i
-                    target[cnt] = j
-                    weights[cnt] = w[i, j]
+            print(shape)
+            print(y_in, x_in, f_in)
+            for m in range(length_src):
+                f = m % f_in
+                y = m // (f_in * x_in)
+                x = (m // f_in) % x_in
+                new_m = f * x_in * y_in + x_in * y + x
+                for n in range(length_tar):
+                    source[cnt] = new_m
+                    target[cnt] = n
+                    weights[cnt] = w[m, n]
                     cnt += 1
+                print(source[:25])
+                print(target[:25])
+                print('')
         else:
-            for i in range(length_src):
-                for j in range(length_tar):
-                    source[cnt] = i
-                    target[cnt] = j
-                    weights[cnt] = w[i, j]
+            for m in range(length_src):
+                for n in range(length_tar):
+                    source[cnt] = m
+                    target[cnt] = n
+                    weights[cnt] = w[m, n]
                     cnt += 1
         
         source = source.astype(int) + self.synCnt
@@ -90,8 +98,6 @@ class networkGen:
         target = target.astype(int) + self.synCnt
         
         self.synapses[layer.name] = [source, target, weights]
-
-        self.flatten_flag = False
 
     def Synapse_convolution(self, layer):
         """_summary_
