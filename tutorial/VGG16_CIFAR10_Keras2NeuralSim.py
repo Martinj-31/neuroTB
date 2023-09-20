@@ -8,11 +8,19 @@ sys.path.append(parent_dir)
 
 import numpy as np
 import configparser
+import tensorflow as tf
 from datetime import datetime
 from tensorflow import keras
 from run import main
 
-
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+    except RuntimeError as e:
+        print(e)
+        
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
