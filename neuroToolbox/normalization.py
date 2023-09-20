@@ -102,12 +102,12 @@ class Normalize:
             else:
                 ann_weights_norm = ann_weights
             
-            snn_weights_norm = np.array(ann_weights_norm)
+            # --- NeuPLUS weight ---
+            # snn_weights_norm = np.array(ann_weights_norm)
+            # max_weight_value = np.max(np.abs(snn_weights_norm))
+            # snn_weights_norm = snn_weights_norm / max_weight_value * self.config.getfloat('initial', 'w_mag')
 
-            max_weight_value = np.max(np.abs(snn_weights_norm))
-            snn_weights_norm = snn_weights_norm / max_weight_value * self.config.getfloat('initial', 'w_mag')
-
-            layer.set_weights([snn_weights_norm])
+            layer.set_weights([ann_weights_norm])
 
         threshold = {}
         for layer in self.model.layers:
