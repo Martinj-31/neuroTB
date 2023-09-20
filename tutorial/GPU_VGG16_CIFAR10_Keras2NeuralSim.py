@@ -1,6 +1,9 @@
 import os
 import sys
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
@@ -71,7 +74,7 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
 ###############################################################################
 
 # Load CIFAR-10 dataset
-(x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data(path='the file path you download')
+(x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
 # Data preprocessing and normalization
 x_train = x_train.astype('float32') / 255
