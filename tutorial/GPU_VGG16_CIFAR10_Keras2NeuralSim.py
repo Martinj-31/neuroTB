@@ -71,7 +71,7 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
 ###############################################################################
 
 # Load CIFAR-10 dataset
-(x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
+(x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data(path='the file path you download')
 
 # Data preprocessing and normalization
 x_train = x_train.astype('float32') / 255
