@@ -21,9 +21,10 @@ class Analysis:
 
     def conversionPlot(self):
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
-
+        os.makedirs(self.config['paths']['path_wd'] + '/plot')
         filepath = self.config.get('paths', 'converted_model')
         filename = self.config.get('paths', 'filename_snn')
+        
         with open(filepath + filename + '_Converted_neurons.pkl', 'rb') as f:
             neurons = pickle.load(f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'rb') as f:
@@ -85,11 +86,13 @@ class Analysis:
             
             correlation = np.corrcoef(acts_list, fr_list)[0, 1]
             print(f"Correlation of this layer : {correlation}")
+            print(f"Maximum weight of {layer} : {np.max(w)}")
             plt.xlabel(f"Activations in {layer}", size=20)
             plt.ylabel(f"Firing rate in {layer}", size=20)
             plt.xticks(size=15)
             plt.yticks(size=15)
             plt.scatter(acts_list, fr_list, label=f"Correlation: {correlation:.2f}")
+            plt.savefig(self.config['paths']['path_wd'] + '/plot' + f"/{layer}")
             plt.show()
             print('')
 
