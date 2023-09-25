@@ -273,7 +273,7 @@ class networkGen:
                 self.core_cnt += 1
         return self.core_cnt
 
-    def summary(self):
+    def summarySNN(self):
         print(f"_________________________________________________________________")
         print(f"{'Model: '}{self.config.get('paths', 'filename_snn')}")
         print(f"=================================================================")
