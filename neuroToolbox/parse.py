@@ -333,65 +333,55 @@ class Parser:
         else:    
             return len(layer.weights)
 
-def evaluate(model_1, model_2, x_test, y_test):
-    """
-    Evaluate and compare two models on a given test dataset.
+    def parseAnalysis(self, path, model_1, model_2, x_test, y_test):
+        """
+        Evaluate and compare two models on a given test dataset.
 
-    Parameters:
-    - model_1 (tf.keras.Model): The model before parsed 
-    - model_2 (tf.keras.Model): The model after parsed
-    - x_test (np.ndarray): The test input data.
-    - y_test (np.ndarray): The test target data.
+        Parameters:
+        - model_1 (tf.keras.Model): The model before parsed 
+        - model_2 (tf.keras.Model): The model after parsed
+        - x_test (np.ndarray): The test input data.
+        - y_test (np.ndarray): The test target data.
 
-    Returns:
-    - tuple: A tuple containing two evaluation scores, one for each model.
+        Returns:
+        - tuple: A tuple containing two evaluation scores, one for each model.
 
-    This function evaluates two models, `model_1` and `model_2`, on the provided test dataset (`x_test` and `y_test`). It computes evaluation metrics for each model and returns them as a tuple, allowing for comparison between the two models.
-    """
-    
-    ''' plot code
-    cnt = 0
-    for i, layer_1 in enumerate(model_1.layers):
-        output_activation_1 = keras.Model(inputs=model_1.input, outputs=model_1.layers[i].output).predict(x_test)
+        This function evaluates two models, `model_1` and `model_2`, on the provided test dataset (`x_test` and `y_test`). It computes evaluation metrics for each model and returns them as a tuple, allowing for comparison between the two models.
+        """
         
-        sum_1 = []
-        for matrix_1_2d in output_activation_1:
-            sum_2d = np.sum(matrix_1_2d)
-            sum_1.append(sum_2d)
-        
-        layer_name_1 = model_1.layers[i].name        
-        
-        
-        for j, layer_2 in enumerate(model_2.layers):
-            output_activation_2 = keras.Model(inputs=model_2.input, outputs=model_2.layers[j].output).predict(x_test)
+        # plot code
+        for layer_1 in model_1.layers:
+            output_activation_1 = keras.Model(inputs=model_1.input, outputs=layer_1.output).predict(x_test)
             
-            sum_2 = []
-            for matrix_2_2d in output_activation_2:
-                sum_2d = np.sum(matrix_2_2d)
-                sum_2.append(sum_2d)
-            
-            layer_name_2 = model_2.layers[j].name
-            
-        
-        
-            correlation = np.corrcoef(sum_1, sum_2)[0, 1]
-    
-            plt.figure(figsize=(8,6))
-            plt.scatter(sum_1, sum_2, color='b', marker='o', label=f'Correlation: {correlation:.2f}')
-            plt.xlabel(f'input_model : "{layer_name_1}" layer Activation Sum')
-            plt.ylabel(f'parsed_model : "{layer_name_2}" layer Activation Sum')
-            plt.title('Correlation Plot')
-            
-            plt.legend()
-            plt.grid(True)
-            plt.show()
-            cnt += 1
-    '''
-    
-    score1 = model_1.evaluate(x_test, y_test, verbose=0)
+            sum_1 = []
+            for matrix_1_2d in output_activation_1:
+                sum_2d = np.sum(matrix_1_2d)
+                sum_1.append(sum_2d)
 
-    score2 = model_2.evaluate(x_test, y_test, verbose=0)
+            for layer_2 in model_2.layers:
+                output_activation_2 = keras.Model(inputs=model_2.input, outputs=layer_2.output).predict(x_test)
+                
+                sum_2 = []
+                for matrix_2_2d in output_activation_2:
+                    sum_2d = np.sum(matrix_2_2d)
+                    sum_2.append(sum_2d)
+                
+                correlation = np.corrcoef(sum_1, sum_2)[0, 1]
+        
+                plt.figure(figsize=(8,6))
+                plt.scatter(sum_1, sum_2, color='b', marker='o', label=f'Correlation: {correlation:.2f}')
+                plt.xlabel(f'input_model : "{layer_1.name}" layer Activation Sum')
+                plt.ylabel(f'parsed_model : "{layer_2.name}" layer Activation Sum')
+                plt.title('Correlation Plot')
+                
+                plt.legend()
+                plt.grid(True)
+                plt.savefig(path + '/batch_corr' + f"/{layer_2.name} of {layer_1.name}")
+                plt.show()
+        
+        score1 = model_1.evaluate(x_test, y_test, verbose=0)
+        score2 = model_2.evaluate(x_test, y_test, verbose=0)
 
-    return score1, score2
+        return score1, score2
 
 
