@@ -72,8 +72,7 @@ class networkGen:
             print(f"Flatten was detected.")
             print(f"Data format is '{keras.backend.image_data_format()}'")
             y_in, x_in, f_in = shape
-            print(shape)
-            print(y_in, x_in, f_in)
+
             for m in range(length_src):
                 f = m % f_in
                 y = m // (f_in * x_in)
