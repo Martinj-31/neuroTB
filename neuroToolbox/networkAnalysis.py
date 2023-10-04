@@ -11,13 +11,12 @@ import matplotlib.pyplot as plt
 
 class Analysis:
 
-    def __init__(self, x_norm, parsed_model, config):
-        self.x_norm = x_norm
-        self.parsed_model = parsed_model
-
+    def __init__(self, x_norm, input_model_name, config):
         self.config = config
 
-        self.parsed_model.summary()
+        self.x_norm = x_norm
+        self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
+        self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
 
     def conversionPlot(self):
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
@@ -68,8 +67,8 @@ class Analysis:
                     neg_idx = np.where(firing_rate < 0)[0]
                     firing_rate[neg_idx] = 0
                 fr_list = np.concatenate((fr_list, firing_rate))
-            fr_max = np.max(fr_list)
-            fr_list = fr_list / fr_max
+            # fr_max = np.max(fr_list)
+            # fr_list = fr_list / fr_max
 
             if 'pooling' in layer:
                 continue
@@ -81,8 +80,8 @@ class Analysis:
                 for ic in range(activations.shape[0]):
                     for oc in range(activations.shape[-1]):
                         acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
-            acts_max = np.max(acts_list)
-            acts_list = acts_list / acts_max
+            # acts_max = np.max(acts_list)
+            # acts_list = acts_list / acts_max
             
             correlation = np.corrcoef(acts_list, fr_list)[0, 1]
             print(f"Correlation of this layer : {correlation}")
@@ -96,5 +95,28 @@ class Analysis:
             plt.show()
             print('')
 
-    def batchnormEval(self):
-        b = 1
+    def parseCorrPlot(self):
+        os.makedirs(self.config["paths"]["path_wd"] + '/batch_corr')
+
+        for layer_1 in self.input_model.layers:
+            output_act_input = keras.models.Model(inputs=self.input_model.input, outputs=layer_1.output).predict(self.x_norm)
+            for layer_2 in self.parsed_model.layers:
+                output_act_parsed = keras.models.Model(inputs=self.parsed_model.input, outputs=layer_2.output).predict(self.x_norm)
+
+                if len(output_act_input.flatten()) == len(output_act_parsed.flatten()):
+                    correlation = np.corrcoef(output_act_input.flatten(), output_act_parsed.flatten())[0, 1]
+
+                    plt.figure(figsize=(8, 6))
+                    plt.scatter(output_act_input, output_act_parsed, color='b', marker='o', s=10, label=f'Correlation: {correlation:.2f}')
+                    plt.xlabel(f'input_model : "{layer_1.name}" layer Activation')
+                    plt.ylabel(f'parsed_model : "{layer_2.name}" layer Activation')
+                    plt.title('Correlation Plot')
+                    
+                    plt.legend()
+                    plt.grid(True)
+                    plt.savefig(self.config["paths"]["path_wd"] + '/batch_corr' + f"/{layer_2.name} of {layer_1.name}")
+                    plt.show()
+
+
+
+
