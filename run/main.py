@@ -72,9 +72,10 @@ def run_neuroTB(config_filepath):
 
     spike_model.summarySNN()
 
-    evaluation = networkAnalysis.Analysis(x_norm, parsed_model, config)
+    evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
 
     evaluation.conversionPlot()
+    evaluation.parseCorrPlot()
     
     took = time.time() - start
     
