@@ -147,6 +147,7 @@ class Parser:
         
 
         parsed_model = self.build_parsed_model(afterParse_layer_list)
+        keras.models.save_model(parsed_model, os.path.join(self.config["paths"]["path_wd"], "parsed_" + self.config["paths"]["filename_ann"] + '.h5'))
 
         return parsed_model
     
@@ -333,7 +334,7 @@ class Parser:
         else:    
             return len(layer.weights)
 
-    def parseAnalysis(self, path, model_1, model_2, x_test, y_test):
+    def parseAnalysis(self, model_1, model_2, x_test, y_test):
         """
         Evaluate and compare two models on a given test dataset.
 
@@ -348,36 +349,6 @@ class Parser:
 
         This function evaluates two models, `model_1` and `model_2`, on the provided test dataset (`x_test` and `y_test`). It computes evaluation metrics for each model and returns them as a tuple, allowing for comparison between the two models.
         """
-        
-        # plot code
-        for layer_1 in model_1.layers:
-            output_activation_1 = keras.Model(inputs=model_1.input, outputs=layer_1.output).predict(x_test)
-            
-            sum_1 = []
-            for matrix_1_2d in output_activation_1:
-                sum_2d = np.sum(matrix_1_2d)
-                sum_1.append(sum_2d)
-
-            for layer_2 in model_2.layers:
-                output_activation_2 = keras.Model(inputs=model_2.input, outputs=layer_2.output).predict(x_test)
-                
-                sum_2 = []
-                for matrix_2_2d in output_activation_2:
-                    sum_2d = np.sum(matrix_2_2d)
-                    sum_2.append(sum_2d)
-                
-                correlation = np.corrcoef(sum_1, sum_2)[0, 1]
-        
-                plt.figure(figsize=(8,6))
-                plt.scatter(sum_1, sum_2, color='b', marker='o', label=f'Correlation: {correlation:.2f}')
-                plt.xlabel(f'input_model : "{layer_1.name}" layer Activation Sum')
-                plt.ylabel(f'parsed_model : "{layer_2.name}" layer Activation Sum')
-                plt.title('Correlation Plot')
-                
-                plt.legend()
-                plt.grid(True)
-                plt.savefig(path + '/batch_corr' + f"/{layer_2.name} of {layer_1.name}")
-                plt.show()
         
         score1 = model_1.evaluate(x_test, y_test, verbose=0)
         score2 = model_2.evaluate(x_test, y_test, verbose=0)
