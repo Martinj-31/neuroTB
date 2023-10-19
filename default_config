@@ -20,7 +20,7 @@ batch_size = 128
 epochs = 1
 
 [restrictions]
-convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling2D', 'Flatten'}
+convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling2D', 'Flatten', 'Activation'}
 
 [initial]
 batch_size = 1
