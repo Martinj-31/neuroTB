@@ -356,3 +356,78 @@ class Parser:
         return score1, score2
 
 
+    def get_input_models_activation(self):
+
+        x_norm = None
+        x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
+        x_norm = x_norm_file['arr_0']  
+
+        input_models_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_models_activations')
+        os.makedirs(input_models_activation_dir, exist_ok=True)
+        
+        for layer in self.input_model.layers:
+            
+            if not isinstance(layer, (tf.keras.layers.Activation, tf.keras.layers.AveragePooling2D)) :
+                 continue
+            
+            input_models_activation = tf.keras.models.Model(inputs=self.input_model.inputs, 
+                                            outputs=layer.output).predict(x_norm)
+        
+            np.savez_compressed(os.path.join(input_models_activation_dir, f'input_models_activation_{layer.name}.npz'), input_models_activation)
+
+    
+    
+    def compare(self):
+
+        input_models_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_models_activations')
+        parsed_models_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_models_activations')
+        corr_dir = os.path.join(self.config['paths']['path_wd'], 'corr')
+
+        os.makedirs(parsed_models_activation_dir, exist_ok=True)
+        os.makedirs(corr_dir, exist_ok=True)
+        
+        
+        print(f"current directory : {self.config['paths']['path_wd']}")
+
+        cnt = 0
+        for layer in self.input_model.layers:
+            if isinstance(layer,(tf.keras.layers.AveragePooling2D)):
+                if cnt == 0 :                
+                    loaded_activations = np.load(os.path.join(self.config['paths']['path_wd'],'input_models_activations', f"input_models_activation_activation.npz"))['arr_0']
+                else:
+                    loaded_activations = np.load(os.path.join(self.config['paths']['path_wd'],'input_models_activations', f"input_models_activation_activation_{cnt}.npz"))['arr_0']
+
+                print(f"loaded_activations : activation_{cnt}")
+
+                parsed_models_activation = tf.keras.models.Model(inputs=layer.input, 
+                                                    outputs=layer.output).predict(loaded_activations)
+                                                
+                np.savez_compressed(os.path.join(parsed_models_activation_dir, f'parsed_models_activation_{layer.name}.npz'), parsed_models_activation)
+
+                cnt += 1
+
+        for c in range(cnt):
+            if c == 0:
+                input_act_file = np.load(os.path.join(input_models_activation_dir, f"input_models_activation_average_pooling2d.npz"))
+                parsed_act_file = np.load(os.path.join(parsed_models_activation_dir, f"parsed_models_activation_average_pooling2d.npz"))
+                print('Hello')
+            else:
+                input_act_file = np.load(os.path.join(input_models_activation_dir, f"input_models_activation_average_pooling2d_{c}.npz"))
+                parsed_act_file = np.load(os.path.join(parsed_models_activation_dir, f"parsed_models_activation_average_pooling2d_{c}.npz"))
+
+            input_act = input_act_file['arr_0']
+            parsed_act = parsed_act_file['arr_0']
+
+            corr = np.corrcoef(input_act.flatten(), parsed_act.flatten())[0, 1]
+
+            plt.figure(figsize=(8, 6))
+            plt.scatter(input_act, parsed_act, color='b', marker='o', s=10, label=f'Correlation: {corr:.2f}')
+            plt.xlabel(f'input_model : "pooling_{c}" layer Activation')
+            plt.ylabel(f'parsed_model : "pooling_{c}" layer Activation')
+            plt.title('Correlation Plot')
+            
+            plt.legend()
+            plt.grid(True)
+            plt.savefig(self.config["paths"]["path_wd"] + '/corr' + f"/pooing_{c}")
+            plt.show()
+
