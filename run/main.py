@@ -45,10 +45,10 @@ def run_neuroTB(config_filepath):
 
     parsed_model = parser.parse()
     
-    parser.get_input_models_activation()
+    parser.get_input_models_activation(input_model_name)
 
-    comparator = parse.Parser(parsed_model, config)
-    comparator.compare()
+    # comparator = parse.Parser(parsed_model, config)
+    parser.compare(input_model_name)
 
     parsed_model.summary()
     
