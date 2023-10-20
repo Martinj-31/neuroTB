@@ -12,6 +12,11 @@ from datetime import datetime
 from tensorflow import keras
 from run import main
 
+import ssl
+
+# SSL 인증 비활성화
+ssl._create_default_https_context = ssl._create_unverified_context
+
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
@@ -48,9 +53,21 @@ input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(16, (5, 5), strides=(1, 1), activation='relu', use_bias = False)(inputs)
-x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)  
-x = keras.layers.AveragePooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+x = keras.layers.Conv2D(32, (3, 3), strides=(1, 1),activation='relu', padding='same', use_bias = False)(inputs)
+x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x) 
+x = keras.layers.Activation('relu')(x)
+x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
+
+x = keras.layers.Conv2D(64, (3, 3), strides=(1, 1),activation='relu', padding='same', use_bias = False)(x)
+x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+x = keras.layers.Activation('relu')(x)
+x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
+
+x = keras.layers.Conv2D(128, (3, 3), strides=(1, 1),activation='relu', padding='same', use_bias = False)(x)
+x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+x = keras.layers.Activation('relu')(x)
+x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
+
 x = keras.layers.Flatten()(x)
 # x = keras.layers.Dense(units=288, activation='relu', use_bias=False)(x)
 x = keras.layers.Dense(units=100, activation='relu', use_bias = False)(x)
@@ -65,8 +82,8 @@ model.compile(loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 # Train the model
-batch_size = 128
-epochs = 10
+batch_size = 64
+epochs = 5
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Save the model
