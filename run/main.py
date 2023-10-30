@@ -57,7 +57,6 @@ def run_neuroTB(config_filepath):
     print("parsed model Test accuracy : ", score2[1])
     
     # %% Normalization and convert
-    
     normalizer = normalization.Normalize(parsed_model, config)
 
     normalizer.normalize_parameter()
