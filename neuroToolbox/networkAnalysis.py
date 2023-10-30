@@ -115,8 +115,7 @@ class Analysis:
                     plt.legend()
                     plt.grid(True)
                     plt.savefig(self.config["paths"]["path_wd"] + '/batch_corr' + f"/{layer_2.name} of {layer_1.name}")
-                    plt.show()
-
+                    # plt.show()
 
 
 
