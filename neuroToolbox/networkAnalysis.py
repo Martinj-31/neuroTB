@@ -18,6 +18,8 @@ class Analysis:
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
 
+        self.syn_operation = 0
+
     def conversionPlot(self):
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
         os.makedirs(self.config['paths']['path_wd'] + '/plot')
@@ -66,6 +68,7 @@ class Analysis:
                     firing_rate = np.dot(firing_rate, w)
                     neg_idx = np.where(firing_rate < 0)[0]
                     firing_rate[neg_idx] = 0
+                    self.syn_operation += np.sum(firing_rate)
                 fr_list = np.concatenate((fr_list, firing_rate))
             # fr_max = np.max(fr_list)
             # fr_list = fr_list / fr_max
