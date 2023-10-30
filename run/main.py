@@ -40,15 +40,13 @@ def run_neuroTB(config_filepath):
 
     start = time.time()
     # %% Parse model
-    
     parser = parse.Parser(input_model, config)
 
     parsed_model = parser.parse()
     
-    parser.get_input_models_activation(input_model_name)
-
-    # comparator = parse.Parser(parsed_model, config)
-    parser.compare(input_model_name)
+    # For comparison
+    # parser.get_input_model_activation(input_model_name)
+    # parser.compare(input_model_name)
 
     parsed_model.summary()
     
@@ -65,7 +63,6 @@ def run_neuroTB(config_filepath):
     normalizer.normalize_parameter()
     
     # %% Generate neurons and synapse connections for SNN
-    
     batch_size = config["initial"]["batch_size"]
     batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
