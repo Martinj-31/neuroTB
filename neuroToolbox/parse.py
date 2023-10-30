@@ -81,7 +81,7 @@ class Parser:
                 BN_parameters = list(self._get_BN_parameters(layer))
                 
                 # print("This is BN params : ", BN_parameters)
-                gamma, mean, var, var_eps_sqrt_inv, axis = BN_parameters
+                gamma, mean, var_eps_sqrt_inv, axis = BN_parameters
 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
@@ -209,22 +209,14 @@ class Parser:
             assert len(axis) == 1, "Multiple BatchNorm axes not understood."
             axis = axis[0]
 
-        mean = keras.backend.get_value(layer.moving_mean)
-
-
-        var = keras.backend.get_value(layer.moving_variance)
-
-
-        var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
-
-
         gamma = keras.backend.get_value(layer.gamma)
 
+        mean = keras.backend.get_value(layer.moving_mean)
 
-        # beta = keras.backend.get_value(layer.beta) 
-
+        var = keras.backend.get_value(layer.moving_variance)
+        var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
     
-        return  gamma, mean, var, var_eps_sqrt_inv, axis
+        return  gamma, mean, var_eps_sqrt_inv, axis
 
     def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
         """
@@ -258,7 +250,7 @@ class Parser:
 
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         gamma = np.reshape(gamma, broadcast_shape)
-        #beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
+        # beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
         mean = np.reshape(mean, broadcast_shape)
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv) # we don't use bias
         new_weight = weight * gamma * var_eps_sqrt_inv
@@ -355,23 +347,22 @@ class Parser:
 
         return score1, score2
 
-    def get_input_models_activation(self, input_model_name):
+    def get_input_model_activation(self, input_model_name):
         input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  
 
-        input_models_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_models_activations')
-        os.makedirs(input_models_activation_dir, exist_ok=True)
+        input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
+        os.makedirs(input_model_activation_dir, exist_ok=True)
         
         for layer in input_model.layers:
-            
             if not isinstance(layer, (tf.keras.layers.Activation, tf.keras.layers.AveragePooling2D)) :
                 continue
             
-            input_models_activation = tf.keras.models.Model(inputs=input_model.inputs, outputs=layer.output).predict(x_norm)
+            input_model_activation = tf.keras.models.Model(inputs=input_model.inputs, outputs=layer.output).predict(x_norm)
         
-            np.savez_compressed(os.path.join(input_models_activation_dir, f'input_models_activation_{layer.name}.npz'), input_models_activation)
+            np.savez_compressed(os.path.join(input_model_activation_dir, f'input_model_activation_{layer.name}.npz'), input_model_activation)
  
     
     def compare(self, input_model_name):
@@ -382,16 +373,14 @@ class Parser:
         x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
-        input_models_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_models_activations')
-        parsed_models_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_models_activations')
+        input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
+        parsed_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
         corr_dir = os.path.join(self.config['paths']['path_wd'], 'corr')
 
-        os.makedirs(parsed_models_activation_dir, exist_ok=True)
+        os.makedirs(parsed_model_activation_dir, exist_ok=True)
         os.makedirs(corr_dir, exist_ok=True)
         
-        
         print(f"current directory : {self.config['paths']['path_wd']}")
-
         convs = []
         acts = []
         poolings = []
@@ -410,33 +399,33 @@ class Parser:
         for layer in parsed_model.layers:
             if isinstance(layer, (tf.keras.layers.Activation)):
                 if cnt == 0:
-                    parsed_models_activation = tf.keras.models.Model(inputs=parsed_model.input, outputs=acts[cnt].output).predict(x_norm)
+                    parsed_model_activation = tf.keras.models.Model(inputs=parsed_model.input, outputs=acts[cnt].output).predict(x_norm)
                 else:
                     print(poolings[cnt-1].name)
-                    loaded_activations = np.load(os.path.join(self.config['paths']['path_wd'],'input_models_activations', f"input_models_activation_{poolings[cnt-1].name}.npz"))['arr_0']
-                    parsed_models_activation = tf.keras.models.Model(inputs=convs[cnt].input, outputs=acts[cnt].output).predict(loaded_activations)
+                    loaded_activations = np.load(os.path.join(self.config['paths']['path_wd'],'input_model_activations', f"input_model_activation_{poolings[cnt-1].name}.npz"))['arr_0']
+                    parsed_model_activation = tf.keras.models.Model(inputs=convs[cnt].input, outputs=acts[cnt].output).predict(loaded_activations)
                 cnt += 1
             elif isinstance(layer, (tf.keras.layers.AveragePooling2D)):
                 print(acts[cnt-1].name)
-                loaded_activations = np.load(os.path.join(self.config['paths']['path_wd'],'input_models_activations', f"input_models_activation_{acts[cnt-1].name}.npz"))['arr_0']
-                parsed_models_activation = tf.keras.models.Model(inputs=poolings[cnt-1].input, outputs=poolings[cnt-1].output).predict(loaded_activations)
+                loaded_activations = np.load(os.path.join(self.config['paths']['path_wd'],'input_model_activations', f"input_model_activation_{acts[cnt-1].name}.npz"))['arr_0']
+                parsed_model_activation = tf.keras.models.Model(inputs=poolings[cnt-1].input, outputs=poolings[cnt-1].output).predict(loaded_activations)
             elif not isinstance(layer, (tf.keras.layers.Activation, tf.keras.layers.AveragePooling2D)):
                 continue
             
-            np.savez_compressed(os.path.join(parsed_models_activation_dir, f'parsed_models_activation_{layer.name}.npz'), parsed_models_activation)
+            np.savez_compressed(os.path.join(parsed_model_activation_dir, f'parsed_model_activation_{layer.name}.npz'), parsed_model_activation)
             
-            input_act_file = np.load(os.path.join(input_models_activation_dir, f"input_models_activation_{layer.name}.npz"))
+            input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{layer.name}.npz"))
             input_act = input_act_file['arr_0']
 
-            corr = np.corrcoef(input_act.flatten(), parsed_models_activation.flatten())[0, 1]
+            # corr = np.corrcoef(input_act.flatten(), parsed_model_activation.flatten())[0, 1]
 
             plt.figure(figsize=(8, 6))
-            plt.scatter(input_act, parsed_models_activation, color='b', marker='o', s=10, label=f'Correlation: {corr:.2f}')
-            plt.xlabel(f'input_model : "{layer.name}" layer Activation')
-            plt.ylabel(f'parsed_model : "{layer.name}" layer Activation')
+            plt.scatter(input_act, parsed_model_activation, color='b', marker='o', s=10)
+            plt.xlabel(f'input_model : "{layer.name}" layer Activation', fontsize =15)
+            plt.ylabel(f'parsed_model : "{layer.name}" layer Activation', fontsize =15)
             plt.title('Correlation Plot')
             
             plt.legend()
             plt.grid(True)
             plt.savefig(self.config["paths"]["path_wd"] + '/corr' + f"/{layer.name}")
-            plt.show()
+            # plt.show()
