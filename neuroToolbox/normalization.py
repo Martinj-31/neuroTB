@@ -49,7 +49,10 @@ class Normalize:
         # Layer rotation of the parsed_model
         for layer in self.model.layers:
             # Skip if there is no weight in the layer
-            if len(layer.weights) == 0:
+            if 'activation' in layer.name:
+                activations = self.get_activations_layer(self.model, layer, x_norm, batch_size, activation_dir)
+                continue
+            elif len(layer.weights) == 0:
                 continue
             
             activations = self.get_activations_layer(self.model, layer, 
@@ -77,7 +80,6 @@ class Normalize:
             if layer.activation.__name__ == 'softmax':
                 norm_fac = 1.0
                 print("\n Using norm_factor: {:.2f}.".format(norm_fac))
-            
             else:
                 norm_fac = norm_facs[layer.name]
             
@@ -109,22 +111,6 @@ class Normalize:
 
             layer.set_weights([ann_weights_norm])
 
-        threshold = {}
-        for layer in self.model.layers:
-            if len(layer.weights) == 0:
-                continue
-            activations = self.get_activations_layer(self.model, layer, x_norm, batch_size, normalize=False)
-            print("Maximum activation: {:.5f}.".format(np.max(activations)))
-            if layer.activation.__name__ == 'softmax':
-                threshold[layer.name] = np.max(activations)
-            else:
-                threshold[layer.name] = np.max(activations) * self.config.getfloat('initial', 'th_rate')
-
-        filename = f"threshold.pkl"
-        filepath = self.config['paths']['converted_model']
-        os.makedirs(filepath)
-        with open(filepath + filename, 'wb') as f:
-            pickle.dump(threshold, f)
           
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None, normalize=True):
         
