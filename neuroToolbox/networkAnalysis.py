@@ -21,7 +21,7 @@ class Analysis:
         self.syn_operation = 0
 
     def conversionPlot(self):
-        activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
+        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
         os.makedirs(self.config['paths']['path_wd'] + '/plot')
         filepath = self.config.get('paths', 'converted_model')
         filename = self.config.get('paths', 'filename_snn')
@@ -30,8 +30,6 @@ class Analysis:
             neurons = pickle.load(f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'rb') as f:
             synapses = pickle.load(f)
-        with open(filepath + 'threshold.pkl', 'rb') as f:
-            threshold = pickle.load(f)
 
         w_list = []
         synCnt = 0
@@ -40,12 +38,6 @@ class Analysis:
                 continue
 
             print(f"Analysis for {layer}...")
-
-            if 'pooling' in layer:
-                pass
-            else:
-                activations_file = np.load(os.path.join(activation_dir, f'activation_{layer}.npz'))
-                activations = activations_file['arr_0']
 
             source = np.array(list(synapses.values())[i-1][0]) - synCnt
             synCnt += 1024
@@ -59,41 +51,60 @@ class Analysis:
                 w[source[j]][target[j]] = weights[j]
             w_list.append(w)
 
+            # # Calculate firing rate
+            # fr_list = []
+            # for input_idx in range(len(self.x_norm)):
+            #     firing_rate = self.x_norm[input_idx].flatten()
+            #     for w in w_list:
+            #         firing_rate = np.dot(firing_rate, w)
+            #         neg_idx = np.where(firing_rate < 0)[0]
+            #         firing_rate[neg_idx] = 0
+            #         self.syn_operation += np.sum(firing_rate)
+            #     fr_list = np.concatenate((fr_list, firing_rate))
+            # # fr_max = np.max(fr_list)
+            # # fr_list = fr_list / fr_max
+
+            # Calculate activation
             acts_list = []
             fr_list = []
-            for input_idx in range(len(self.x_norm)):
-                firing_rate = self.x_norm[input_idx].flatten()
-                for i, w in enumerate(w_list):
-                    # firing_rate = np.dot(firing_rate, w) / list(threshold.values())[i]
-                    firing_rate = np.dot(firing_rate, w)
-                    neg_idx = np.where(firing_rate < 0)[0]
-                    firing_rate[neg_idx] = 0
-                    self.syn_operation += np.sum(firing_rate)
-                fr_list = np.concatenate((fr_list, firing_rate))
-            # fr_max = np.max(fr_list)
-            # fr_list = fr_list / fr_max
-
+            input_list = [self.x_norm]
             if 'pooling' in layer:
                 continue
-            elif 'conv' in layer:
-                for ic in range(activations.shape[0]):
-                    for oc in range(activations.shape[-1]):
-                        acts_list = np.concatenate((acts_list, activations[ic, :, :, oc].flatten()))
-            elif 'dense' in layer:
-                for ic in range(activations.shape[0]):
-                    for oc in range(activations.shape[-1]):
-                        acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
+            else:
+                activations_file = np.load(os.path.join(activation_dir, f'parsed_model_activation_{layer}.npz'))
+                activations = activations_file['arr_0']
+                if 'conv' in layer:
+                    for ic in range(activations.shape[0]):
+                        for oc in range(activations.shape[-1]):
+                            acts_list = np.concatenate((acts_list, activations[ic, :, :, oc].flatten()))
+                elif 'dense' in layer:
+                    for ic in range(activations.shape[0]):
+                        for oc in range(activations.shape[-1]):
+                            acts_list = np.concatenate((acts_list, activations[ic, oc].flatten()))
             # acts_max = np.max(acts_list)
             # acts_list = acts_list / acts_max
-            
-            correlation = np.corrcoef(acts_list, fr_list)[0, 1]
-            print(f"Correlation of this layer : {correlation}")
-            print(f"Maximum weight of {layer} : {np.max(w)}")
+
+            # For test
+            input_list.append(acts_list)
+            print(len(input_list))
+            if i-1 == 0:
+                activation_rate = input_list[0]
+            else:
+                activation_rate = np.hsplit(input_list[i-2], 10)
+            for rate in activation_rate:
+                firing_rate = np.dot(rate.flatten(), w)
+                neg_idx = np.where(firing_rate < 0)[0]
+                firing_rate[neg_idx] = 0
+                fr_list = np.concatenate((fr_list, firing_rate))
+
+            # correlation = np.corrcoef(acts_list, fr_list)[0, 1]
+            # print(f"Correlation of this layer : {correlation}")
+            # print(f"Maximum weight of {layer} : {np.max(w)}")
             plt.xlabel(f"Activations in {layer}", size=20)
             plt.ylabel(f"Firing rate in {layer}", size=20)
             plt.xticks(size=15)
             plt.yticks(size=15)
-            plt.scatter(acts_list, fr_list, label=f"Correlation: {correlation:.2f}")
+            plt.scatter(acts_list, fr_list, color='b', marker='o', s=10)
             plt.savefig(self.config['paths']['path_wd'] + '/plot' + f"/{layer}")
             plt.show()
             print('')
