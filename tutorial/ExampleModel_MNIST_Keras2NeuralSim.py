@@ -11,6 +11,7 @@ import configparser
 from datetime import datetime
 from tensorflow import keras
 from run import main
+import matplotlib.pyplot as plt
 
 import ssl
 
@@ -53,23 +54,15 @@ input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(32, (3, 3), strides=(1, 1),activation='relu', padding='same', use_bias = False)(inputs)
+x = keras.layers.Conv2D(2, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(inputs)
 x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x) 
-x = keras.layers.Activation('relu')(x)
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
-x = keras.layers.Conv2D(64, (3, 3), strides=(1, 1),activation='relu', padding='same', use_bias = False)(x)
+x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(x)
 x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
-x = keras.layers.Activation('relu')(x)
-x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
-
-x = keras.layers.Conv2D(128, (3, 3), strides=(1, 1),activation='relu', padding='same', use_bias = False)(x)
-x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
-x = keras.layers.Activation('relu')(x)
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Flatten()(x)
-# x = keras.layers.Dense(units=288, activation='relu', use_bias=False)(x)
 x = keras.layers.Dense(units=100, activation='relu', use_bias = False)(x)
 outputs = keras.layers.Dense(units=10, activation='softmax', use_bias = False)(x)
 
