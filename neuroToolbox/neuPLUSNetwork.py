@@ -33,7 +33,7 @@ class networkGen:
             print(f"\nBuilding layer for {layer.__class__.__name__}")
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
-                print(f"Flatten layer is not going to be conoverted to SNN. (Skipped)")
+                print(f"Flatten layer is not going to be converted to SNN. (Skipped)")
                 self.flatten_shapes.append(layers[-2])
                 continue
             self.neuron_layer(layer)
@@ -255,6 +255,7 @@ class networkGen:
     def build(self):
         filepath = self.config.get('paths', 'converted_model')
         filename = self.config.get('paths', 'filename_snn')
+        os.makedirs(filepath)
         with open(filepath + filename + '_Converted_neurons.pkl', 'wb') as f:
             pickle.dump(self.neurons, f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
