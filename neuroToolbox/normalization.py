@@ -49,10 +49,7 @@ class Normalize:
         # Layer rotation of the parsed_model
         for layer in self.model.layers:
             # Skip if there is no weight in the layer
-            if 'activation' in layer.name:
-                activations = self.get_activations_layer(self.model, layer, x_norm, batch_size, activation_dir)
-                continue
-            elif len(layer.weights) == 0:
+            if len(layer.weights) == 0:
                 continue
             
             activations = self.get_activations_layer(self.model, layer, 
