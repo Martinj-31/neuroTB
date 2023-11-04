@@ -379,7 +379,6 @@ class Parser:
         x_norm = x_norm_file['arr_0']
         
         input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
-        parsed_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
         corr_dir = os.path.join(self.config['paths']['path_wd'], 'acts_corr')
         
         os.makedirs(corr_dir, exist_ok=True)
@@ -396,7 +395,6 @@ class Parser:
                     continue
                 else:
                     if input_layer.output_shape != parsed_layer.output_shape:
-                        print('PASS\n')
                         continue
                     else:
                         if 'batch' in input_layer.name:
