@@ -77,8 +77,9 @@ def run_neuroTB(config_filepath):
 
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
-
+    
     evaluation.conversionPlot()
+    evaluation.evalMapping()
     # evaluation.parseCorrPlot()
     
     took = time.time() - start

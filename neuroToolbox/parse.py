@@ -359,7 +359,7 @@ class Parser:
         os.makedirs(input_model_activation_dir, exist_ok=True)
         
         for layer in input_model.layers:
-            if not isinstance(layer, (tf.keras.layers.Activation, tf.keras.layers.AveragePooling2D)) :
+            if not isinstance(layer, (tf.keras.layers.Dense, tf.keras.layers.AveragePooling2D, tf.keras.layers.Conv2D)) :
                 continue
             
             input_model_activation = tf.keras.models.Model(inputs=input_model.inputs, outputs=layer.output).predict(x_norm)
