@@ -392,8 +392,6 @@ class Parser:
                 input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
                 input_act = input_act_file['arr_0']
             for parsed_layer in parsed_model.layers:
-                print(f"Input layer name is {input_layer.name}")
-                print(f"Parsed layer name is {parsed_layer.name}")
                 if 'input' in parsed_layer.name:
                     continue
                 else:
