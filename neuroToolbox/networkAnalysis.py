@@ -55,6 +55,9 @@ class Analysis:
         input_idx = 0
         w_idx = 0
         for layer in model.layers:
+
+            print(f"Analysis for {layer.name} ...")
+            
             if 'input' == layer.name:
                 input_idx += 1
                 continue
@@ -72,23 +75,17 @@ class Analysis:
                         continue
                     else:
                         if 'batch' in layer.name:
-                            print(f"Current input model layer : {layer.name}")
-                            print(f"Current SNN layer : {neuron}")
                             neuron_name = model.layers[input_idx-2].name
                             loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{model.layers[input_idx-2].name}.npz"))
-                            print(f"Input layer for SNN : {neuron_name}")
                         else:
-                            print(f"Current input model layer : {layer.name}")
-                            print(f"Current SNN layer : {neuron}")
                             neuron_name = model.layers[input_idx-1].name
                             if 'flatten' in neuron_name:
                                 neuron_name = model.layers[input_idx-2].name
                                 loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{model.layers[input_idx-2].name}.npz"))
                             else:
                                 loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{model.layers[input_idx-1].name}.npz"))
-                            print(f"Input layer for SNN : {neuron_name}")
+
                         loaded_activation = loaded_activation_file['arr_0']
-                        print(loaded_activation.shape)
                         loaded_acts = []
                         if 'input' in neuron_name:
                             for ic in range(loaded_activation.shape[0]):
@@ -139,15 +136,13 @@ class Analysis:
                         if 'batch' in layer.name:
                             w_idx -= 1
                         else: pass
-                        print(f"Weight index ; {w_idx}")
                         for idx in range(len(loaded_acts)):
                             firing_rate = loaded_acts[idx].flatten()
-                            print(f"{firing_rate.shape} X {w_list[w_idx].shape}")
                             firing_rate = np.dot(firing_rate, w_list[w_idx])
                             neg_idx = np.where(firing_rate < 0)[0]
                             firing_rate[neg_idx] = 0
                             snn_fr = np.concatenate((snn_fr, firing_rate))
-                        print(len(acts), len(snn_fr))
+                        
                         plt.xlabel(f"Activations in {layer.name}", size=20)
                         plt.ylabel(f"Firing rate in {neuron}", size=20)
                         plt.xticks(size=15)
@@ -155,7 +150,6 @@ class Analysis:
                         plt.scatter(acts, snn_fr, color='b', marker='o', s=10)
                         plt.savefig(self.config['paths']['path_wd'] + '/plot2' + f"/{neuron}")
                         plt.show()
-                        print('')
                     w_idx += 1
             input_idx += 1
             
