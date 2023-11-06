@@ -23,7 +23,7 @@ class Analysis:
 
     def evalMapping(self, input_model_name, name='input'):
         filepath = os.path.join(self.config['paths']['converted_model'], self.config['paths']['filename_snn'])
-        os.makedirs(self.config['paths']['path_wd'] + '/plot2')
+        os.makedirs(self.config['paths']['path_wd'] + '/fr_corr')
         
         with open(filepath + '_Converted_neurons.pkl', 'rb') as f:
             neurons = pickle.load(f)
@@ -57,7 +57,7 @@ class Analysis:
         for layer in model.layers:
 
             print(f"Analysis for {layer.name} ...")
-            
+
             if 'input' == layer.name:
                 input_idx += 1
                 continue
@@ -103,7 +103,9 @@ class Analysis:
                             for ic in range(loaded_activation.shape[0]):
                                 temp = []
                                 for oc in range(loaded_activation.shape[-1]):
-                                    temp = np.concatenate((temp, loaded_activation[ic, :, :, oc].flatten()))
+                                    for i in range(loaded_activation.shape[1]):
+                                        for j in range(loaded_activation.shape[2]):
+                                            temp = np.concatenate((temp, loaded_activation[ic, i, j, oc].flatten()))
                                 loaded_acts.append(temp)
                         elif 'batch' in neuron_name:
                             for ic in range(loaded_activation.shape[0]):
@@ -125,7 +127,9 @@ class Analysis:
                         elif 'pooling' in neuron:
                             for ic in range(input_act.shape[0]):
                                 for oc in range(input_act.shape[-1]):
-                                    acts = np.concatenate((acts, input_act[ic, :, :, oc].flatten()))
+                                    for i in range(input_act.shape[1]):
+                                        for j in range(input_act.shape[2]):
+                                            acts = np.concatenate((acts, input_act[ic, i, j, oc].flatten()))
                         elif 'dense' in neuron:
                             for ic in range(input_act.shape[0]):
                                 for oc in range(input_act.shape[-1]):
@@ -143,13 +147,16 @@ class Analysis:
                             firing_rate[neg_idx] = 0
                             snn_fr = np.concatenate((snn_fr, firing_rate))
                         
-                        plt.xlabel(f"Activations in {layer.name}", size=20)
-                        plt.ylabel(f"Firing rate in {neuron}", size=20)
-                        plt.xticks(size=15)
-                        plt.yticks(size=15)
                         plt.scatter(acts, snn_fr, color='b', marker='o', s=10)
-                        plt.savefig(self.config['paths']['path_wd'] + '/plot2' + f"/{neuron}")
+                        plt.xlabel(f"Activations in {layer.name}", size=30)
+                        plt.ylabel(f"Firing rate in {neuron}", size=30)
+                        plt.xticks(fontsize=20)
+                        plt.yticks(fontsize=20)
+                        plt.title(f"Compile step Corr Plot")
+                        plt.grid(True)
+                        plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{neuron}")
                         plt.show()
                     w_idx += 1
             input_idx += 1
+            print('')
             
