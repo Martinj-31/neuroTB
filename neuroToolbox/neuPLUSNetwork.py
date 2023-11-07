@@ -159,32 +159,21 @@ class networkGen:
         weights = np.zeros(numCols*numRows*(height_kn*width_kn)*input_channels*output_channels)
 
         idx = 0
-        fin = 0
         target_cnt = 0
-        reset_cnt = 0
         for fout in range(output_channels):
             row_idx = 0
-            for i in range(numCols*numRows*input_channels):
-                if 0 == i%(numCols*numRows) and i != 0:
-                    if 'valid' == layer.padding:
-                        row_idx += 2*width_fm + width_kn - stride_x
-                    else:
-                        row_idx += 2*padding_y*width_fm + width_kn - stride_x
-                    fin += 1
-                    target_cnt = reset_cnt
-                    if fin == input_channels-1:    
-                        fin = 0
-                # When stride is more than 1,
-                elif 0 == i%numCols and i != 0:
+            for i in range(numCols*numRows):
+                if 0 == i%numCols and i != 0:
                     row_idx += width_fm*(stride_y-1) + width_kn - stride_x
-                for j in range(height_kn):
-                    source[idx:idx+width_kn] = FM[row_idx+i+(j*width_fm):row_idx+i+(j*width_fm)+width_kn]
-                    target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + target_cnt
-                    weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
-                    idx += width_kn
+                for fin in range(input_channels):
+                    for j in range(height_kn):
+                        source[idx:idx+width_kn] = FM[row_idx+fin*(height_fm*width_fm)+i+(j*width_fm):row_idx+fin*(height_fm*width_fm)+i+(j*width_fm)+width_kn]
+                        target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + target_cnt
+                        # weights[idx:idx+width_kn] = np.flip(w[(height_kn-1)-j, 0:width_kn, fin, fout])
+                        weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
+                        idx += width_kn
                 row_idx += (stride_x-1)
                 target_cnt += 1
-            reset_cnt = target_cnt
                 
         if 'same' == layer.padding:
             padding_idx = np.where(source == -1)[0]
