@@ -148,7 +148,7 @@ class Analysis:
                             self.syn_operation += np.sum(firing_rate)
                             snn_fr = np.concatenate((snn_fr, firing_rate))
                         
-                        plt.figure(figsize=(10, 10))
+                        plt.figure(figsize=(15, 15))
                         plt.scatter(acts, snn_fr, color='b', marker='o', s=10)
                         plt.xlabel(f"Activations in {layer.name}", size=30)
                         plt.ylabel(f"Firing rate in {neuron}", size=30)
