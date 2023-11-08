@@ -1,9 +1,3 @@
-"""
-Created on Wed Jul  7 16:06:21 2023
-
-@author: Min Kim
-"""
-#This file is running for Normalization
 import os
 import sys
 import tensorflow as tf

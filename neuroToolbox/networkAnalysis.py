@@ -156,8 +156,8 @@ class Analysis:
                         plt.yticks(fontsize=20)
                         plt.title(f"Compile step Corr Plot")
                         plt.grid(True)
-                        plt.show()
                         plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{neuron}")
+                        plt.show()
                     w_idx += 1
             input_idx += 1
             print('')
