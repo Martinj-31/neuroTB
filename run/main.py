@@ -10,9 +10,9 @@ import numpy as np
 import time
 sys.path.append(os.getcwd())
 
-import neuroToolbox.parse as parse
-import neuroToolbox.normalization as normalization
-import neuroToolbox.neuPLUSNetwork as net
+import neuroToolbox.modelParser as parse
+import neuroToolbox.weightConverter as convert
+import neuroToolbox.networkCompiler as net
 import neuroToolbox.networkAnalysis as networkAnalysis
 
 
@@ -45,8 +45,9 @@ def run_neuroTB(config_filepath):
     parsed_model = parser.parse()
     
     # For comparison
-    # parser.get_input_model_activation(input_model_name)
-    # parser.compare(input_model_name)
+    parser.get_models_activation(input_model_name, name='input')
+    parser.get_models_activation(input_model_name, name='parsed')
+    parser.compareAct(input_model_name)
 
     parsed_model.summary()
     
@@ -57,10 +58,9 @@ def run_neuroTB(config_filepath):
     print("parsed model Test accuracy : ", score2[1])
     
     # %% Normalization and convert
-    
-    normalizer = normalization.Normalize(parsed_model, config)
+    converter = convert.Normalize(parsed_model, config)
 
-    normalizer.normalize_parameter()
+    converter.normalize_parameter()
     
     # %% Generate neurons and synapse connections for SNN
     batch_size = config["initial"]["batch_size"]
@@ -68,16 +68,17 @@ def run_neuroTB(config_filepath):
     batch_shape[0] = batch_size
     
     spike_model = net.networkGen(parsed_model, config)
+
     spike_model.setup_layers(batch_shape)
-
     spike_model.build()
-
     spike_model.summarySNN()
 
+    # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
-
+    
     # evaluation.conversionPlot()
-    evaluation.parseCorrPlot()
+    evaluation.evalMapping(input_model_name, name='input')
+    # evaluation.parseCorrPlot()
     
     took = time.time() - start
     
