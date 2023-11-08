@@ -10,9 +10,9 @@ import numpy as np
 import time
 sys.path.append(os.getcwd())
 
-import neuroToolbox.parse as parse
-import neuroToolbox.normalization as normalization
-import neuroToolbox.neuPLUSNetwork as net
+import neuroToolbox.modelParser as parse
+import neuroToolbox.weightConverter as convert
+import neuroToolbox.networkCompiler as net
 import neuroToolbox.networkAnalysis as networkAnalysis
 
 
@@ -47,7 +47,7 @@ def run_neuroTB(config_filepath):
     # For comparison
     parser.get_models_activation(input_model_name, name='input')
     parser.get_models_activation(input_model_name, name='parsed')
-    # parser.compareAct(input_model_name)
+    parser.compareAct(input_model_name)
 
     parsed_model.summary()
     
@@ -58,9 +58,9 @@ def run_neuroTB(config_filepath):
     print("parsed model Test accuracy : ", score2[1])
     
     # %% Normalization and convert
-    # normalizer = normalization.Normalize(parsed_model, config)
+    converter = convert.Normalize(parsed_model, config)
 
-    # normalizer.normalize_parameter()
+    converter.normalize_parameter()
     
     # %% Generate neurons and synapse connections for SNN
     batch_size = config["initial"]["batch_size"]
