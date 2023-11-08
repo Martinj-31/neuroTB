@@ -145,8 +145,10 @@ class Analysis:
                             firing_rate = np.dot(firing_rate, w_list[w_idx])
                             neg_idx = np.where(firing_rate < 0)[0]
                             firing_rate[neg_idx] = 0
+                            self.syn_operation += np.sum(firing_rate)
                             snn_fr = np.concatenate((snn_fr, firing_rate))
                         
+                        plt.figure(figsize=(10, 10))
                         plt.scatter(acts, snn_fr, color='b', marker='o', s=10)
                         plt.xlabel(f"Activations in {layer.name}", size=30)
                         plt.ylabel(f"Firing rate in {neuron}", size=30)
@@ -154,9 +156,10 @@ class Analysis:
                         plt.yticks(fontsize=20)
                         plt.title(f"Compile step Corr Plot")
                         plt.grid(True)
-                        plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{neuron}")
                         plt.show()
+                        plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{neuron}")
                     w_idx += 1
             input_idx += 1
             print('')
+        print(f"Synapse operation : {self.syn_operation}")
             
