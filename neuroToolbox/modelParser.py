@@ -371,6 +371,9 @@ class Parser:
 
     
     def compareAct(self, input_model_name):
+
+        print(f"##### Comparing activations between input model and parsed model. #####")
+
         input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
         parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
         
@@ -384,6 +387,7 @@ class Parser:
         os.makedirs(corr_dir, exist_ok=True)
         input_idx = 0
         for input_layer in input_model.layers:
+            print(f"Comparing {input_layer.name} layer...")
             if 'input' in input_layer.name:
                 input_idx += 1
                 continue
@@ -403,7 +407,7 @@ class Parser:
                             loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
                         parsed_act = tf.keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
                         
-                        plt.figure(figsize=(10, 10))
+                        plt.figure(figsize=(15, 15))
                         plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
                         plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize =30)
                         plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize =30)
@@ -414,3 +418,4 @@ class Parser:
                         plt.show()
                         plt.savefig(self.config["paths"]["path_wd"] + '/acts_corr' + f"/{parsed_layer.name}")
             input_idx += 1
+            print('')
