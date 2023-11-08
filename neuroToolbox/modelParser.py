@@ -409,13 +409,13 @@ class Parser:
                         
                         plt.figure(figsize=(15, 15))
                         plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
-                        plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize =30)
-                        plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize =30)
+                        plt.title(f"DNN vs. SNN activation correlation", fontsize=30)
+                        plt.xlabel(f'input_model : "{input_layer.__class__.__name__}" Activation', fontsize=27)
+                        plt.ylabel(f'parsed_model : "{parsed_layer.__class__.__name__}" Activation', fontsize=27)
                         plt.xticks(fontsize=20)
                         plt.yticks(fontsize=20)
-                        plt.title('Parse step Corr Plot')
                         plt.grid(True)
+                        plt.savefig(corr_dir + f"/{parsed_layer.name}")
                         plt.show()
-                        plt.savefig(self.config["paths"]["path_wd"] + '/acts_corr' + f"/{parsed_layer.name}")
             input_idx += 1
             print('')
