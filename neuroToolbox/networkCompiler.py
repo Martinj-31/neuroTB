@@ -6,7 +6,9 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 from tensorflow import keras
+from tqdm import tqdm
 import numpy as np
+import time
 import math
 
 class networkGen:
@@ -277,3 +279,52 @@ class networkGen:
         print(f"Total neurons : {0}")
         print(f"Total {self.neuronCoreNum()} of neuron cores are needed.")
         print(f"_________________________________________________________________")
+
+
+    def run(self, x, y):
+        print(f"Preparing for running converted snn.")
+        x_test = x
+        y_test = y
+        syn_operation = 0
+        print(f"Input data length : {len(x_test)}")
+        print(f"...\n")
+
+        print(f"Loading synaptic weights ...\n")
+        synCnt = 0
+        w_list = []
+        for synapse in self.synapses.values():
+            src = np.array(synapse[0]) - synCnt
+            synCnt += 1024
+            tar = np.array(synapse[1]) - synCnt
+            w = np.array(synapse[2])
+            source = len(np.unique(src))
+            target = len(np.unique(tar))
+            weights = np.zeros(source * target).reshape(source, target)
+
+            for i in range(len(w)):
+                weights[src[i]][tar[i]] = w[i]
+            w_list.append(weights)
+
+        # Add tqdm
+        score = 0
+        threshold = 1
+        for idx in range(len(x_test)):
+            firing_rate = x_test[idx].flatten()
+            for weight in w_list:
+                # Calculate synaptic operation
+                for neu_idx in range(len(firing_rate)):
+                    fan_out = len(np.where(weight[neu_idx][:] > 0)[0])
+                    print(firing_rate[neu_idx], fan_out)
+                    syn_operation += firing_rate[neu_idx] * fan_out
+                # Neural operation
+                firing_rate = np.dot(firing_rate, weight)
+                firing_rate = firing_rate // threshold
+                neg_idx = np.where(firing_rate < 0)[0]
+                firing_rate[neg_idx] = 0
+            print(f"Firing rate from output layer for #{idx+1} input")
+            print(firing_rate)
+
+            if np.argmax(y_test[idx]) == np.argmax(firing_rate):
+                score += 1
+        print(f"Accuracy : {(score/len(x_test))*100} %")
+        print(f"Synaptic operation : {syn_operation}")
