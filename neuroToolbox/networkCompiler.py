@@ -314,7 +314,6 @@ class networkGen:
                 # Calculate synaptic operation
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weight[neu_idx][:] > 0)[0])
-                    print(firing_rate[neu_idx], fan_out)
                     syn_operation += firing_rate[neu_idx] * fan_out
                 # Neural operation
                 firing_rate = np.dot(firing_rate, weight)
