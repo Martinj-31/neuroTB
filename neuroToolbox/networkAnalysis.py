@@ -18,8 +18,6 @@ class Analysis:
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
 
-        self.syn_operation = 0
-
 
     def evalMapping(self, input_model_name, name='input'):
         filepath = os.path.join(self.config['paths']['converted_model'], self.config['paths']['filename_snn'])
@@ -146,7 +144,6 @@ class Analysis:
                             firing_rate = np.dot(firing_rate, w_list[w_idx])
                             neg_idx = np.where(firing_rate < 0)[0]
                             firing_rate[neg_idx] = 0
-                            self.syn_operation += np.sum(firing_rate)
                             snn_fr = np.concatenate((snn_fr, firing_rate))
                         
                         plt.figure(figsize=(15, 15))
@@ -162,5 +159,4 @@ class Analysis:
                     w_idx += 1
             input_idx += 1
             print('')
-        print(f"Synapse operation : {self.syn_operation}")
             
