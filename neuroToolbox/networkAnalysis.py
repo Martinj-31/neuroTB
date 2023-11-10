@@ -58,7 +58,7 @@ class Analysis:
 
             print(f"Analysis for {layer.name} ...")
 
-            if 'input' == layer.name:
+            if 'input' in layer.name:
                 input_idx += 1
                 continue
             elif 'flatten' in layer.name:
@@ -76,21 +76,16 @@ class Analysis:
                     else:
                         if 'batch' in layer.name:
                             if neuron == model.layers[input_idx-1].name:
-                                print(f"Current SNN layer name : {neuron}")
                                 neuron_name = model.layers[input_idx-2].name
-                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
                             else: continue
                         else:
                             if layer.name == neuron:
                                 neuron_name = model.layers[input_idx-1].name
-                                print(f"Current SNN layer name : {neuron}")
-                            elif 'flatten' in neuron_name:
-                                neuron_name = model.layers[input_idx-2].name
-                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
-                            else:
-                                neuron_name = model.layers[input_idx-1].name
-                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
-
+                                if 'flatten' in neuron_name:
+                                    neuron_name = model.layers[input_idx-2].name
+                                else: pass
+                            else: continue
+                        loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
                         loaded_activation = loaded_activation_file['arr_0']
                         loaded_acts = []
                         if 'input' in neuron_name:
@@ -140,7 +135,8 @@ class Analysis:
                             for ic in range(input_act.shape[0]):
                                 for oc in range(input_act.shape[-1]):
                                     acts = np.concatenate((acts, input_act[ic, oc].flatten()))
-
+                        print(f"Input activation : {neuron_name}")
+                        print(f"Current SNN layer name : {neuron}")
                         idx = 0
                         snn_fr = []
                         if 'batch' in layer.name:
