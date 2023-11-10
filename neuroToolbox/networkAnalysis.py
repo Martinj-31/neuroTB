@@ -40,17 +40,17 @@ class Analysis:
         synCnt = 0
         w_list = []
         for synapse in synapses.values():
-            source = np.array(synapse[0]) - synCnt
+            src = np.array(synapse[0]) - synCnt
             synCnt += 1024
-            target = np.array(synapse[1]) - synCnt
-            weights = np.array(synapse[2])
-            src = len(np.unique(source))
-            tar = len(np.unique(target))
-            w = np.zeros(src * tar).reshape(src, tar)
+            tar = np.array(synapse[1]) - synCnt
+            w = np.array(synapse[2])
+            source = len(np.unique(src))
+            target = len(np.unique(tar))
+            weights = np.zeros(source * target).reshape(source, target)
             
-            for j in range(len(weights)):
-                w[source[j]][target[j]] = weights[j]
-            w_list.append(w)
+            for i in range(len(w)):
+                weights[src[i]][tar[i]] = w[i]
+            w_list.append(weights)
         
         input_idx = 0
         w_idx = 0
@@ -150,14 +150,14 @@ class Analysis:
                         
                         plt.figure(figsize=(15, 15))
                         plt.scatter(acts, snn_fr, color='b', marker='o', s=10)
-                        plt.xlabel(f"Activations in {layer.name}", size=30)
-                        plt.ylabel(f"Firing rate in {neuron}", size=30)
+                        plt.title(f"DNN vs. SNN activation correlation", fontsize=30)
+                        plt.xlabel(f"Activations in {layer.name}", fontsize=27)
+                        plt.ylabel(f"Firing rate in {neuron}", fontsize=27)
                         plt.xticks(fontsize=20)
                         plt.yticks(fontsize=20)
-                        plt.title(f"Compile step Corr Plot")
                         plt.grid(True)
-                        plt.show()
                         plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{neuron}")
+                        plt.show()
                     w_idx += 1
             input_idx += 1
             print('')

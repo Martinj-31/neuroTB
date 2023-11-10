@@ -10,6 +10,7 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import matplotlib.pyplot as plt
+import re
 
 class Parser:
     """
@@ -81,7 +82,7 @@ class Parser:
                 BN_parameters = list(self._get_BN_parameters(layer))
                 
                 # print("This is BN params : ", BN_parameters)
-                gamma, mean, var_eps_sqrt_inv, axis = BN_parameters
+                gamma, mean, var_eps_sqrt_inv, beta, axis = BN_parameters
 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
@@ -216,7 +217,9 @@ class Parser:
         var = keras.backend.get_value(layer.moving_variance)
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
     
-        return  gamma, mean, var_eps_sqrt_inv, axis
+        beta = keras.backend.get_value(layer.beta)
+            
+        return  gamma, mean, var_eps_sqrt_inv, beta, axis
 
     def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
         """
@@ -370,6 +373,57 @@ class Parser:
             np.savez_compressed(os.path.join(model_activation_dir, f"{name}_model_activation_{layer.name}.npz"), model_activation)
 
     
+    # def compareAct(self, input_model_name):
+
+    #     print(f"##### Comparing activations between input model and parsed model. #####")
+
+    #     input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
+    #     parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
+        
+    #     x_norm = None
+    #     x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
+    #     x_norm = x_norm_file['arr_0']
+        
+    #     input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
+    #     corr_dir = os.path.join(self.config['paths']['path_wd'], 'acts_corr')
+        
+    #     os.makedirs(corr_dir, exist_ok=True)
+    #     input_idx = 0
+    #     for input_layer in input_model.layers:
+    #         print(f"Comparing {input_layer.name} layer...")
+    #         if 'input' in input_layer.name:
+    #             input_idx += 1
+    #             continue
+    #         else:
+    #             input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
+    #             input_act = input_act_file['arr_0']
+    #         for parsed_layer in parsed_model.layers:
+    #             if 'input' in parsed_layer.name:
+    #                 continue
+    #             else:
+    #                 if input_layer.output_shape != parsed_layer.output_shape:
+    #                     continue
+    #                 else:
+    #                     if 'batch' in input_layer.name:
+    #                         loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+    #                     else:
+    #                         loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+    #                     parsed_act = tf.keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
+                        
+    #                     plt.figure(figsize=(15, 15))
+    #                     plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
+    #                     plt.title(f"DNN vs. SNN activation correlation", fontsize=30)
+    #                     plt.xlabel(f'input_model : "{input_layer.__class__.__name__}" Activation', fontsize=27)
+    #                     plt.ylabel(f'parsed_model : "{parsed_layer.__class__.__name__}" Activation', fontsize=27)
+    #                     plt.xticks(fontsize=20)
+    #                     plt.yticks(fontsize=20)
+    #                     plt.grid(True)
+    #                     plt.savefig(corr_dir + f"/{parsed_layer.name}")
+    #                     plt.show()
+    #         input_idx += 1
+    #         print('')
+
+
     def compareAct(self, input_model_name):
 
         print(f"##### Comparing activations between input model and parsed model. #####")
@@ -395,6 +449,7 @@ class Parser:
                 input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
                 input_act = input_act_file['arr_0']
             for parsed_layer in parsed_model.layers:
+                
                 if 'input' in parsed_layer.name:
                     continue
                 else:
@@ -402,20 +457,28 @@ class Parser:
                         continue
                     else:
                         if 'batch' in input_layer.name:
-                            loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                            if (parsed_layer.name == input_model.layers[input_idx-1].name):
+                                print(f'Current parsed layer name : {parsed_layer.name}')
+                                loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                            else : continue
+                        
                         else:
-                            loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                            if input_layer.name == parsed_layer.name :
+                                print(f'Current parsed layer name : {parsed_layer.name}')
+                                loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                            else : continue
+
                         parsed_act = tf.keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
                         
                         plt.figure(figsize=(15, 15))
                         plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
-                        plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize =30)
-                        plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize =30)
+                        plt.title(f"DNN vs. SNN activation correlation", fontsize=30)
+                        plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize=27)
+                        plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize=27)
                         plt.xticks(fontsize=20)
                         plt.yticks(fontsize=20)
-                        plt.title('Parse step Corr Plot')
                         plt.grid(True)
+                        plt.savefig(corr_dir + f"/{input_layer.name}")
                         plt.show()
-                        plt.savefig(self.config["paths"]["path_wd"] + '/acts_corr' + f"/{parsed_layer.name}")
             input_idx += 1
             print('')

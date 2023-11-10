@@ -73,6 +73,8 @@ def run_neuroTB(config_filepath):
     spike_model.build()
     spike_model.summarySNN()
 
+    spike_model.run(x_test[::600], y_test[::600])
+
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
     
