@@ -32,8 +32,8 @@ print("path wd: ", path_wd)
 axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 
 # Data preprocessing and normalization
-x_train = x_train.reshape(x_train.shape[0], 28, 28, axis).astype('float32') / 255
-x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32') / 255
+x_train = x_train.reshape(x_train.shape[0], 28, 28, axis).astype('float32')
+x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32')
 
 # One-hot encode target vectors.
 y_train = keras.utils.to_categorical(y_train, 10)
@@ -54,11 +54,11 @@ input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(2, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(inputs)
+x = keras.layers.Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(inputs)
 x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x) 
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
-x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(x)
+x = keras.layers.Conv2D(32, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(x)
 x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
