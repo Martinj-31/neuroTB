@@ -75,15 +75,21 @@ class Analysis:
                         continue
                     else:
                         if 'batch' in layer.name:
-                            neuron_name = model.layers[input_idx-2].name
-                            loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{model.layers[input_idx-2].name}.npz"))
-                        else:
-                            neuron_name = model.layers[input_idx-1].name
-                            if 'flatten' in neuron_name:
+                            if neuron == model.layers[input_idx-1].name:
+                                print(f"Current SNN layer name : {neuron}")
                                 neuron_name = model.layers[input_idx-2].name
-                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{model.layers[input_idx-2].name}.npz"))
+                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
+                            else: continue
+                        else:
+                            if layer.name == neuron:
+                                neuron_name = model.layers[input_idx-1].name
+                                print(f"Current SNN layer name : {neuron}")
+                            elif 'flatten' in neuron_name:
+                                neuron_name = model.layers[input_idx-2].name
+                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
                             else:
-                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{model.layers[input_idx-1].name}.npz"))
+                                neuron_name = model.layers[input_idx-1].name
+                                loaded_activation_file = np.load(os.path.join(activation_dir, f"input_model_activation_{neuron_name}.npz"))
 
                         loaded_activation = loaded_activation_file['arr_0']
                         loaded_acts = []
