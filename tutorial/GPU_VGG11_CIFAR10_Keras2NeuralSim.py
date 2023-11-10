@@ -85,7 +85,14 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
+# Data preprocessing and normalization
+x_train = x_train.astype('float32') 
+x_test = x_test.astype('float32') 
+
+# Convert labels to one-hot encoding
 num_classes = 10
+y_train = keras.utils.to_categorical(y_train, num_classes)
+y_test = keras.utils.to_categorical(y_test, num_classes)
 
 # Save the preprocessed dataset for later use
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
