@@ -27,6 +27,8 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
+# Add a channel dimension.
+axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
@@ -41,25 +43,33 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
     
     # Block 1
     x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same', use_bias=False)(inputs)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 2
     x = keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 3
     x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 4
     x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 5
     x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Fully connected layers
@@ -75,14 +85,7 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
-# Data preprocessing and normalization
-x_train = x_train.astype('float32') / 255
-x_test = x_test.astype('float32') / 255
-
-# Convert labels to one-hot encoding
 num_classes = 10
-y_train = keras.utils.to_categorical(y_train, num_classes)
-y_test = keras.utils.to_categorical(y_test, num_classes)
 
 # Save the preprocessed dataset for later use
 np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
@@ -98,6 +101,7 @@ model = build_model_structure()
 
 # Compile the model
 model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(learning_rate=0.001), metrics=['accuracy'])
+model.summary()
 
 # Train the model
 batch_size = 4096
