@@ -421,7 +421,7 @@ class Parser:
                         
                         plt.figure(figsize=(15, 15))
                         plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
-                        plt.title(f"DNN vs. SNN activation correlation", fontsize=30)
+                        plt.title(f"Input vs. Parsed activation correlation", fontsize=30)
                         plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize=27)
                         plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize=27)
                         plt.xticks(fontsize=20)
