@@ -390,7 +390,9 @@ class Parser:
         os.makedirs(corr_dir, exist_ok=True)
         input_idx = 0
         for input_layer in input_model.layers:
+
             print(f"Comparing {input_layer.name} layer...")
+
             if 'input' in input_layer.name:
                 input_idx += 1
                 continue
@@ -398,7 +400,6 @@ class Parser:
                 input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
                 input_act = input_act_file['arr_0']
             for parsed_layer in parsed_model.layers:
-                
                 if 'input' in parsed_layer.name:
                     continue
                 else:
@@ -410,7 +411,6 @@ class Parser:
                                 print(f'Current parsed layer name : {parsed_layer.name}')
                                 loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
                             else : continue
-                        
                         else:
                             if input_layer.name == parsed_layer.name :
                                 print(f'Current parsed layer name : {parsed_layer.name}')

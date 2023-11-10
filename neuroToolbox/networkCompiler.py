@@ -322,8 +322,10 @@ class networkGen:
                 firing_rate[neg_idx] = 0
             print(f"Firing rate from output layer for #{idx+1} input")
             print(firing_rate)
+            print('')
 
             if np.argmax(y_test[idx]) == np.argmax(firing_rate):
                 score += 1
+            else: pass
         print(f"Accuracy : {(score/len(x_test))*100} %")
         print(f"Synaptic operation : {syn_operation}")

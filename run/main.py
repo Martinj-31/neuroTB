@@ -66,6 +66,7 @@ def run_neuroTB(config_filepath):
     batch_size = config["initial"]["batch_size"]
     batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
+    data_size = 1000
     
     spike_model = net.networkGen(parsed_model, config)
 
@@ -73,7 +74,7 @@ def run_neuroTB(config_filepath):
     spike_model.build()
     spike_model.summarySNN()
 
-    spike_model.run(x_test[::600], y_test[::600])
+    spike_model.run(x_test[::data_size], y_test[::data_size])
 
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)

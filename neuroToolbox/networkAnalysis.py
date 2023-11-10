@@ -135,8 +135,7 @@ class Analysis:
                             for ic in range(input_act.shape[0]):
                                 for oc in range(input_act.shape[-1]):
                                     acts = np.concatenate((acts, input_act[ic, oc].flatten()))
-                        print(f"Input activation : {neuron_name}")
-                        print(f"Current SNN layer name : {neuron}")
+
                         idx = 0
                         snn_fr = []
                         if 'batch' in layer.name:
