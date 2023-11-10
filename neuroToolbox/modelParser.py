@@ -82,7 +82,7 @@ class Parser:
                 BN_parameters = list(self._get_BN_parameters(layer))
                 
                 # print("This is BN params : ", BN_parameters)
-                gamma, mean, var_eps_sqrt_inv, axis = BN_parameters
+                gamma, mean, var_eps_sqrt_inv, beta, axis = BN_parameters
 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
@@ -217,7 +217,9 @@ class Parser:
         var = keras.backend.get_value(layer.moving_variance)
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
     
-        return  gamma, mean, var_eps_sqrt_inv, axis
+        beta = keras.backend.get_value(layer.beta)
+            
+        return  gamma, mean, var_eps_sqrt_inv, beta, axis
 
     def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
         """
