@@ -15,12 +15,12 @@ class Analysis:
         self.config = config
 
         self.x_norm = x_norm
-        self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
-        self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
+        self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
+        self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
 
 
     def evalMapping(self, input_model_name, name='input'):
-        filepath = os.path.join(self.config['paths']['converted_model'], self.config['paths']['filename_snn'])
+        filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/fr_corr')
         
         with open(filepath + '_Converted_neurons.pkl', 'rb') as f:
@@ -30,10 +30,10 @@ class Analysis:
             
         if 'input' == name:
             activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
-            model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
+            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
         elif 'parsed' == name:
             activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
-            model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5")) 
+            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5")) 
         
         synCnt = 0
         w_list = []
@@ -146,7 +146,7 @@ class Analysis:
                             firing_rate[neg_idx] = 0
                             snn_fr = np.concatenate((snn_fr, firing_rate))
                         
-                        plt.figure(figsize=(15, 15))
+                        plt.figure(figsize=(10, 10))
                         plt.scatter(acts, snn_fr, color='b', marker='o', s=10)
                         plt.title(f"DNN vs. SNN activation correlation", fontsize=30)
                         plt.xlabel(f"Activations in {layer.name}", fontsize=27)

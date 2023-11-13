@@ -1,15 +1,15 @@
-import sys, os, warnings, pickle
+import sys, os, warnings, pickle, math, time
+import numpy as np
+
+from tensorflow import keras
+from tqdm import tqdm
+
 sys.path.append(os.getcwd())
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-from tensorflow import keras
-from tqdm import tqdm
-import numpy as np
-import time
-import math
 
 class networkGen:
 
@@ -244,9 +244,8 @@ class networkGen:
         self.synapses[layer.name] = [source, target, weights]
 
     def build(self):
-        filepath = self.config.get('paths', 'converted_model')
-        filename = self.config.get('paths', 'filename_snn')
-        os.makedirs(filepath)
+        filepath = self.config['paths']['models']
+        filename = self.config['names']['snn_model']
         with open(filepath + filename + '_Converted_neurons.pkl', 'wb') as f:
             pickle.dump(self.neurons, f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
@@ -267,7 +266,7 @@ class networkGen:
 
     def summarySNN(self):
         print(f"_________________________________________________________________")
-        print(f"{'Model: '}{self.config.get('paths', 'filename_snn')}")
+        print(f"{'Model: '}{self.config['names']['snn_model']}")
         print(f"=================================================================")
         print(f"{'Network':<40}{'Parameters #':<40}")
         print(f"=================================================================")
@@ -277,7 +276,7 @@ class networkGen:
             print(f"_________________________________________________________________")
         print(f"=================================================================")
         print(f"Total neurons : {0}")
-        print(f"Total {self.neuronCoreNum()} of neuron cores are needed.")
+        print(f"Total {self.neuronCoreNum()} cores of neuron are needed.")
         print(f"_________________________________________________________________")
 
 

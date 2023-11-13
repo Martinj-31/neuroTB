@@ -1,14 +1,15 @@
 [paths]
 path_wd = 
 dataset_path = 
-converted_model = 
-evaluation_layers =
-filename_ann = 
-filename_snn =
-x_train =
-x_test =
-y_train =
-y_test =
+models = 
+evaluation_layers = 
+filepath_ann = 
+filepath_snn = 
+
+[names]
+input_model = 
+parsed_model = 
+snn_model = 
 
 [train settings]
 loss = sparse_categorical_crossentropy

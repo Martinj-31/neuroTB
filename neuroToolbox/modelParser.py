@@ -1,16 +1,15 @@
-import os
-import sys
+import os, sys
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+from tensorflow import keras
 
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-import tensorflow as tf
-from tensorflow import keras
-import numpy as np
-import matplotlib.pyplot as plt
-import re
 
 class Parser:
     """
@@ -20,7 +19,7 @@ class Parser:
     def __init__(self, input_model, config):
         """
         Initialize the Parser instance.
-        
+
         Parameters:
         - input_model (tf.keras.Model): The input model to be parsed.
         - config (configparser.ConfigParser): Configuration settings for parsing.
@@ -30,18 +29,18 @@ class Parser:
         self.input_model = input_model
         self.config = config
         self._parsed_layer_list = []
-        
+
         self.add_layer_mapping = {}
 
     def parse(self):
         """
         Parse the input model according to the specified rules for ANN to SNN conversion.
-    
+
         Returns:
         - tf.keras.Model: The parsed model with modified layers.
-    
+
         This method parses the input model by applying specific rules for ANN to SNN conversion. The rules include:
-    
+
         1. Absorbing BatchNormalization layers: BatchNormalization layer parameters are absorbed into the previous layer's weights.
         2. Handling MaxPooling2D layers: If MaxPooling2D layers are present, it raises a ValueError since SNNs typically use AveragePooling2D.
         3. Transforming Add layers: Add layers are replaced with a Concatenate layer followed by a Conv2D layer (Note: This transformation is incomplete).
@@ -51,15 +50,15 @@ class Parser:
     
         The method returns the parsed model with the specified modifications.
         """
-        
+
         layers = self.input_model.layers
         convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
         flatten_added = False
         afterParse_layer_list = []
         layer_id_map = {}
 
-        
-        print("\n\n####### parsing input model #######\n\n")
+
+        print("\n\n####### parsing input model #######\n")
         
         for i, layer in enumerate(layers):
             
@@ -70,7 +69,6 @@ class Parser:
             if hasattr(layer, 'use_bias') and layer.use_bias:
                 raise ValueError("Layer {} has bias enabled. Please set use_bias=False for all layers.".format(layer_type))
 
-
             if  layer_type == 'BatchNormalization': 
                 
                 # Find the previous layer
@@ -79,10 +77,7 @@ class Parser:
                 print("prev_layer type : ", prev_layer.__class__.__name__)                
 
                 # Get BN parameter
-                BN_parameters = list(self._get_BN_parameters(layer))
-                
-                # print("This is BN params : ", BN_parameters)
-                gamma, mean, var_eps_sqrt_inv, beta, axis = BN_parameters
+                gamma, mean, var_eps_sqrt_inv, beta, axis = list(self._get_BN_parameters(layer))
 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
@@ -102,7 +97,6 @@ class Parser:
             elif layer_type == 'MaxPooling2D':
                 raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
                   
-            
             elif layer_type == 'Add':
                 print("Replace Add layer to concatenate + Conv2D layer")
                 # Retrieve the input tensors for the Add layer
@@ -137,21 +131,19 @@ class Parser:
             # elif flatten_added == False:
             #     raise ValueError("input model doesn't have flatten layer. please check again")
 
-               
             elif layer_type not in convertible_layers:
                 print("Skipping layer {}.".format(layer_type))
                 
                 continue
 
-           
             afterParse_layer_list.append(layer)
         
-
         parsed_model = self.build_parsed_model(afterParse_layer_list)
-        keras.models.save_model(parsed_model, os.path.join(self.config["paths"]["path_wd"], "parsed_" + self.config["paths"]["filename_ann"] + '.h5'))
+        keras.models.save_model(parsed_model, os.path.join(self.config["paths"]["models"], self.config['names']['parsed_model'] + '.h5'))
 
         return parsed_model
     
+
     def build_parsed_model(self, layer_list):
         """
         Build and compile the parsed model.
@@ -211,15 +203,13 @@ class Parser:
             axis = axis[0]
 
         gamma = keras.backend.get_value(layer.gamma)
-
         mean = keras.backend.get_value(layer.moving_mean)
-
         var = keras.backend.get_value(layer.moving_variance)
         var_eps_sqrt_inv = 1 / np.sqrt(var + layer.epsilon)
-    
         beta = keras.backend.get_value(layer.beta)
             
         return  gamma, mean, var_eps_sqrt_inv, beta, axis
+
 
     def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
         """
@@ -253,12 +243,13 @@ class Parser:
 
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         gamma = np.reshape(gamma, broadcast_shape)
-        # beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
         mean = np.reshape(mean, broadcast_shape)
+        # beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
         # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv) # we don't use bias
         new_weight = weight * gamma * var_eps_sqrt_inv
         
         return new_weight
+    
     
     def get_inbound_layers_parameters(self, layer):
         """
@@ -288,7 +279,8 @@ class Parser:
                     else:
                         result += self.get_inbound_layers_parameters(inb)
         return result
-    
+
+
     def get_inbound_layers(self, layer):
         """
         Get inbound layers of a given layer.
@@ -354,15 +346,15 @@ class Parser:
  
     def get_models_activation(self, input_model_name, name='input'):
         x_norm = None
-        x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
+        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
         
         if 'input' == name:
-            model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
+            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
             model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
             os.makedirs(model_activation_dir, exist_ok=True)
         elif 'parsed' == name:
-            model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
+            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
             model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
             os.makedirs(model_activation_dir, exist_ok=True)
         else: pass # Error code
@@ -377,11 +369,11 @@ class Parser:
 
         print(f"##### Comparing activations between input model and parsed model. #####")
 
-        input_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"{input_model_name}.h5"))
-        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["path_wd"], f"parsed_{input_model_name}.h5"))
+        input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
+        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
         
         x_norm = None
-        x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
+        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
         
         input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
@@ -419,7 +411,7 @@ class Parser:
 
                         parsed_act = tf.keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
                         
-                        plt.figure(figsize=(15, 15))
+                        plt.figure(figsize=(10, 10))
                         plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
                         plt.title(f"Input vs. Parsed activation correlation", fontsize=30)
                         plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize=27)

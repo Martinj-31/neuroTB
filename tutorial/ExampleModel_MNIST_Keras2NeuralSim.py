@@ -1,35 +1,35 @@
-import os
-import sys
+import os, sys, configparser, ssl
+import numpy as np
+import matplotlib.pyplot as plt
 
+from datetime import datetime
+from tensorflow import keras
+
+
+# %% Setup environment.
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-import numpy as np
-import configparser
-from datetime import datetime
-from tensorflow import keras
-from run import main
-import matplotlib.pyplot as plt
-
-import ssl
-
-# SSL 인증 비활성화
+# Disable SSL authentication.
 ssl._create_default_https_context = ssl._create_unverified_context
 
+# Make directory for Simulation.
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
-
+os.makedirs(path_wd + '/dataset/')
 print("path wd: ", path_wd)
+from run import main
+
+
+# %% Load MNIST dataset and preprocess
+# Add a channel dimension.
+axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-
-
-# Add a channel dimension.
-axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 
 # Data preprocessing and normalization
 x_train = x_train.reshape(x_train.shape[0], 28, 28, axis).astype('float32')
@@ -39,17 +39,9 @@ x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32')
 y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
 
-# Save the dataset
-np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
-np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
-np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
-# Extracting datasets for Normalization
-x_norm = x_train[::6000]
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
+# %% Define DNN model.
 # Define the input layer
-
 input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
@@ -79,21 +71,29 @@ batch_size = 64
 epochs = 5
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
+
+# %% Save model and parameters.
 # Save the model
 model_name = 'MNIST_CNN'
-keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+model.summary()
+keras.models.save_model(model, os.path.join(path_wd + '/models/', model_name + '.h5'))
+
+# Save the dataset
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_train'), x_train)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'y_test'), y_test)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'y_train'), y_train)
+# Extracting datasets for Normalization
+x_norm = x_train[::6000]
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_norm'), x_norm)
 
 # Evaluate the model
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
-print("Summary of", model_name) # Print the summary of the loaded model
-model.summary()
 
-result_1 = keras.Model(inputs = model.input, outputs = model.layers[1].output).predict(x_test)
-#print("This is OG model's BN output : \n", result_1)
-
+# %% Setup configuration file.
 # Save the config file
 default_config_path = os.path.abspath(os.path.join(current_dir, "..", "default_config"))
 
@@ -103,15 +103,12 @@ default_config.read(default_config_path)
 
 # Update the config values with new values
 default_config['paths']['path_wd'] = path_wd
-default_config['paths']['dataset_path'] = path_wd
-default_config['paths']['filename_ann'] = model_name
-default_config['paths']['filename_snn'] = model_name + '_for_SNN'
-default_config['paths']['converted_model'] = path_wd + '/converted_model/'
+default_config['paths']['dataset_path'] = path_wd + '/dataset/'
+default_config['paths']['models'] = path_wd + '/models/'
 
-# SNN configuration
-default_config['initial']['w_mag'] = '64.0'
-default_config['initial']['th_rate'] = '0.8'
-
+default_config['names']['input_model'] = model_name
+default_config['names']['parsed_model'] = 'parsed_' + model_name
+default_config['names']['snn_model'] = 'SNN_' + model_name
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')

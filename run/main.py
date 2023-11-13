@@ -1,19 +1,20 @@
 import os, sys, configparser
+import numpy as np
+import time
+
+from tensorflow import keras
+
+import neuroToolbox.modelParser as parse
+import neuroToolbox.weightConverter as convert
+import neuroToolbox.networkCompiler as net
+import neuroToolbox.networkAnalysis as networkAnalysis
 
 # Define the path of the working directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-from tensorflow import keras
-import numpy as np
-import time
 sys.path.append(os.getcwd())
-
-import neuroToolbox.modelParser as parse
-import neuroToolbox.weightConverter as convert
-import neuroToolbox.networkCompiler as net
-import neuroToolbox.networkAnalysis as networkAnalysis
 
 
 def run_neuroTB(config_filepath):
@@ -22,21 +23,21 @@ def run_neuroTB(config_filepath):
     config.read(config_filepath)
     
     # Load test dataset (for evaluation)
-    x_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'x_test.npz'))
+    x_test_file = np.load(os.path.join(config["paths"]["dataset_path"], 'x_test.npz'))
     x_test = x_test_file['arr_0']
 
     print("x_test.shape : ", x_test.shape)
-    y_test_file = np.load(os.path.join(config["paths"]["path_wd"], 'y_test.npz'))
+    y_test_file = np.load(os.path.join(config["paths"]["dataset_path"], 'y_test.npz'))
     y_test = y_test_file['arr_0']
 
     x_norm = None
-    x_norm_file = np.load(os.path.join(config['paths']['path_wd'], 'x_norm.npz'))
+    x_norm_file = np.load(os.path.join(config['paths']['dataset_path'], 'x_norm.npz'))
     x_norm = x_norm_file['arr_0']
 
     # Read 'input_model' value from config.ini
-    input_model_name = config["paths"]["filename_ann"]
+    input_model_name = config["names"]["input_model"]
     # Load the model using the input_model_name
-    input_model = keras.models.load_model(os.path.join(config["paths"]["path_wd"], f"{input_model_name}.h5")) 
+    input_model = keras.models.load_model(os.path.join(config["paths"]["models"], f"{input_model_name}.h5")) 
 
     start = time.time()
     # %% Parse model
@@ -58,9 +59,9 @@ def run_neuroTB(config_filepath):
     print("parsed model Test accuracy : ", score2[1])
     
     # %% Normalization and convert
-    converter = convert.Normalize(parsed_model, config)
+    # converter = convert.Normalize(parsed_model, config)
 
-    converter.normalize_parameter()
+    # converter.normalize_parameter()
     
     # %% Generate neurons and synapse connections for SNN
     batch_size = config["initial"]["batch_size"]
@@ -79,9 +80,7 @@ def run_neuroTB(config_filepath):
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
     
-    # evaluation.conversionPlot()
     evaluation.evalMapping(input_model_name, name='input')
-    # evaluation.parseCorrPlot()
     
     took = time.time() - start
     

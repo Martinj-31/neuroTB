@@ -1,17 +1,13 @@
-import os
-import sys
+import os, sys
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
-#from tensorflow import keras
-#from collections import OrderedDict
-#from tensorflow.keras.models import Model
 
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
+
 
 class Normalize:
     
@@ -19,25 +15,23 @@ class Normalize:
         self.model = model
         self.config = config
         
+        
     def normalize_parameter(self):
         
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
         os.makedirs(activation_dir, exist_ok=True)
         
         x_norm = None
-        x_norm_file = np.load(os.path.join(self.config['paths']['path_wd'], 'x_norm.npz'))
+        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']  # Access the data stored in the .npz file
         
-        print("\n\n######## Normalization ########\n\n")
+        print("\n\n######## Weight conversion ########\n\n")
         
         # Declare and initialize variables
         batch_size = self.config.getint('initial', 'batch_size')
-        # thr = self.config.getfloat('initial', 'threshold')
-        # tau = self.config.getfloat('initial', 'tau')
 
         # Norm factors initialization
         norm_facs = {self.model.layers[0].name: 1.0}
-        max_weight_values = {}
 
         i = 0          
         # Layer rotation of the parsed_model
@@ -129,6 +123,7 @@ class Normalize:
         
         return np.array(activations)    
     
+
     # Activation return corresponding to n-th percentile
     def get_percentile_activation(self, activations, percentile):
 
