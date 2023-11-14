@@ -118,13 +118,13 @@ model.summary()
 keras.models.save_model(model, os.path.join(path_wd + '/models/', model_name + '.h5'))
 
 # Save the preprocessed dataset for later use
-np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
-np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
-np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
+np.savez_compressed(os.path.join(path_wd + '/dataset/' , 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd + '/dataset/' , 'x_train'), x_train)
+np.savez_compressed(os.path.join(path_wd + '/dataset/' , 'y_test'), y_test)
+np.savez_compressed(os.path.join(path_wd + '/dataset/' , 'y_train'), y_train)
 # Extracting datasets for Normalization
 x_norm = x_train[::6000]
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
+np.savez_compressed(os.path.join(path_wd + '/dataset/' , 'x_norm'), x_norm)
 
 # Save the config file
 default_config_path = os.path.abspath(os.path.join(current_dir, "..", "default_config"))
