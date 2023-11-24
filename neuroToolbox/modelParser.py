@@ -28,6 +28,7 @@ class Parser:
         """
         self.input_model = input_model
         self.config = config
+        self.shift_params = []
         self._parsed_layer_list = []
 
         self.add_layer_mapping = {}
@@ -83,7 +84,9 @@ class Parser:
                 weight = prev_layer.get_weights()[0] # Only Weight, No bias
                 print("get weight...")
 
-                new_weight = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, axis)
+                new_weight, shift = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, beta, axis)
+
+                self.shift_params.append(shift)
 
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
@@ -211,7 +214,7 @@ class Parser:
         return  gamma, mean, var_eps_sqrt_inv, beta, axis
 
 
-    def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, axis):
+    def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, beta, axis):
         """
         Absorb BatchNormalization parameters into previous layer's weights.
         
@@ -244,11 +247,11 @@ class Parser:
         var_eps_sqrt_inv = np.reshape(var_eps_sqrt_inv, broadcast_shape)
         gamma = np.reshape(gamma, broadcast_shape)
         mean = np.reshape(mean, broadcast_shape)
-        # beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
-        # new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv) # we don't use bias
+        beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
+        shift = np.ravel(beta - mean * gamma * var_eps_sqrt_inv) # we don't use bias
         new_weight = weight * gamma * var_eps_sqrt_inv
         
-        return new_weight
+        return new_weight, shift
     
     
     def get_inbound_layers_parameters(self, layer):
@@ -320,6 +323,10 @@ class Parser:
         
         else:    
             return len(layer.weights)
+        
+    
+    def get_shift_params(self):
+        return self.shift_params
 
 
     def parseAnalysis(self, model_1, model_2, x_test, y_test):
