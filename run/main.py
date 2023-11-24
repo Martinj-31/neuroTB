@@ -44,6 +44,7 @@ def run_neuroTB(config_filepath):
     parser = parse.Parser(input_model, config)
 
     parsed_model = parser.parse()
+    shift_params = parser.get_shift_params()
     
     # For comparison
     parser.get_models_activation(input_model_name, name='input')
@@ -72,6 +73,7 @@ def run_neuroTB(config_filepath):
     spike_model = net.networkGen(parsed_model, config)
 
     spike_model.setup_layers(batch_shape)
+    spike_model.balThreshold(shift_params)
     spike_model.build()
     spike_model.summarySNN()
 
