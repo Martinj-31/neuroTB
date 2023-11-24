@@ -24,6 +24,7 @@ class networkGen:
 
         self.neurons = {}
         self.synapses = {}
+        self.threshold = {}
 
         # mode On/Off
 
@@ -162,6 +163,7 @@ class networkGen:
 
         idx = 0
         target_cnt = 0
+        output_channels_idx = []
         for fout in range(output_channels):
             row_idx = 0
             for i in range(numCols*numRows):
@@ -176,6 +178,7 @@ class networkGen:
                         idx += width_kn
                 row_idx += (stride_x-1)
                 target_cnt += 1
+            output_channels_idx.append(target_cnt-1)
                 
         if 'same' == layer.padding:
             padding_idx = np.where(source == -1)[0]
@@ -187,7 +190,7 @@ class networkGen:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
 
-        self.synapses[layer.name] = [source, target, weights]
+        self.synapses[layer.name] = [source, target, weights, output_channels_idx]
 
     def Synapse_pooling(self, layer):
         """_summary_
@@ -280,6 +283,27 @@ class networkGen:
         print(f"_________________________________________________________________")
 
 
+    def balThreshold(self, shift_params):
+        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
+
+        shift_idx = 0
+        for i, layer in enumerate(self.parsed_model.layers):
+            if 'conv' in layer.name:
+                prev_layer = self.parsed_model.layers[i-1]
+                input_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{prev_layer.name}.npz"))
+                input_act = input_file['arr_0']
+                
+                activations = keras.models.Model(inputs=layer.input, outputs=layer.output).predict(input_act)
+                vth_list = []
+                for oc in range(activations.shape[-1]):
+                    vth = np.max(activations[:, :, :, oc]) / (np.max(activations[:, :, :, oc]) + shift_params[shift_idx][oc])
+                    vth_list.append(vth)
+                self.threshold[layer.name] = vth_list
+                shift_idx += 1
+            else:
+                self.threshold[layer.name] = 1
+        
+    
     def run(self, x, y):
         print(f"Preparing for running converted snn.")
         x_test = x
@@ -289,41 +313,43 @@ class networkGen:
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
-        synCnt = 0
-        w_list = []
-        for synapse in self.synapses.values():
-            src = np.array(synapse[0]) - synCnt
-            synCnt += 1024
-            tar = np.array(synapse[1]) - synCnt
-            w = np.array(synapse[2])
-            source = len(np.unique(src))
-            target = len(np.unique(tar))
-            weights = np.zeros(source * target).reshape(source, target)
-
-            for i in range(len(w)):
-                weights[src[i]][tar[i]] = w[i]
-            w_list.append(weights)
-
-        # Add tqdm
         score = 0
-        threshold = 1
-        for idx in range(len(x_test)):
-            firing_rate = x_test[idx].flatten()
-            for weight in w_list:
-                # Calculate synaptic operation
+        for input_idx in range(len(x_test)):
+            synCnt = 0
+            firing_rate = x_test[input_idx].flatten()
+            for layer, neuron in self.synapses.items():
+                src = np.array(neuron[0]) - synCnt
+                synCnt += 1024
+                tar = np.array(neuron[1]) - synCnt
+                w = np.array(neuron[2])
+                source = len(np.unique(src))
+                target = len(np.unique(tar))
+                weights = np.zeros(source * target).reshape(source, target)
+                for i in range(len(w)):
+                    weights[src[i]][tar[i]] = w[i]
+
                 for neu_idx in range(len(firing_rate)):
-                    fan_out = len(np.where(weight[neu_idx][:] > 0)[0])
+                    fan_out = len(np.where(weights[neu_idx][:] > 0)[0])
                     syn_operation += firing_rate[neu_idx] * fan_out
-                # Neural operation
-                firing_rate = np.dot(firing_rate, weight)
-                firing_rate = firing_rate // threshold
-                neg_idx = np.where(firing_rate < 0)[0]
-                firing_rate[neg_idx] = 0
-            print(f"Firing rate from output layer for #{idx+1} input")
+
+                if 'conv' in layer:
+                    firing_rate = np.dot(firing_rate, weights)
+                    s = 0
+                    for oc in range(len(neuron[3])):
+                        firing_rate[s:s+oc] = firing_rate[s:s+oc] // self.threshold[layer][oc]
+                        s += oc
+                    neg_idx = np.where(firing_rate < 0)[0]
+                    firing_rate[neg_idx] = 0
+                else:
+                    firing_rate = np.dot(firing_rate, weights)
+                    firing_rate = firing_rate // self.threshold[layer]
+                    neg_idx = np.where(firing_rate < 0)[0]
+                    firing_rate[neg_idx] = 0
+            print(f"Firing rate from output layer for #{input_idx+1} input")
             print(firing_rate)
             print('')
 
-            if np.argmax(y_test[idx]) == np.argmax(firing_rate):
+            if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
             else: pass
         print(f"______________________________________")
@@ -331,3 +357,4 @@ class networkGen:
         print(f"Synaptic operation : {syn_operation}")
         print(f"______________________________________\n")
         print(f"End running\n\n")
+                    
