@@ -326,5 +326,8 @@ class networkGen:
             if np.argmax(y_test[idx]) == np.argmax(firing_rate):
                 score += 1
             else: pass
+        print(f"______________________________________")
         print(f"Accuracy : {(score/len(x_test))*100} %")
         print(f"Synaptic operation : {syn_operation}")
+        print(f"______________________________________\n")
+        print(f"End running\n\n")
