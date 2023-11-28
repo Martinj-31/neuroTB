@@ -15,7 +15,8 @@ class Normalize:
         self.model = model
         self.config = config
         
-        
+        self.threshold = {}
+
     def normalize_parameter(self):
         
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
@@ -186,3 +187,24 @@ class Normalize:
             return len(layer.weights)
         
         
+    def balThreshold(self, shift_params):
+        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
+
+        shift_idx = 0
+        for i, layer in enumerate(self.model.layers):
+            if 'conv' in layer.name:
+                prev_layer = self.model.layers[i-1]
+                input_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{prev_layer.name}.npz"))
+                input_act = input_file['arr_0']
+                
+                activations = tf.keras.models.Model(inputs=layer.input, outputs=layer.output).predict(input_act)
+                vth_list = []
+                for oc in range(activations.shape[-1]):
+                    vth = np.max(activations[:, :, :, oc]) / (np.max(activations[:, :, :, oc]) + shift_params[shift_idx][oc])
+                    vth_list.append(vth)
+                self.threshold[layer.name] = vth_list
+                shift_idx += 1
+            else:
+                self.threshold[layer.name] = 1
+
+        return self.threshold
