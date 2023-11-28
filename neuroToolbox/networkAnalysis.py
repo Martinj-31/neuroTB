@@ -17,9 +17,10 @@ class Analysis:
         self.x_norm = x_norm
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
+        self.input_model_name = input_model_name
 
 
-    def evalMapping(self, input_model_name, name='input'):
+    def evalMapping(self, name='input'):
         filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/fr_corr')
         
@@ -30,10 +31,10 @@ class Analysis:
             
         if 'input' == name:
             activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
-            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
+            model = self.input_model
         elif 'parsed' == name:
             activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
-            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5")) 
+            model = self.parsed_model
         
         synCnt = 0
         w_list = []
@@ -160,3 +161,6 @@ class Analysis:
             input_idx += 1
             print('')
             
+    def evalNetwork(self):
+        a = 0
+        
