@@ -304,10 +304,10 @@ class networkGen:
                 self.threshold[layer.name] = 1
         
     
-    def run(self, x, y):
+    def run(self, image, label):
         print(f"Preparing for running converted snn.")
-        x_test = x
-        y_test = y
+        x_test = image
+        y_test = label
         syn_operation = 0
         print(f"Input data length : {len(x_test)}")
         print(f"...\n")
