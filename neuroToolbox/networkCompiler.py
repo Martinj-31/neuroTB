@@ -13,7 +13,7 @@ sys.path.append(parent_dir)
 
 class networkGen:
 
-    def __init__(self, parsed_model, config):
+    def __init__(self, parsed_model, threshold, config):
         self.config = config
         self.parsed_model = parsed_model
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
@@ -24,7 +24,7 @@ class networkGen:
 
         self.neurons = {}
         self.synapses = {}
-        self.threshold = {}
+        self.threshold = threshold
 
         # mode On/Off
 
@@ -283,27 +283,6 @@ class networkGen:
         print(f"_________________________________________________________________")
 
 
-    def balThreshold(self, shift_params):
-        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
-
-        shift_idx = 0
-        for i, layer in enumerate(self.parsed_model.layers):
-            if 'conv' in layer.name:
-                prev_layer = self.parsed_model.layers[i-1]
-                input_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{prev_layer.name}.npz"))
-                input_act = input_file['arr_0']
-                
-                activations = keras.models.Model(inputs=layer.input, outputs=layer.output).predict(input_act)
-                vth_list = []
-                for oc in range(activations.shape[-1]):
-                    vth = np.max(activations[:, :, :, oc]) / (np.max(activations[:, :, :, oc]) + shift_params[shift_idx][oc])
-                    vth_list.append(vth)
-                self.threshold[layer.name] = vth_list
-                shift_idx += 1
-            else:
-                self.threshold[layer.name] = 1
-        
-    
     def run(self, image, label):
         print(f"Preparing for running converted snn.")
         x_test = image
