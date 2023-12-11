@@ -60,17 +60,17 @@ def run_neuroTB(config_filepath):
     print("parsed model Test accuracy : ", score2[1])
     
     # %% Normalization and convert
-    converter = convert.Normalize(parsed_model, config)
-    # converter.normalize_parameter()
-    threshold = converter.balThreshold(shift_params)
+    # converter = convert.Convert(parsed_model, config)
+    # converter.convertWeights()
     
+
     # %% Generate neurons and synapse connections for SNN
     batch_size = config["initial"]["batch_size"]
     batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
     data_size = 1000
     
-    spike_model = net.networkGen(parsed_model, threshold, config)
+    spike_model = net.networkGen(parsed_model, shift_params, config)
 
     spike_model.setup_layers(batch_shape)
     spike_model.build()
@@ -82,6 +82,7 @@ def run_neuroTB(config_filepath):
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
     
     evaluation.evalMapping(name='input')
+    evaluation.evalNetwork()
     
     took = time.time() - start
     
