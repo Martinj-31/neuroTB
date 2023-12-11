@@ -11,14 +11,13 @@ import matplotlib.pyplot as plt
 
 class Analysis:
 
-    def __init__(self, x_norm, input_model_name, threshold, config):
+    def __init__(self, x_norm, input_model_name, config):
         self.config = config
 
         self.x_norm = x_norm
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
         self.input_model_name = input_model_name
-        self.threshold = threshold
 
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
@@ -210,7 +209,7 @@ class Analysis:
                     elif 'conv' in snn_layer_name:
                         for ic in range(input_act.shape[0]):
                             temp = []
-                            for oc in range(input_act[-1]):
+                            for oc in range(input_act.shape[-1]):
                                 temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
                             input_acts.append(temp)
                     elif 'batch' in snn_layer_name:
@@ -247,19 +246,10 @@ class Analysis:
                     snn_fr = []
                     for idx in range(len(input_acts)):
                         firing_rate = input_acts[idx].flatten()
-                        if 'conv' in snn_layer[0]:
-                            firing_rate = np.dot(firing_rate, weights)
-                            s = 0
-                            for oc in range(len(snn_layer[1][3])):
-                                firing_rate[s:s+oc] = firing_rate[s:s+oc] // self.threshold[snn_layer[0]][oc]
-                                s += oc
-                            neg_idx = np.where(firing_rate < 0)[0]
-                            firing_rate[neg_idx] = 0
-                        else:
-                            firing_rate = np.dot(firing_rate, weights)
-                            firing_rate = firing_rate / self.threshold[snn_layer[0]]
-                            neg_idx = np.where(firing_rate < 0)[0]
-                            firing_rate[neg_idx] = 0
+                        firing_rate = np.dot(firing_rate, weights)
+                        # firing_rate = firing_rate / self.threshold[snn_layer[0]]
+                        neg_idx = np.where(firing_rate < 0)[0]
+                        firing_rate[neg_idx] = 0
                         snn_fr = np.concatenate((snn_fr, firing_rate))
 
                     loaded_act_file = np.load(os.path.join(activation_dir, f"input_model_activation_{input_layer.name}.npz"))
@@ -280,6 +270,11 @@ class Analysis:
                             for oc in range(loaded_act.shape[-1]):
                                 acts = np.concatenate((acts, loaded_act[ic, oc].flatten()))
                     else: pass
+
+                    plt.figure(figsize=(8, 8))
+                    plt.plot(acts.flatten(), 'b.')
+                    plt.plot(snn_fr.flatten(), 'r.')
+                    plt.show()
 
                     plt.figure(figsize=(10, 10))
                     plt.scatter(acts, snn_fr, color='r', marker='o', s=10)
