@@ -3,13 +3,15 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 
+import neuroToolbox.utils as utils
+
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-class Normalize:
+class Convert:
     
     def __init__(self, model, config):
         self.model = model
@@ -17,7 +19,7 @@ class Normalize:
         
         self.threshold = {}
 
-    def normalize_parameter(self):
+    def convertWeights(self):
         
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
         os.makedirs(activation_dir, exist_ok=True)
