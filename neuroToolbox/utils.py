@@ -9,8 +9,10 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-def bias_calibration(layer, weights):
-    alpha = 0
+def bias_calibration(input_acts, shift_param, weights):
+    sum_acts = np.sum(input_acts)
+    
+    alpha = shift_param / sum_acts
 
     new_weights = weights + alpha
 
