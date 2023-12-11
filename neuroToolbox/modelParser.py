@@ -5,6 +5,8 @@ import tensorflow as tf
 
 from tensorflow import keras
 
+import neuroToolbox.utils as utils
+
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
@@ -28,7 +30,7 @@ class Parser:
         """
         self.input_model = input_model
         self.config = config
-        self.shift_params = []
+        self.shift_params = {}
         self._parsed_layer_list = []
 
         self.add_layer_mapping = {}
@@ -73,7 +75,7 @@ class Parser:
             if  layer_type == 'BatchNormalization': 
                 
                 # Find the previous layer
-                inbound = self.get_inbound_layers_parameters(layer)
+                inbound = utils.get_inbound_layers_with_params(layer)
                 prev_layer = inbound[0]
                 print("prev_layer type : ", prev_layer.__class__.__name__)                
 
@@ -86,7 +88,7 @@ class Parser:
 
                 new_weight, shift = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, beta, axis)
 
-                self.shift_params.append(shift)
+                self.shift_params[prev_layer.name] = shift
 
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
@@ -253,77 +255,6 @@ class Parser:
         
         return new_weight, shift
     
-    
-    def get_inbound_layers_parameters(self, layer):
-        """
-        Retrieve inbound layers with weights for a given layer.
-        
-        Parameters:
-        - layer (tf.keras.layers.Layer): The target layer for which to find inbound layers.
-        
-        Returns:
-        - list: A list of layers that are predecessors of the target layer and have weights.
-        
-        This method recursively searches for inbound layers of the target layer that have weights (excluding BatchNormalization layers) and returns a list of such layers.
-        """
-
-        inbound = layer
-        while True:
-            inbound = self.get_inbound_layers(inbound)
-            if len(inbound) == 1:
-                inbound = inbound[0]
-                if self.has_weights(inbound):
-                    return [inbound]
-            else:
-                result = []
-                for inb in inbound:
-                    if self.has_weights(inb):
-                        result.append(inb)
-                    else:
-                        result += self.get_inbound_layers_parameters(inb)
-        return result
-
-
-    def get_inbound_layers(self, layer):
-        """
-        Get inbound layers of a given layer.
-    
-        Parameters:
-        - layer (tf.keras.layers.Layer): The target layer for which to retrieve inbound layers.
-    
-        Returns:
-        - list: A list of inbound layers connected to the target layer.
-    
-        This method retrieves the inbound layers connected to the target layer and returns them as a list.
-        """
-        
-        inbound_layers = layer._inbound_nodes[0].inbound_layers
-        
-        if not isinstance(inbound_layers, (list, tuple)):
-            inbound_layers = [inbound_layers]
-            
-        return inbound_layers
-        
-    
-    def has_weights(self, layer):
-        """
-        Check if a layer has trainable weights.
-    
-        Parameters:
-        - layer (tf.keras.layers.Layer): The layer to check for trainable weights.
-    
-        Returns:
-        - bool: True if the layer has trainable weights, False otherwise.
-    
-        This method checks whether a layer has trainable weights and returns True if it has weights, excluding BatchNormalization layers.
-        """
-        
-        if isinstance(layer, tf.keras.layers.BatchNormalization):
-            return False
-        
-        else:    
-            return len(layer.weights)
-        
     
     def get_shift_params(self):
         return self.shift_params
