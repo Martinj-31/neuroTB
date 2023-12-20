@@ -232,7 +232,7 @@ class Analysis:
                         if 'conv' in snn_layer[0]:
                             s = 0
                             for oc_idx, oc in enumerate(snn_layer[1][3]):
-                                firing_rate[s:oc] = firing_rate[s:oc] // 1 + self.bias_list[snn_layer[0]][oc_idx]
+                                firing_rate[s:oc] = np.floor(firing_rate[s:oc] // 1 + self.bias_list[snn_layer[0]][oc_idx])
                                 s = oc
                         else:
                             firing_rate = firing_rate // 1
