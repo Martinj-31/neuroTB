@@ -43,8 +43,8 @@ def run_neuroTB(config_filepath):
     # %% Parse model
     parser = parse.Parser(input_model, config)
 
-    parsed_model = parser.parse()
-    shift_params = parser.get_shift_params()
+    parsed_model, bias_list = parser.parse()
+    print(bias_list)
     
     # For comparison
     parser.get_models_activation(input_model_name, name='input')
@@ -70,7 +70,7 @@ def run_neuroTB(config_filepath):
     batch_shape[0] = batch_size
     data_size = 1000
     
-    spike_model = net.networkGen(parsed_model, shift_params, config)
+    spike_model = net.networkGen(parsed_model, bias_list, config)
 
     spike_model.setup_layers(batch_shape)
     spike_model.build()
@@ -81,7 +81,7 @@ def run_neuroTB(config_filepath):
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
     
-    evaluation.evalMapping(name='input')
+    # evaluation.evalMapping(name='input')
     evaluation.evalNetwork()
     
     took = time.time() - start
