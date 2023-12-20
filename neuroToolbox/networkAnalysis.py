@@ -9,6 +9,8 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 
+import neuroToolbox.utils as utils
+
 class Analysis:
 
     def __init__(self, x_norm, input_model_name, config):
@@ -28,6 +30,8 @@ class Analysis:
             self.neurons = pickle.load(f)
         with open(self.snn_filepath + '_Converted_synapses.pkl', 'rb') as f:
             self.synapses = pickle.load(f)
+        with open(self.snn_filepath + '_bias.pkl', 'rb') as f:
+            self.bias_list = pickle.load(f)
             
 
     def evalMapping(self, name='input'):        
@@ -199,39 +203,17 @@ class Analysis:
                     
                     input_act_file = np.load(os.path.join(activation_dir, f"input_model_activation_{snn_layer_name}.npz"))
                     input_act = input_act_file['arr_0']
-                    input_acts = []
+
                     if 'input' in snn_layer_name:
-                        for ic in range(input_act.shape[0]):
-                            temp = []
-                            for oc in range(input_act.shape[-1]):
-                                temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
-                            input_acts.append(temp)
+                        input_acts = utils.Input_Image2D(input_act)
                     elif 'conv' in snn_layer_name:
-                        for ic in range(input_act.shape[0]):
-                            temp = []
-                            for oc in range(input_act.shape[-1]):
-                                temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
-                            input_acts.append(temp)
+                        input_acts = utils.Input_Conv2D(input_act)
                     elif 'batch' in snn_layer_name:
-                        for ic in range(input_act.shape[0]):
-                            temp = []
-                            for oc in range(input_act.shape[-1]):
-                                temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
-                            input_acts.append(temp)
+                        input_acts = utils.Input_Conv2D(input_act)
                     elif 'pooling' in snn_layer_name:
-                        for ic in range(input_act.shape[0]):
-                            temp = []
-                            for oc in range(input_act.shape[-1]):
-                                for i in range(input_act.shape[1]):
-                                    for j in range(input_act.shape[2]):
-                                        temp = np.concatenate((temp, input_act[ic, i, j, oc].flatten()))
-                            input_acts.append(temp)
+                        input_acts = utils.Input_Pooling(input_act)
                     elif 'dense' in snn_layer_name:
-                        for ic in range(input_act.shape[0]):
-                            temp = []
-                            for oc in range(input_act.shape[-1]):
-                                temp = np.concatenate((temp, input_act[ic, oc].flatten()))
-                            input_acts.append(temp)
+                        input_acts = utils.Input_Dense(input_act)
                     else: pass
 
                     src = np.array(snn_layer[1][0]) - synCnt
@@ -247,34 +229,27 @@ class Analysis:
                     for idx in range(len(input_acts)):
                         firing_rate = input_acts[idx].flatten()
                         firing_rate = np.dot(firing_rate, weights)
-                        # firing_rate = firing_rate / self.threshold[snn_layer[0]]
+                        if 'conv' in snn_layer[0]:
+                            s = 0
+                            for oc_idx, oc in enumerate(snn_layer[1][3]):
+                                firing_rate[s:oc] = firing_rate[s:oc] // 1 + self.bias_list[snn_layer[0]][oc_idx]
+                                s = oc
+                        else:
+                            firing_rate = firing_rate // 1
                         neg_idx = np.where(firing_rate < 0)[0]
                         firing_rate[neg_idx] = 0
                         snn_fr = np.concatenate((snn_fr, firing_rate))
 
                     loaded_act_file = np.load(os.path.join(activation_dir, f"input_model_activation_{input_layer.name}.npz"))
                     loaded_act = loaded_act_file['arr_0']
-                    acts = []
-                    if 'conv' in snn_layer[0]:
-                        for ic in range(loaded_act.shape[0]):
-                            for oc in range(loaded_act.shape[-1]):
-                                acts = np.concatenate((acts, loaded_act[ic, :, :, oc].flatten()))
-                    elif 'pooling' in snn_layer[0]:
-                        for ic in range(loaded_act.shape[0]):
-                            for oc in range(loaded_act.shape[-1]):
-                                for i in range(loaded_act.shape[1]):
-                                    for j in range(loaded_act.shape[2]):
-                                        acts = np.concatenate((acts, loaded_act[ic, i, j, oc].flatten()))
-                    elif 'dense' in snn_layer[0]:
-                        for ic in range(loaded_act.shape[0]):
-                            for oc in range(loaded_act.shape[-1]):
-                                acts = np.concatenate((acts, loaded_act[ic, oc].flatten()))
-                    else: pass
 
-                    plt.figure(figsize=(8, 8))
-                    plt.plot(acts.flatten(), 'b.')
-                    plt.plot(snn_fr.flatten(), 'r.')
-                    plt.show()
+                    if 'conv' in snn_layer[0]:
+                        acts = utils.Flattener_Conv2D(loaded_act)
+                    elif 'pooling' in snn_layer[0]:
+                        acts = utils.Flattener_Pooling(loaded_act)
+                    elif 'dense' in snn_layer[0]:
+                        acts = utils.Flattener_Dense(loaded_act)
+                    else: pass
 
                     plt.figure(figsize=(10, 10))
                     plt.scatter(acts, snn_fr, color='r', marker='o', s=10)
@@ -287,4 +262,3 @@ class Analysis:
                     plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{snn_layer[0]}")
                     plt.show()
             input_idx += 1
-            print('')
