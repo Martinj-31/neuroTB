@@ -15,10 +15,10 @@ sys.path.append(parent_dir)
 
 class networkGen:
 
-    def __init__(self, parsed_model, shift_params, config):
+    def __init__(self, parsed_model, bias_list, config):
         self.config = config
         self.parsed_model = parsed_model
-        self.shift_params = shift_params
+        self.bias_list = bias_list
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
         self.nCount = 1024
         self.synCnt = 0
@@ -34,7 +34,6 @@ class networkGen:
     def setup_layers(self, input_shape):
         self.neuron_input_layer(input_shape)
         layers = []
-        print(self.shift_params)
         for layer in self.parsed_model.layers[1:]:
             layers.append(layer)
             print(f"\nBuilding layer for {layer.__class__.__name__}")
@@ -48,7 +47,7 @@ class networkGen:
                 self.Synapse_dense(layer)
             # There are two types of convolution layer. 1D or 2D
             elif 'Conv' in layer_type:
-                self.Synapse_convolution(layer, self.shift_params[layer.name])
+                self.Synapse_convolution(layer)
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
 
@@ -108,7 +107,7 @@ class networkGen:
         self.synapses[layer.name] = [source, target, weights]
 
 
-    def Synapse_convolution(self, layer, shift_params):
+    def Synapse_convolution(self, layer):
         """_summary_
         This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
 
@@ -127,19 +126,6 @@ class networkGen:
             NotImplementedError: _description_
         """
         print(f"Connecting layer...")
-
-        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
-
-        inbound = utils.get_inbound_layers_with_params(layer)
-        prev_layer = inbound[0]
-
-        fm_activations_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{prev_layer.name}.npz"))
-        fm_activations = fm_activations_file['arr_0']
-
-        fm_acts = np.zeros_like(fm_activations[0])
-
-        for image in fm_activations:
-            fm_acts = np.maximum(fm_acts, image)
 
         w = list(layer.get_weights())[0]
 
@@ -163,9 +149,6 @@ class networkGen:
             FM = fm
             for i in range(1, input_channels):
                 FM = np.concatenate((FM, fm+(width_fm*height_fm*i)), axis=0)
-            FM_ACTS = fm_acts[:, :, 0]
-            for i in range(1, fm_acts.shape[-1]):
-                FM_ACTS = np.concatenate((FM_ACTS, fm_acts[:, :, i]+(width_fm*height_fm*i)), axis=0)
         elif 'same' == layer.padding:
             padding_y = (height_kn - 1) // 2
             padding_x = (width_kn - 1) // 2
@@ -175,15 +158,10 @@ class networkGen:
             FM = fm_pad
             for i in range(1, input_channels):
                 FM = np.concatenate((FM, np.pad(fm+(width_fm*height_fm*i), ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=-1)), axis=0)
-            fm_acts_pad = np.pad(fm_acts[:, :, 0], ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=0)
-            FM_ACTS = fm_acts_pad
-            for i in range(1, fm_acts.shape[-1]):
-                FM_ACTS = np.concatenate((FM_ACTS, np.pad(fm_acts[:, :, i]+(width_fm*height_fm*i), ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=0)), axis=0)
         height_fm = int(FM.shape[0]/input_channels)
         width_fm = FM.shape[1]
         
         FM = FM.flatten() # Make feature map flatten to indexing
-        FM_ACTS = FM_ACTS.flatten()
 
         source = np.zeros(numCols*numRows*(height_kn*width_kn)*input_channels*output_channels)
         target = np.zeros(numCols*numRows*(height_kn*width_kn)*input_channels*output_channels)
@@ -191,7 +169,6 @@ class networkGen:
 
         idx = 0
         target_cnt = 0
-        shift_idx = 0
         output_channels_idx = []
         for fout in range(output_channels):
             row_idx = 0
@@ -199,20 +176,14 @@ class networkGen:
                 if 0 == i%numCols and i != 0:
                     row_idx += width_fm*(stride_y-1) + width_kn - stride_x
                 for fin in range(input_channels):
-                    kn_idx = idx
-                    input_acts = []
                     for j in range(height_kn):
                         source[idx:idx+width_kn] = FM[row_idx+fin*(height_fm*width_fm)+i+(j*width_fm):row_idx+fin*(height_fm*width_fm)+i+(j*width_fm)+width_kn]
                         target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + target_cnt
                         # weights[idx:idx+width_kn] = np.flip(w[(height_kn-1)-j, 0:width_kn, fin, fout])
                         weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
-                        input_acts = np.concatenate((input_acts, FM_ACTS[row_idx+fin*(height_fm*width_fm)+i+(j*width_fm):row_idx+fin*(height_fm*width_fm)+i+(j*width_fm)+width_kn]))
-                        if j == height_kn-1:
-                            weights[kn_idx:idx+width_kn] = utils.bias_calibration(input_acts, shift_params[shift_idx], weights[kn_idx:idx+width_kn])
                         idx += width_kn
                 row_idx += (stride_x-1)
                 target_cnt += 1
-            shift_idx += 1
             output_channels_idx.append(target_cnt-1)
                 
         if 'same' == layer.padding:
@@ -290,6 +261,8 @@ class networkGen:
             pickle.dump(self.neurons, f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
+        with open(filepath + filename + '_bias.pkl', 'wb') as f:
+            pickle.dump(self.bias_list, f)
 
         print(f"Spiking neural network build completed!")
 
@@ -352,7 +325,13 @@ class networkGen:
                     syn_operation += firing_rate[neu_idx] * fan_out
 
                 firing_rate = np.dot(firing_rate, weights)
-                firing_rate = firing_rate // 1
+                if 'conv' in layer:
+                    s = 0
+                    for oc_idx, oc in enumerate(neuron[3]):
+                        firing_rate[s:oc] = (firing_rate[s:oc] // 1) + self.bias_list[layer][oc_idx]
+                        s = oc
+                else:
+                    firing_rate = firing_rate // 1
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
             print(f"Firing rate from output layer for #{input_idx+1} input")
