@@ -304,14 +304,19 @@ class networkGen:
         x_test = image
         y_test = label
         syn_operation = 0
+        refractory = 0.005
 
         print(f"Input data length : {len(x_test)}")
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
         fr_dist = {}
+        w_dict = {}
+        w_cal = {}
         for layer in self.synapses.keys():
             fr_dist[layer] = []
+            w_dict[layer] = []
+            w_cal[layer] = []
         score = 0
         for input_idx in range(len(x_test)):
             synCnt = 0
@@ -324,6 +329,7 @@ class networkGen:
                 source = len(np.unique(src))
                 target = len(np.unique(tar))
                 weights = np.zeros(source * target).reshape(source, target)
+                w_dict[layer] = w
                 for i in range(len(w)):
                     weights[src[i]][tar[i]] = w[i]
 
@@ -349,15 +355,27 @@ class networkGen:
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
             else: pass
+
         for l in fr_dist.keys():
+            max_fr = np.max(fr_dist[l])
+            x_value = np.array([])
+            for f in range(int(max_fr)):
+                w_computed = f * w_dict[l]
+                neg_idx = np.where(w_computed < 0)[0]
+                w_computed[neg_idx] = 0
+                x_value = np.concatenate((np.ones(len(w_computed))*f, x_value))
+                w_cal[l] = np.concatenate((list(w_computed), w_cal[l])) 
+
             plt.figure(figsize=(8, 6))
-            plt.plot(fr_dist[l], 'b.')
-            plt.title(f"Firing rate distribution of {l} layer", fontsize=30)
-            plt.ylabel(f"Firing rates", fontsize=27)
+            plt.plot(x_value, w_cal[l], 'b.')
+            plt.title(f"Firing rate * weight of {l} layer", fontsize=30)
+            plt.xlabel(f"Firing rate from 0 to maximum", fontsize=27)
+            plt.ylabel(f"Firing rates * weight", fontsize=27)
             plt.yticks(fontsize=20)
             plt.grid(True)
             plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
             plt.show()
+
         print(f"______________________________________")
         print(f"Accuracy : {(score/len(x_test))*100} %")
         print(f"Synaptic operation : {syn_operation}")
