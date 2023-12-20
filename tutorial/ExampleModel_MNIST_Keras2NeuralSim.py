@@ -46,17 +46,17 @@ input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
 # Convolutional layers
-x = keras.layers.Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(inputs)
-x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x) 
+x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), activation='relu', padding='same')(inputs)
+x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x) 
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
-x = keras.layers.Conv2D(32, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias = False)(x)
-x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='same')(x)
+x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Flatten()(x)
-x = keras.layers.Dense(units=100, activation='relu', use_bias = False)(x)
-outputs = keras.layers.Dense(units=10, activation='softmax', use_bias = False)(x)
+x = keras.layers.Dense(units=100, activation='relu')(x)
+outputs = keras.layers.Dense(units=10, activation='softmax')(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
@@ -68,7 +68,7 @@ model.compile(loss='categorical_crossentropy',
 
 # Train the model
 batch_size = 64
-epochs = 5
+epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 
@@ -109,6 +109,9 @@ default_config['paths']['models'] = path_wd + '/models/'
 default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name
+
+# default_config['snn']['refractory'] = 5
+# default_config['snn']['tau'] = 0
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
