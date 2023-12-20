@@ -9,16 +9,6 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-def bias_calibration(input_acts, shift_param, weights):
-    sum_acts = np.sum(input_acts)
-    
-    alpha = shift_param / sum_acts
-
-    new_weights = weights + alpha
-
-    return new_weights
-
-
 def get_inbound_layers_with_params(layer):
     """
         Retrieve inbound layers with weights for a given layer.
@@ -115,3 +105,78 @@ def has_weights(layer):
     
     else:    
         return len(layer.weights)
+    
+
+def Flattener_Dense(loaded_act):
+    acts = []
+    for ic in range(loaded_act.shape[0]):
+        for oc in range(loaded_act.shape[-1]):
+            acts = np.concatenate((acts, loaded_act[ic, oc].flatten()))
+
+    return acts
+
+
+def Flattener_Pooling(loaded_act):
+    acts = []
+    for ic in range(loaded_act.shape[0]):
+        for oc in range(loaded_act.shape[-1]):
+            for i in range(loaded_act.shape[1]):
+                for j in range(loaded_act.shape[2]):
+                    acts = np.concatenate((acts, loaded_act[ic, i, j, oc].flatten()))
+
+    return acts
+
+
+def Flattener_Conv2D(loaded_act):
+    acts = []
+    for ic in range(loaded_act.shape[0]):
+        for oc in range(loaded_act.shape[-1]):
+            acts = np.concatenate((acts, loaded_act[ic, :, :, oc].flatten()))
+
+    return acts
+
+
+def Input_Dense(input_act):
+    input_acts = []
+    for ic in range(input_act.shape[0]):
+        temp = []
+        for oc in range(input_act.shape[-1]):
+            temp = np.concatenate((temp, input_act[ic, oc].flatten()))
+        input_acts.append(temp)
+
+    return input_acts
+
+
+def Input_Pooling(input_act):
+    input_acts = []
+    for ic in range(input_act.shape[0]):
+        temp = []
+        for oc in range(input_act.shape[-1]):
+            for i in range(input_act.shape[1]):
+                for j in range(input_act.shape[2]):
+                    temp = np.concatenate((temp, input_act[ic, i, j, oc].flatten()))
+        input_acts.append(temp)
+
+    return input_acts
+
+
+def Input_Conv2D(input_act):
+    input_acts = []
+    for ic in range(input_act.shape[0]):
+        temp = []
+        for oc in range(input_act.shape[-1]):
+            temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
+        input_acts.append(temp)
+    
+    return input_acts
+
+
+def Input_Image2D(input_act):
+    input_acts = []
+    for ic in range(input_act.shape[0]):
+        temp = []
+        for oc in range(input_act.shape[-1]):
+            temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
+        input_acts.append(temp)
+
+    return input_acts
