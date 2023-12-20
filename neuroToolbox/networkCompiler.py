@@ -1,5 +1,6 @@
 import sys, os, warnings, pickle, math, time
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tensorflow import keras
 from tqdm import tqdm
@@ -27,6 +28,8 @@ class networkGen:
 
         self.neurons = {}
         self.synapses = {}
+
+        os.makedirs(self.config['paths']['path_wd'] + '/fr_distribution')
 
         # mode On/Off
 
@@ -298,14 +301,17 @@ class networkGen:
 
     def run(self, image, label):
         print(f"Preparing for running converted snn.")
-        print(self.bias_list)
         x_test = image
         y_test = label
         syn_operation = 0
+
         print(f"Input data length : {len(x_test)}")
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
+        fr_dist = {}
+        for layer in self.synapses.keys():
+            fr_dist[layer] = []
         score = 0
         for input_idx in range(len(x_test)):
             synCnt = 0
@@ -335,6 +341,7 @@ class networkGen:
                     firing_rate = firing_rate // 1
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
+                fr_dist[layer] = np.concatenate((fr_dist[layer], firing_rate))
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(firing_rate)
             print('')
@@ -342,6 +349,15 @@ class networkGen:
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
             else: pass
+        for l in fr_dist.keys():
+            plt.figure(figsize=(8, 6))
+            plt.plot(fr_dist[l], 'b.')
+            plt.title(f"Firing rate distribution of {l} layer", fontsize=30)
+            plt.ylabel(f"Firing rates", fontsize=27)
+            plt.yticks(fontsize=20)
+            plt.grid(True)
+            plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
+            plt.show()
         print(f"______________________________________")
         print(f"Accuracy : {(score/len(x_test))*100} %")
         print(f"Synaptic operation : {syn_operation}")
