@@ -30,7 +30,7 @@ class Parser:
         """
         self.input_model = input_model
         self.config = config
-        self.shift_params = {}
+        self.bias_list = {}
         self._parsed_layer_list = []
 
         self.add_layer_mapping = {}
@@ -69,8 +69,8 @@ class Parser:
             print("\n current parsing layer... layer type : ", layer_type)
 
             # Check for bias in the layer before parse
-            if hasattr(layer, 'use_bias') and layer.use_bias:
-                raise ValueError("Layer {} has bias enabled. Please set use_bias=False for all layers.".format(layer_type))
+            # if hasattr(layer, 'use_bias') and layer.use_bias:
+            #     raise ValueError("Layer {} has bias enabled. Please set use_bias=False for all layers.".format(layer_type))
 
             if  layer_type == 'BatchNormalization': 
                 
@@ -83,16 +83,16 @@ class Parser:
                 gamma, mean, var_eps_sqrt_inv, beta, axis = list(self._get_BN_parameters(layer))
 
                 # Absorb the BatchNormalization parameters into the previous layer's weights and biases
-                weight = prev_layer.get_weights()[0] # Only Weight, No bias
+                weight, bias = prev_layer.get_weights()
                 print("get weight...")
 
-                new_weight, shift = self._absorb_bn_parameters(weight, gamma, mean, var_eps_sqrt_inv, beta, axis)
+                new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, mean, var_eps_sqrt_inv, beta, axis)
 
-                self.shift_params[prev_layer.name] = shift
+                self.bias_list[prev_layer.name] = new_bias
 
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
-                prev_layer.set_weights([new_weight])
+                prev_layer.set_weights([new_weight, new_bias])
 
                 # Remove the current layer (BatchNormalization layer) from the afterParse_layers
                 print("remove BatchNormalization Layer in layerlist")
@@ -146,7 +146,7 @@ class Parser:
         parsed_model = self.build_parsed_model(afterParse_layer_list)
         keras.models.save_model(parsed_model, os.path.join(self.config["paths"]["models"], self.config['names']['parsed_model'] + '.h5'))
 
-        return parsed_model
+        return parsed_model, self.bias_list
     
 
     def build_parsed_model(self, layer_list):
@@ -216,7 +216,7 @@ class Parser:
         return  gamma, mean, var_eps_sqrt_inv, beta, axis
 
 
-    def _absorb_bn_parameters(self, weight, gamma, mean, var_eps_sqrt_inv, beta, axis):
+    def _absorb_bn_parameters(self, weight, bias, gamma, mean, var_eps_sqrt_inv, beta, axis):
         """
         Absorb BatchNormalization parameters into previous layer's weights.
         
@@ -250,14 +250,10 @@ class Parser:
         gamma = np.reshape(gamma, broadcast_shape)
         mean = np.reshape(mean, broadcast_shape)
         beta = np.reshape(beta, broadcast_shape) #beta is shift parameter
-        shift = np.ravel(beta - mean * gamma * var_eps_sqrt_inv) # we don't use bias
+        new_bias = np.ravel(beta + (bias - mean) * gamma * var_eps_sqrt_inv)
         new_weight = weight * gamma * var_eps_sqrt_inv
         
-        return new_weight, shift
-    
-    
-    def get_shift_params(self):
-        return self.shift_params
+        return new_weight, new_bias
 
 
     def parseAnalysis(self, model_1, model_2, x_test, y_test):
