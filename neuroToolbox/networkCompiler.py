@@ -298,6 +298,7 @@ class networkGen:
 
     def run(self, image, label):
         print(f"Preparing for running converted snn.")
+        print(self.bias_list)
         x_test = image
         y_test = label
         syn_operation = 0
@@ -328,7 +329,7 @@ class networkGen:
                 if 'conv' in layer:
                     s = 0
                     for oc_idx, oc in enumerate(neuron[3]):
-                        firing_rate[s:oc] = (firing_rate[s:oc] // 1) + self.bias_list[layer][oc_idx]
+                        firing_rate[s:oc] = np.floor((firing_rate[s:oc] / 1) + self.bias_list[layer][oc_idx])
                         s = oc
                 else:
                     firing_rate = firing_rate // 1
