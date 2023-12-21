@@ -306,6 +306,9 @@ class networkGen:
         syn_operation = 0
         refractory = 0.005
 
+        v_th = self.config.getint('conversion', 'threshold')
+        t_ref = self.config.getint('conversion', 'refractory') / 1000
+
         print(f"Input data length : {len(x_test)}")
         print(f"...\n")
 
@@ -341,10 +344,12 @@ class networkGen:
                 if 'conv' in layer:
                     s = 0
                     for oc_idx, oc in enumerate(neuron[3]):
-                        firing_rate[s:oc] = np.floor((firing_rate[s:oc] / 1) + self.bias_list[layer][oc_idx])
+                        firing_rate[s:oc] = (firing_rate[s:oc] / v_th) + self.bias_list[layer][oc_idx]
+                        firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*t_ref + v_th))
                         s = oc
                 else:
-                    firing_rate = firing_rate // 1
+                    firing_rate = firing_rate // v_th
+                    firing_rate = np.floor(firing_rate / (firing_rate*t_ref + v_th))
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
                 fr_dist[layer] = np.concatenate((fr_dist[layer], firing_rate))
