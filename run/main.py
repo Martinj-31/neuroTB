@@ -44,7 +44,6 @@ def run_neuroTB(config_filepath):
     parser = parse.Parser(input_model, config)
 
     parsed_model, bias_list = parser.parse()
-    print(bias_list)
     
     # For comparison
     parser.get_models_activation(input_model_name, name='input')
@@ -60,15 +59,15 @@ def run_neuroTB(config_filepath):
     print("parsed model Test accuracy : ", score2[1])
     
     # %% Normalization and convert
-    # converter = convert.Convert(parsed_model, config)
-    # converter.convertWeights()
+    converter = convert.Convert(parsed_model, config)
+    converter.convertWeights()
     
 
     # %% Generate neurons and synapse connections for SNN
-    batch_size = config["initial"]["batch_size"]
+    batch_size = config["conversion"]["batch_size"]
     batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
-    data_size = 1000
+    data_size = 5
     
     spike_model = net.networkGen(parsed_model, bias_list, config)
 
