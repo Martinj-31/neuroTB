@@ -19,7 +19,50 @@ class Convert:
         
         self.threshold = {}
 
+
     def convertWeights(self):
+        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
+
+        print("\n\n######## Weight conversion ########\n\n")
+
+        for layer in self.model.layers:
+            if len(layer.weights) == 0:
+                continue
+            
+            inbound = utils.get_inbound_layers_with_params(layer)
+            prev_layer = inbound[0]
+
+            activations_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{prev_layer.name}.npz"))
+            activations = activations_file['arr_0']
+
+            perc = self.config.getfloat('conversion', 'percentile')
+            v_th = self.config.getint('conversion', 'threshold')
+            t_ref = self.config.getint('conversion', 'refractory') / 1000
+            ratio = self.config.getfloat('conversion', 'ratio')
+
+            weight, bias = layer.get_weights()
+
+            if 'conv' in layer.name:
+                for oc in range(weight.shape[-1]):
+                    acts_range = self.get_percentile_activation(activations, perc) / ratio + bias[oc]
+                    print(f"99.9th percentile activations of channel {oc+1} from {prev_layer.name} : {acts_range}")
+                    weight[:, :, :, oc] = weight[:, :, :, oc] * (v_th / (1 - acts_range * t_ref))
+            else:
+                acts_range = self.get_percentile_activation(activations, perc) / ratio
+                print(f"99.9th percentile activations : {acts_range}")
+                weight = weight * (v_th / (1 - acts_range * t_ref))
+            
+            layer.set_weights([weight, bias])
+            print('')
+
+
+    # Activation return corresponding to n-th percentile
+    def get_percentile_activation(self, activations, percentile):
+
+        return np.percentile(activations, percentile) if activations.size else 1
+    
+
+    def normalize_parameters(self):
         
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'activations')
         os.makedirs(activation_dir, exist_ok=True)
@@ -31,7 +74,7 @@ class Convert:
         print("\n\n######## Weight conversion ########\n\n")
         
         # Declare and initialize variables
-        batch_size = self.config.getint('initial', 'batch_size')
+        batch_size = self.config.getint('conversion', 'batch_size')
 
         # Norm factors initialization
         norm_facs = {self.model.layers[0].name: 1.0}
@@ -49,7 +92,7 @@ class Convert:
             print("Maximum activation: {:.5f}.".format(np.max(activations)))
             nonzero_activations = activations[np.nonzero(activations)]
             del activations
-            perc = self.config.getfloat('initial', 'percentile')
+            perc = self.config.getfloat('conversion', 'percentile')
             
             cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
             norm_facs[layer.name] = cliped_max_activation
@@ -72,7 +115,7 @@ class Convert:
                 norm_fac = norm_facs[layer.name]
             
             # Check the previous layer of that layer through _inbound_nodes
-            inbound = self.get_inbound_layers_with_params(layer)
+            inbound = utils.get_inbound_layers_with_params(layer)
 
             # Weight normalization
             if len(inbound) == 0: #Input layer
@@ -125,88 +168,3 @@ class Convert:
         
         
         return np.array(activations)    
-    
-
-    # Activation return corresponding to n-th percentile
-    def get_percentile_activation(self, activations, percentile):
-
-        return np.percentile(activations, percentile) if activations.size else 1
-
-    
-    def get_inbound_layers_with_params(self, layer):
-        
-        inbound = layer
-        prev_layer = None
-        # Repeat when a layer with weight exists
-        while True:
-            inbound = self.get_inbound_layers(inbound)
-            
-            if len(inbound) == 1 and not isinstance(inbound[0], 
-                                                    tf.keras.layers.BatchNormalization):
-                inbound = inbound[0]
-                if self.has_weights(inbound):
-                    return [inbound]
-                
-            # If there is no layer information
-            # In the case of input layer, the previous layer does not exist, 
-            # so it is empty list return
-            else:
-                result = []
-                for inb in inbound:
-
-                    if isinstance(inb, tf.keras.layers.BatchNormalization):
-                        prev_layer = self.get_inbound_layers_with_params(inb)[0]
-                            
-                    if self.has_weights(inb):
-                        result.append(inb)
-                        
-                    else:
-                        result += self.get_inbound_layers_with_params(inb)
-                        
-                if prev_layer is not None:
-                    return [prev_layer]
-                
-                else:
-                    return result
-    
-    def get_inbound_layers(self, layer):
-        
-        # Check the previous layer of that layer through _inbound_nodes
-        inbound_layers = layer._inbound_nodes[0].inbound_layers
-        
-        if not isinstance(inbound_layers, (list, tuple)):
-            inbound_layers = [inbound_layers]
-            
-        return inbound_layers
-        
-    
-    def has_weights(self, layer):
-        
-        if isinstance(layer, tf.keras.layers.BatchNormalization):
-            return False
-        
-        else:    
-            return len(layer.weights)
-        
-        
-    def balThreshold(self, shift_params):
-        activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
-
-        shift_idx = 0
-        for i, layer in enumerate(self.model.layers):
-            if 'conv' in layer.name:
-                prev_layer = self.model.layers[i-1]
-                input_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{prev_layer.name}.npz"))
-                input_act = input_file['arr_0']
-                
-                activations = tf.keras.models.Model(inputs=layer.input, outputs=layer.output).predict(input_act)
-                vth_list = []
-                for oc in range(activations.shape[-1]):
-                    vth = np.max(activations[:, :, :, oc]) / (np.max(activations[:, :, :, oc]) + shift_params[shift_idx][oc])
-                    vth_list.append(vth)
-                self.threshold[layer.name] = vth_list
-                shift_idx += 1
-            else:
-                self.threshold[layer.name] = 1
-
-        return self.threshold
