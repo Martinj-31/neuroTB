@@ -306,10 +306,6 @@ class Parser:
         input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
         parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
         
-        x_norm = None
-        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
-        x_norm = x_norm_file['arr_0']
-        
         input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
         corr_dir = os.path.join(self.config['paths']['path_wd'], 'acts_corr')
         
