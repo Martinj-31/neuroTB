@@ -30,3 +30,6 @@ w_mag = 16.0
 threshold = 
 refractory = 
 ratio = 
+
+[test]
+data_size = 
