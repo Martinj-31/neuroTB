@@ -110,9 +110,11 @@ default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name
 
-default_config['conversion']['refractory'] = 5
-default_config['conversion']['threshold'] = 1
-default_config['conversion']['ratio'] = 1.8
+default_config['conversion']['refractory'] = '5'
+default_config['conversion']['threshold'] = '1'
+default_config['conversion']['ratio'] = '1.6'
+
+default_config['test']['data_size'] = '10'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
