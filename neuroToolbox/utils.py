@@ -107,6 +107,11 @@ def has_weights(layer):
         return len(layer.weights)
     
 
+def get_percentile_activation(activations, percentile):
+
+    return np.percentile(activations, percentile) if activations.size else 1
+    
+
 def Flattener_Dense(loaded_act):
     acts = []
     for ic in range(loaded_act.shape[0]):

@@ -44,22 +44,16 @@ class Convert:
 
             if 'conv' in layer.name:
                 for oc in range(weight.shape[-1]):
-                    acts_range = self.get_percentile_activation(activations, perc) / ratio + bias[oc]
+                    acts_range = utils.get_percentile_activation(activations, perc) / ratio + bias[oc]
                     print(f"99.9th percentile activations of channel {oc+1} from {prev_layer.name} : {acts_range}")
                     weight[:, :, :, oc] = weight[:, :, :, oc] * (v_th / (1 - acts_range * t_ref))
             else:
-                acts_range = self.get_percentile_activation(activations, perc) / ratio
+                acts_range = utils.get_percentile_activation(activations, perc) / ratio
                 print(f"99.9th percentile activations : {acts_range}")
                 weight = weight * (v_th / (1 - acts_range * t_ref))
             
             layer.set_weights([weight, bias])
             print('')
-
-
-    # Activation return corresponding to n-th percentile
-    def get_percentile_activation(self, activations, percentile):
-
-        return np.percentile(activations, percentile) if activations.size else 1
     
 
     def normalize_parameters(self):
