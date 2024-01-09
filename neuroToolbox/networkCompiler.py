@@ -269,6 +269,8 @@ class networkCompile:
 
         print(f"Spiking neural network build completed!")
 
+        return [self.neurons, self.synapses, self.bias_list]
+
 
     def layers(self):
         return self.synapses
@@ -297,93 +299,3 @@ class networkCompile:
         print(f"Total neurons : {0}")
         print(f"Total {self.neuronCoreNum()} cores of neuron are needed.")
         print(f"_________________________________________________________________")
-
-
-    def run(self, image, label):
-        print(f"Preparing for running converted snn.")
-        x_test = image
-        y_test = label
-        syn_operation = 0
-
-        v_th = self.config.getint('conversion', 'threshold')
-        t_ref = self.config.getint('conversion', 'refractory') / 1000
-
-        print(f"Input data length : {len(x_test)}")
-        print(f"...\n")
-
-        print(f"Loading synaptic weights ...\n")
-        fr_dist = {}
-        w_dict = {}
-        w_cal = {}
-        for layer in self.synapses.keys():
-            fr_dist[layer] = []
-            w_dict[layer] = []
-            w_cal[layer] = []
-        
-        score = 0
-        for input_idx in range(len(x_test)):
-            synCnt = 0
-            firing_rate = x_test[input_idx].flatten()
-            for layer, neuron in self.synapses.items():
-                src = np.array(neuron[0]) - synCnt
-                synCnt += 1024
-                tar = np.array(neuron[1]) - synCnt
-                w = np.array(neuron[2])
-                source = len(np.unique(src))
-                target = len(np.unique(tar))
-                weights = np.zeros(source * target).reshape(source, target)
-                w_dict[layer] = w
-                for i in range(len(w)):
-                    weights[src[i]][tar[i]] = w[i]
-
-                for neu_idx in range(len(firing_rate)):
-                    fan_out = len(np.where(weights[neu_idx][:] > 0)[0])
-                    syn_operation += firing_rate[neu_idx] * fan_out
-
-                firing_rate = np.dot(firing_rate, weights)
-                if 'conv' in layer:
-                    s = 0
-                    for oc_idx, oc in enumerate(neuron[3]):
-                        firing_rate[s:oc] = (firing_rate[s:oc] / v_th) + self.bias_list[layer][oc_idx]
-                        firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*t_ref + v_th))
-                        s = oc
-                else:
-                    firing_rate = firing_rate // v_th
-                    firing_rate = np.floor(firing_rate / (firing_rate*t_ref + v_th))
-                neg_idx = np.where(firing_rate < 0)[0]
-                firing_rate[neg_idx] = 0
-                fr_dist[layer] = np.concatenate((fr_dist[layer], firing_rate))
-            print(f"Firing rate from output layer for #{input_idx+1} input")
-            print(firing_rate)
-            print('')
-
-            if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
-                score += 1
-            else: pass
-
-        for l in fr_dist.keys():
-            max_fr = np.max(fr_dist[l])
-            x_value = np.array([])
-            for f in range(int(max_fr)):
-                w_computed = f * w_dict[l]
-                neg_idx = np.where(w_computed < 0)[0]
-                w_computed[neg_idx] = 0
-                x_value = np.concatenate((np.ones(len(w_computed))*f, x_value))
-                w_cal[l] = np.concatenate((list(w_computed), w_cal[l])) 
-
-            plt.figure(figsize=(8, 6))
-            plt.plot(x_value, w_cal[l], 'b.')
-            plt.title(f"Firing rate * weight of {l} layer", fontsize=30)
-            plt.xlabel(f"Firing rate from 0 to maximum", fontsize=27)
-            plt.ylabel(f"Firing rates * weight", fontsize=27)
-            plt.yticks(fontsize=20)
-            plt.grid(True)
-            plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
-            plt.show()
-
-        print(f"______________________________________")
-        print(f"Accuracy : {(score/len(x_test))*100} %")
-        print(f"Synaptic operation : {syn_operation}")
-        print(f"______________________________________\n")
-        print(f"End running\n\n")
-                    
