@@ -69,7 +69,7 @@ def run_neuroTB(config_filepath):
     batch_shape[0] = batch_size
     data_size = config.getint('test', 'data_size')
     
-    spike_model = net.networkGen(parsed_model, bias_list, config)
+    spike_model = net.networkCompile(parsed_model, bias_list, config)
 
     spike_model.setup_layers(batch_shape)
     spike_model.build()

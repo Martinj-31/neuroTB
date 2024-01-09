@@ -14,7 +14,7 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-class networkGen:
+class networkCompile:
 
     def __init__(self, parsed_model, bias_list, config):
         self.config = config
@@ -304,7 +304,6 @@ class networkGen:
         x_test = image
         y_test = label
         syn_operation = 0
-        refractory = 0.005
 
         v_th = self.config.getint('conversion', 'threshold')
         t_ref = self.config.getint('conversion', 'refractory') / 1000
@@ -320,6 +319,7 @@ class networkGen:
             fr_dist[layer] = []
             w_dict[layer] = []
             w_cal[layer] = []
+        
         score = 0
         for input_idx in range(len(x_test)):
             synCnt = 0

@@ -30,6 +30,8 @@ w_mag = 16.0
 threshold = 
 refractory = 
 ratio = 
+lower_x = 
+upper_x =
 
 [test]
 data_size = 
