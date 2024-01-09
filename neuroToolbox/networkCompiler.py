@@ -16,10 +16,9 @@ sys.path.append(parent_dir)
 
 class networkCompile:
 
-    def __init__(self, parsed_model, bias_list, config):
+    def __init__(self, parsed_model, config):
         self.config = config
         self.parsed_model = parsed_model
-        self.bias_list = bias_list
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
         self.nCount = 1024
         self.synCnt = 0
@@ -68,8 +67,8 @@ class networkCompile:
 
     def Synapse_dense(self, layer):
         print(f"Connecting layer...")
-        
-        w = list(layer.get_weights())[0]
+
+        w, bias = layer.get_weights()
 
         length_src = w.shape[0]
         length_tar = w.shape[1]
@@ -107,7 +106,7 @@ class networkCompile:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
         
-        self.synapses[layer.name] = [source, target, weights]
+        self.synapses[layer.name] = [source, target, weights, bias]
 
 
     def Synapse_convolution(self, layer):
@@ -130,7 +129,7 @@ class networkCompile:
         """
         print(f"Connecting layer...")
 
-        w = list(layer.get_weights())[0]
+        w, bias = layer.get_weights()
 
         # 'channel_first' : [batch_size, channels, height, width]
         # 'channel_last' : [batch_size, height, width, channels]
@@ -199,7 +198,7 @@ class networkCompile:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
 
-        self.synapses[layer.name] = [source, target, weights, output_channels_idx]
+        self.synapses[layer.name] = [source, target, weights, output_channels_idx, bias]
 
 
     def Synapse_pooling(self, layer):
@@ -264,12 +263,10 @@ class networkCompile:
             pickle.dump(self.neurons, f)
         with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
-        with open(filepath + filename + '_bias.pkl', 'wb') as f:
-            pickle.dump(self.bias_list, f)
 
         print(f"Spiking neural network build completed!")
 
-        return [self.neurons, self.synapses, self.bias_list]
+        return [self.neurons, self.synapses]
 
 
     def layers(self):

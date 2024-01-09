@@ -30,7 +30,6 @@ class Parser:
         """
         self.input_model = input_model
         self.config = config
-        self.bias_list = {}
         self._parsed_layer_list = []
 
         self.add_layer_mapping = {}
@@ -88,8 +87,6 @@ class Parser:
 
                 new_weight, new_bias = self._absorb_bn_parameters(weight, bias, gamma, mean, var_eps_sqrt_inv, beta, axis)
 
-                self.bias_list[prev_layer.name] = new_bias
-
                 # Set the new weight and bias to the previous layer
                 print("Set Weight with Absorbing BN params")                
                 prev_layer.set_weights([new_weight, new_bias])
@@ -146,7 +143,7 @@ class Parser:
         parsed_model = self.build_parsed_model(afterParse_layer_list)
         keras.models.save_model(parsed_model, os.path.join(self.config["paths"]["models"], self.config['names']['parsed_model'] + '.h5'))
 
-        return parsed_model, self.bias_list
+        return parsed_model
     
 
     def build_parsed_model(self, layer_list):
