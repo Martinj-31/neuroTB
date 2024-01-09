@@ -113,8 +113,10 @@ default_config['names']['snn_model'] = 'SNN_' + model_name
 default_config['conversion']['refractory'] = '5'
 default_config['conversion']['threshold'] = '1'
 default_config['conversion']['ratio'] = '1.6'
+default_config['conversion']['lower_x'] = '0.1'
+default_config['conversion']['upper_x'] = '0.9' 
 
-default_config['test']['data_size'] = '10'
+default_config['test']['data_size'] = '1000'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
