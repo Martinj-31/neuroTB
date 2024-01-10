@@ -198,7 +198,7 @@ class networkCompile:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
 
-        self.synapses[layer.name] = [source, target, weights, output_channels_idx, bias]
+        self.synapses[layer.name] = [source, target, weights, bias, output_channels_idx]
 
 
     def Synapse_pooling(self, layer):
