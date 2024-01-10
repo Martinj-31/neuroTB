@@ -11,11 +11,21 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-class Convert:
+class Converter:
+    """
+    Class for converting weight for SNN conversion.
+    """
     
-    def __init__(self, model, config):
-        self.neurons = model[0]
-        self.synapses = model[1]
+    def __init__(self, spike_model, config):
+        """
+        Initialize the Converter instance.
+
+        Args:
+            spike_model (tf.keras.Model): The compiled model for SNN from networkCompiler.
+            config (configparser.ConfigParser): Configuration settings for weight conversion.
+        """
+        self.neurons = spike_model[0]
+        self.synapses = spike_model[1]
         self.config = config
 
         self.v_th = self.config.getint('conversion', 'threshold')
@@ -37,7 +47,7 @@ class Convert:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
-        print("\n\n######## Weight conversion ########\n")
+        print("\n\n######## Converting weight ########\n")
         
         synCnt = 0
         input_activation = x_norm
