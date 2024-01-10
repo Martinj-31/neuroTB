@@ -14,9 +14,19 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
 
-class networkCompile:
+class networkCompiler:
+    """
+    Class for compiling an ANN model into a SNN model.
+    """
 
     def __init__(self, parsed_model, config):
+        """
+        Initialize the networkCompile instance.
+
+        Args:
+            parsed_model (tf.keras.Model): The parsed model from Parser.
+            config (configparser.ConfigParser): Configuration settings for parsing.
+        """
         self.config = config
         self.parsed_model = parsed_model
         self.num_classes = int(self.parsed_model.layers[-1].output_shape[-1])
@@ -30,18 +40,24 @@ class networkCompile:
 
         os.makedirs(self.config['paths']['path_wd'] + '/fr_distribution')
 
-        # mode On/Off
-
 
     def setup_layers(self, input_shape):
+
+        print("\n\n####### Compiling an ANN model into a SNN model #######\n")
+        print(f"Data format is '{keras.backend.image_data_format()}'\n")
+
         self.neuron_input_layer(input_shape)
         layers = []
         for layer in self.parsed_model.layers[1:]:
             layers.append(layer)
-            print(f"\nBuilding layer for {layer.__class__.__name__}")
+
+            print(f"\n Building layer for {layer.__class__.__name__}")
+
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
-                print(f"Flatten layer is not going to be converted to SNN. (Skipped)")
+
+                print(f"Flatten layer are not converted to SNN. (Skipped)")
+                
                 self.flatten_shapes.append(layers[-2])
                 continue
             self.neuron_layer(layer)
@@ -54,6 +70,7 @@ class networkCompile:
                 self.Synapse_pooling(layer)
 
         print(f"Total {int(self.synCnt/1024)} neuron cores are going to be used.")
+        print(f"\n>>> Setup layers complete.\n")
 
 
     # Input will be made in neuralSim library.
@@ -66,6 +83,15 @@ class networkCompile:
 
 
     def Synapse_dense(self, layer):
+        """_summary_
+        This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
+
+        Args:
+            layer (tf.keras.Model): Keras CNN model with weight information.
+
+        Parameters:
+
+        """
         print(f"Connecting layer...")
 
         w, bias = layer.get_weights()
@@ -80,8 +106,9 @@ class networkCompile:
         cnt = 0
         if len(self.flatten_shapes) == 1:
             shape = self.flatten_shapes.pop().output_shape[1:]
-            print(f"Flatten was detected.")
-            print(f"Data format is '{keras.backend.image_data_format()}'")
+
+            print(f"*** Flatten was detected. ***")
+
             y_in, x_in, f_in = shape
 
             for m in range(length_src):
@@ -114,7 +141,9 @@ class networkCompile:
         This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
 
         Args:
-            layer (Keras.model): Keras CNN model with weight information.
+            layer (tf.keras.Model): Keras CNN model with weight information.
+
+        Parameters:
             weights (): Data shape is [filter_height, filter_width, input_channels, output_channels].
             height_fm (int): Height of feature map
             width_fm (int): Width of feature map
@@ -127,6 +156,7 @@ class networkCompile:
         Raises:
             NotImplementedError: _description_
         """
+
         print(f"Connecting layer...")
 
         w, bias = layer.get_weights()
@@ -203,9 +233,10 @@ class networkCompile:
 
     def Synapse_pooling(self, layer):
         """_summary_
-
         Args:
-            layer (Keras.model): Keras CNN model with weight information.
+            layer (tf.keras.Model): Keras CNN model with weight information.
+
+        Parameters:
             width_fm (): Width of feature map
             height_fm (): Height of feature map
             numFm (): Number of feature maps
@@ -257,6 +288,9 @@ class networkCompile:
 
 
     def build(self):
+
+        print(f"Build and Store compiled SNN model...")
+
         filepath = self.config['paths']['models']
         filename = self.config['names']['snn_model']
         with open(filepath + filename + '_Converted_neurons.pkl', 'wb') as f:
@@ -264,7 +298,7 @@ class networkCompile:
         with open(filepath + filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
 
-        print(f"Spiking neural network build completed!")
+        print(f"\n>>> Compiling DONE.\n\n")
 
         return [self.neurons, self.synapses]
 
