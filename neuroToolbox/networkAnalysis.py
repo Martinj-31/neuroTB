@@ -21,6 +21,9 @@ class Analysis:
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
         self.input_model_name = input_model_name
 
+        self.v_th = self.config.getint('conversion', 'threshold')
+        self.t_ref = self.config.getint('conversion', 'refractory') / 1000
+
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
         os.makedirs(self.config['paths']['path_wd'] + '/map_corr')
@@ -30,8 +33,6 @@ class Analysis:
             self.neurons = pickle.load(f)
         with open(self.snn_filepath + '_Converted_synapses.pkl', 'rb') as f:
             self.synapses = pickle.load(f)
-        with open(self.snn_filepath + '_bias.pkl', 'rb') as f:
-            self.bias_list = pickle.load(f)
     
 
     def run(self, image, label):
@@ -39,9 +40,6 @@ class Analysis:
         x_test = image
         y_test = label
         syn_operation = 0
-
-        v_th = self.config.getint('conversion', 'threshold')
-        t_ref = self.config.getint('conversion', 'refractory') / 1000
 
         print(f"Input data length : {len(x_test)}")
         print(f"...\n")
@@ -78,13 +76,13 @@ class Analysis:
                 firing_rate = np.dot(firing_rate, weights)
                 if 'conv' in layer:
                     s = 0
-                    for oc_idx, oc in enumerate(neuron[3]):
-                        firing_rate[s:oc] = (firing_rate[s:oc] / v_th) + self.bias_list[layer][oc_idx]
-                        firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*t_ref + v_th))
+                    for oc_idx, oc in enumerate(neuron[4]):
+                        firing_rate[s:oc] = (firing_rate[s:oc] / self.v_th) + neuron[3][oc_idx]
+                        firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*self.t_ref + self.v_th))
                         s = oc
                 else:
-                    firing_rate = firing_rate // v_th
-                    firing_rate = np.floor(firing_rate / (firing_rate*t_ref + v_th))
+                    firing_rate = firing_rate // self.v_th
+                    firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
                 fr_dist[layer] = np.concatenate((fr_dist[layer], firing_rate))
@@ -96,25 +94,25 @@ class Analysis:
                 score += 1
             else: pass
 
-        for l in fr_dist.keys():
-            max_fr = np.max(fr_dist[l])
-            x_value = np.array([])
-            for f in range(int(max_fr)):
-                w_computed = f * w_dict[l]
-                neg_idx = np.where(w_computed < 0)[0]
-                w_computed[neg_idx] = 0
-                x_value = np.concatenate((np.ones(len(w_computed))*f, x_value))
-                w_cal[l] = np.concatenate((list(w_computed), w_cal[l])) 
+        # for l in fr_dist.keys():
+        #     max_fr = np.max(fr_dist[l])
+        #     x_value = np.array([])
+        #     for f in range(int(max_fr)):
+        #         w_computed = f * w_dict[l]
+        #         neg_idx = np.where(w_computed < 0)[0]
+        #         w_computed[neg_idx] = 0
+        #         x_value = np.concatenate((np.ones(len(w_computed))*f, x_value))
+        #         w_cal[l] = np.concatenate((list(w_computed), w_cal[l])) 
 
-            plt.figure(figsize=(8, 6))
-            plt.plot(x_value, w_cal[l], 'b.')
-            plt.title(f"Firing rate * weight of {l} layer", fontsize=30)
-            plt.xlabel(f"Firing rate from 0 to maximum", fontsize=27)
-            plt.ylabel(f"Firing rates * weight", fontsize=27)
-            plt.yticks(fontsize=20)
-            plt.grid(True)
-            plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
-            plt.show()
+        #     plt.figure(figsize=(8, 6))
+        #     plt.plot(x_value, w_cal[l], 'b.')
+        #     plt.title(f"Firing rate * weight of {l} layer", fontsize=30)
+        #     plt.xlabel(f"Firing rate from 0 to maximum", fontsize=27)
+        #     plt.ylabel(f"Firing rates * weight", fontsize=27)
+        #     plt.yticks(fontsize=20)
+        #     plt.grid(True)
+        #     plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
+        #     plt.show()
 
         print(f"______________________________________")
         print(f"Accuracy : {(score/len(x_test))*100} %")
@@ -184,11 +182,13 @@ class Analysis:
                         firing_rate = np.dot(firing_rate, weights)
                         if 'conv' in snn_layer[0]:
                             s = 0
-                            for oc_idx, oc in enumerate(snn_layer[1][3]):
-                                firing_rate[s:oc] = np.floor(firing_rate[s:oc] // 1 + self.bias_list[snn_layer[0]][oc_idx])
+                            for oc_idx, oc in enumerate(snn_layer[1][4]):
+                                firing_rate[s:oc] = (firing_rate[s:oc] / self.v_th) + snn_layer[1][3][oc_idx]
+                                firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*self.t_ref + self.v_th))
                                 s = oc
                         else:
-                            firing_rate = firing_rate // 1
+                            firing_rate = firing_rate // self.v_th
+                            firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
                         neg_idx = np.where(firing_rate < 0)[0]
                         firing_rate[neg_idx] = 0
                         snn_fr = np.concatenate((snn_fr, firing_rate))
