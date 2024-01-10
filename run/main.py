@@ -26,7 +26,6 @@ def run_neuroTB(config_filepath):
     x_test_file = np.load(os.path.join(config["paths"]["dataset_path"], 'x_test.npz'))
     x_test = x_test_file['arr_0']
 
-    print("x_test.shape : ", x_test.shape)
     y_test_file = np.load(os.path.join(config["paths"]["dataset_path"], 'y_test.npz'))
     y_test = y_test_file['arr_0']
 
@@ -53,8 +52,8 @@ def run_neuroTB(config_filepath):
     parsed_model.summary()
     
     score1, score2 = parser.parseAnalysis(input_model, parsed_model, x_test, y_test)
-    # print("input model Test loss : ", score1[0])
-    # print("input model Test accuracy : ", score1[1])
+    print("input model Test loss : ", score1[0])
+    print("input model Test accuracy : ", score1[1])
     print("parsed model Test loss : ", score2[0])
     print("parsed model Test accuracy : ", score2[1])
     
@@ -65,7 +64,7 @@ def run_neuroTB(config_filepath):
     batch_shape[0] = batch_size
     data_size = config.getint('test', 'data_size')
     
-    compiler = net.networkCompile(parsed_model, config)
+    compiler = net.networkCompiler(parsed_model, config)
 
     compiler.setup_layers(batch_shape)
     spike_model = compiler.build()
@@ -73,7 +72,7 @@ def run_neuroTB(config_filepath):
 
 
     # %% Normalization and convert
-    converter = convert.Convert(spike_model, config)
+    converter = convert.Converter(spike_model, config)
     converter.convertWeights()
 
 

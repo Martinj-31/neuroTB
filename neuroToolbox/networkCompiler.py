@@ -25,7 +25,7 @@ class networkCompiler:
 
         Args:
             parsed_model (tf.keras.Model): The parsed model from Parser.
-            config (configparser.ConfigParser): Configuration settings for parsing.
+            config (configparser.ConfigParser): Configuration settings for compiling.
         """
         self.config = config
         self.parsed_model = parsed_model
