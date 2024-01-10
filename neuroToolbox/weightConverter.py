@@ -75,8 +75,6 @@ class Convert:
                 pass
 
             input_activation = firing_rate
-            plt.plot(firing_rate, 'b.')
-            plt.show()
 
         with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
