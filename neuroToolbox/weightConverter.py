@@ -86,12 +86,12 @@ class Converter:
     
 
     def get_spikes(self, model, layer_in, layer_out, x):
-        start_synCnt = self.remove_keys(model, layer_in)
+        self.remove_keys(model, layer_in)
         weights = utils.weightDecompile(self.synapses)
+        print(model.keys())
 
         spikes = []
         for input_idx in range(len(x)):
-            synCnt = start_synCnt
             firing_rate = x[input_idx].flatten()
             for layer, neuron in model.items():
                 firing_rate = np.dot(firing_rate, weights[layer])
@@ -133,6 +133,4 @@ class Converter:
 
         for key in keys_to_remove:
             del dictionary[key]
-
-        return len(keys_to_remove) * 1024
     
