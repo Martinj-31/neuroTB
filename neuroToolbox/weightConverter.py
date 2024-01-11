@@ -52,7 +52,7 @@ class Converter:
         synCnt = 0
         input_activation = x_norm
         for layer, neuron in self.synapses.copy().items():
-            print(f" >>> Weight conversion for {layer} layer")
+            print(f" Weight conversion for {layer} layer")
             src = np.array(neuron[0]) - synCnt
             synCnt += 1024
             tar = np.array(neuron[1]) - synCnt
@@ -69,7 +69,7 @@ class Converter:
 
             firing_rate = self.get_spikes(model=self.synapses.copy(), layer_in=layer, layer_out=layer, x=input_activation)
 
-            scaled_firing_rate = self.min_max_scaling(firing_rate, self.lower_bound, self.upper_bound)
+            scaled_firing_rate = self.min_max_scaling(firing_rate.flatten(), self.lower_bound, self.upper_bound)
             scaled_firing_rate_shifted = scaled_firing_rate - self.lower_bound
 
             normalization_factor = np.max(scaled_firing_rate_shifted) / np.max(firing_rate)
@@ -90,16 +90,6 @@ class Converter:
             pickle.dump(self.synapses, f)
 
         print(f"Weight conversion DONE.<<<\n\n\n")
-    
-
-    def min_max_scaling(self, data, new_min=0, new_max=1):
-
-        current_min = np.min(data)
-        current_max = np.max(data)
-
-        scaled_data = [((x - current_min) / (current_max - current_min)) * (new_max - new_min) + new_min for x in data]
-
-        return np.array(scaled_data)
     
 
     def get_spikes(self, model, layer_in, layer_out, x):
@@ -135,14 +125,15 @@ class Converter:
         
         return np.array(spikes)
     
+    
+    def min_max_scaling(self, data, new_min=0, new_max=1):
 
-    def get_activations(self, layer_in, layer_out, x):
-            
-        print("Calculating activations of layer {}.".format(layer_out.name))
+        current_min = np.min(data)
+        current_max = np.max(data)
 
-        activations = tf.keras.models.Model(inputs=layer_in.input, outputs=layer_out.output).predict(x)
-        
-        return np.array(activations)
+        scaled_data = [((x - current_min) / (current_max - current_min)) * (new_max - new_min) + new_min for x in data]
+
+        return np.array(scaled_data)
     
 
     def remove_keys(self, dictionary, target_key):
