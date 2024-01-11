@@ -88,7 +88,6 @@ class Converter:
     def get_spikes(self, model, layer_in, layer_out, x):
         self.remove_keys(model, layer_in)
         weights = utils.weightDecompile(self.synapses)
-        print(model.keys())
 
         spikes = []
         for input_idx in range(len(x)):
