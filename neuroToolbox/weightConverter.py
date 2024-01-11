@@ -49,7 +49,6 @@ class Converter:
 
         print("\n\n######## Converting weight ########\n")
         
-        synCnt = 0
         input_activation = x_norm
         for layer, neuron in self.synapses.copy().items():
             print(f" Weight conversion for {layer} layer...")
