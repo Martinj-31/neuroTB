@@ -110,6 +110,27 @@ def has_weights(layer):
 def get_percentile_activation(activations, percentile):
 
     return np.percentile(activations, percentile) if activations.size else 1
+
+
+def weightDecompile(synapses):
+    weight_list = {}
+    synCnt = 0
+    for layer, synapse in synapses.items():
+        src = np.array(synapse[0]) - synCnt
+        synCnt += 1024
+        tar = np.array(synapse[1]) - synCnt
+        w = np.array(synapse[2])
+        source = len(np.unique(src))
+        target = len(np.unique(tar))
+        weights = np.zeros(source * target).reshape(source, target)
+        
+        for i in range(len(w)):
+            weights[src[i]][tar[i]] = w[i]
+        
+        weight_list[layer] = weights
+        print(f"Max weight : {np.max(weights)} | Min weight : {np.min(weights)}")
+
+    return weight_list
     
 
 def Flattener_Dense(loaded_act):
