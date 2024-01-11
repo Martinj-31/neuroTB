@@ -67,9 +67,9 @@ def run_neuroTB(config_filepath):
     compiler = net.networkCompiler(parsed_model, config)
 
     compiler.setup_layers(batch_shape)
-    spike_model = compiler.build()
     compiler.summarySNN()
-
+    spike_model = compiler.build()
+    
 
     # %% Normalization and convert
     converter = convert.Converter(spike_model, config)

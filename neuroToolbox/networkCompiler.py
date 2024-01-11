@@ -69,7 +69,7 @@ class networkCompiler:
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
 
-        print(f"Total {int(self.synCnt/1024)} neuron cores are going to be used.")
+        print(f"\n\nTotal {int(self.synCnt/1024)} neuron cores are going to be used.")
         print(f"\n>>> Setup layers complete.\n")
 
 
