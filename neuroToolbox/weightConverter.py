@@ -52,16 +52,9 @@ class Converter:
         synCnt = 0
         input_activation = x_norm
         for layer, neuron in self.synapses.copy().items():
-            print(f" Weight conversion for {layer} layer")
-            src = np.array(neuron[0]) - synCnt
-            synCnt += 1024
-            tar = np.array(neuron[1]) - synCnt
+            print(f" Weight conversion for {layer} layer...")
+
             w = np.array(neuron[2])
-            source = len(np.unique(src))
-            target = len(np.unique(tar))
-            weights = np.zeros(source * target).reshape(source, target)
-            for i in range(len(w)):
-                weights[src[i]][tar[i]] = w[i]
             if 'conv' in layer or layer == 'dense':
                 bias = neuron[3]
             else:
@@ -73,10 +66,11 @@ class Converter:
             scaled_firing_rate_shifted = scaled_firing_rate - self.lower_bound
 
             normalization_factor = np.max(scaled_firing_rate_shifted) / np.max(firing_rate)
-            print(f"  | Normalization factor : {normalization_factor} |\n")
+            print(f"  | Normalization factor : {normalization_factor} |")
 
             new_weight = w * normalization_factor
             new_bias = bias + self.lower_bound
+            print(f"Max weight : {np.max(new_weight)} | Min weight : {np.min(new_weight)}\n")
 
             neuron[2] = new_weight
             if 'conv' in layer or layer == 'dense':
@@ -94,22 +88,14 @@ class Converter:
 
     def get_spikes(self, model, layer_in, layer_out, x):
         start_synCnt = self.remove_keys(model, layer_in)
+        weights = utils.weightDecompile(self.synapses)
 
         spikes = []
         for input_idx in range(len(x)):
             synCnt = start_synCnt
             firing_rate = x[input_idx].flatten()
             for layer, neuron in model.items():
-                src = np.array(neuron[0]) - synCnt
-                synCnt += 1024
-                tar = np.array(neuron[1]) - synCnt
-                w = np.array(neuron[2])
-                source = len(np.unique(src))
-                target = len(np.unique(tar))
-                weights = np.zeros(source * target).reshape(source, target)
-                for i in range(len(w)):
-                    weights[src[i]][tar[i]] = w[i]
-                firing_rate = np.dot(firing_rate, weights)
+                firing_rate = np.dot(firing_rate, weights[layer])
                 if 'conv' in layer:
                     s = 0
                     for oc_idx, oc in enumerate(neuron[4]):
@@ -150,3 +136,4 @@ class Converter:
             del dictionary[key]
 
         return len(keys_to_remove) * 1024
+    
