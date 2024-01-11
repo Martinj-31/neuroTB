@@ -18,7 +18,7 @@ class Parser:
     Class for parsing an ANN model into a format suitable for ANN to SNN conversion.
     """
 
-    def __init__(self, input_model, config):
+    def __init__(self, input_model, config, plot=False):
         """
         Initialize the Parser instance.
 
@@ -30,9 +30,14 @@ class Parser:
         """
         self.input_model = input_model
         self.config = config
-        self._parsed_layer_list = []
+        self.plot = plot
 
+        self.bias_list = {}
+        self._parsed_layer_list = []
         self.add_layer_mapping = {}
+
+        os.makedirs(self.config['paths']['path_wd'] + '/model_graph')
+
 
     def parse(self):
         """
@@ -100,16 +105,31 @@ class Parser:
                 raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
                   
             elif layer_type == 'Add':
-                print("Replace Add layer to concatenate + Conv2D layer")
-                # Retrieve the input tensors for the Add layer
+                
+                print("Replacing Add layer by Concatenate plus Conv.")
+
+                # Retrieve the input tensors for the Add layer  
                 add_input_tensors = layer.input
-            
+
+                shape = layer.output_shape
+                if keras.backend.image_data_format() == 'channels_first':
+                    axis = 1
+                    c, h, w = shape[1:]
+
+                else:
+                    axis = -1
+                    h, w, c = shape[1:]
+
                 # Create a concatenate layer
-                concat_layer = tf.keras.layers.Concatenate()
-                afterParse_layer_list.append((concat_layer, add_input_tensors))
-            
+                concatenate_layer = keras.layers.Concatenate(axis = axis)
+                afterParse_layer_list.append(concatenate_layer)
+                                            
                 # Create a Conv2D layer
-                conv2d_layer = tf.keras.layers.Conv2D(filters=add_input_tensors[0].shape[-1], kernel_size=(1, 1), strides=(1,1), padding='same', activation='relu')
+                weights = np.zeros([1, 1, 2 * c, c])
+                for k in range(c):
+                    weights[:, :, k::c, k] = 1
+
+                conv2d_layer = keras.layers.Conv2D(filters = c, kernel_size = 1, activation='relu')
                 afterParse_layer_list.append(conv2d_layer)
                 continue
             
@@ -167,18 +187,45 @@ class Parser:
         # x = new_input_layer
 
         x = layer_list[0].input
-    
-        for layer in layer_list[1:]:
-            x = layer(x)
 
-        # model = keras.models.Model(inputs=new_input_layer, outputs=x, name="parsed_model")
+        previous_layers=[]
+        for layer in layer_list[1:]:
+            
+            layer._inbound_nodes = []
+            layer._outbound_nodes = []
+                       
+            if layer.__class__.__name__ == 'Concatenate':
+                for idx, i in enumerate(reversed(previous_layers)):
+                    if i.__class__.__name__ == 'Concatenate':
+                        if idx == 4:
+                            input_tensor = previous_layers[-3].output
+                            x = layer([ x, input_tensor ])
+                        elif idx == 5:
+                            shortcut = previous_layers[-1](previous_layers[-4].output)
+                            x = layer([previous_layers[-2].output, shortcut]) 
+                        break
+                    elif len(previous_layers) == 4:
+                        shortcut = previous_layers[-1](previous_layers[-4].output)
+                        x = layer([previous_layers[-2].output, shortcut])
+                        break
+                    else: 
+                        pass
+            else:
+                x = layer(x)
+            previous_layers.append(layer)
+            
         model = keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
-        
         model.compile(loss='categorical_crossentropy',
                   optimizer=keras.optimizers.Adam(learning_rate=0.001),
                   metrics=['accuracy'])
         
+        if self.plot == True:
+            keras.utils.plot_model(model, self.config['paths']['path_wd'] + '/model_graph' + '/parsed_model.png', show_shapes=True)
+        else:
+            pass
+
         return model
+
 
       
     def _get_BN_parameters(self, layer):
