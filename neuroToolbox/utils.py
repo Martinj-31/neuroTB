@@ -128,7 +128,6 @@ def weightDecompile(synapses):
             weights[src[i]][tar[i]] = w[i]
         
         weight_list[layer] = weights
-        print(f"Max weight : {np.max(weights)} | Min weight : {np.min(weights)}")
 
     return weight_list
     
