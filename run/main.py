@@ -61,7 +61,7 @@ def run_neuroTB(config_filepath):
     batch_size = config["conversion"]["batch_size"]
     batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
-    data_size = config.getint('test', 'data_size')
+    data_size = int(10000 / config.getint('test', 'data_size'))
     
     compiler = net.networkCompiler(parsed_model, config)
 
@@ -79,6 +79,7 @@ def run_neuroTB(config_filepath):
     evaluation = networkAnalysis.Analysis(input_model_name, config)
     
     evaluation.run(data_size)
+    evaluation.IOcurve()
     evaluation.compareAct(input_model_name)
     evaluation.evalNetwork()
     
