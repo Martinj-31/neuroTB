@@ -69,7 +69,6 @@ class networkCompiler:
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
 
-        print(f"\n\nTotal {int(self.synCnt/1024)} neuron cores are going to be used.")
         print(f"\n>>> Setup layers complete.\n")
 
 
@@ -317,6 +316,7 @@ class networkCompiler:
 
 
     def summarySNN(self):
+        total_neuron = 0
         print(f"_________________________________________________________________")
         print(f"{'Model: '}{self.config['names']['snn_model']}")
         print(f"=================================================================")
@@ -326,7 +326,8 @@ class networkCompiler:
             print(f"Neurons for")
             print(f"{list(self.neurons.keys())[i]:<40}{list(self.neurons.values())[i]:<40}")
             print(f"_________________________________________________________________")
+            total_neuron += list(self.neurons.values())[i]
         print(f"=================================================================")
-        print(f"Total neurons : {0}")
+        print(f"Total neurons : {total_neuron}")
         print(f"Total {self.neuronCoreNum()} cores of neuron are needed.")
         print(f"_________________________________________________________________")
