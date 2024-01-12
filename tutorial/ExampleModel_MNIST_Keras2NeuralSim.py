@@ -106,6 +106,7 @@ default_config['paths']['path_wd'] = path_wd
 default_config['paths']['dataset_path'] = path_wd + '/dataset/'
 default_config['paths']['models'] = path_wd + '/models/'
 
+default_config['names']['dataset'] = 'MNIST'
 default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name

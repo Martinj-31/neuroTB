@@ -10,6 +10,7 @@ filepath_snn =
 input_model = 
 parsed_model = 
 snn_model = 
+dataset = 
 
 [train settings]
 loss = sparse_categorical_crossentropy
