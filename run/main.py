@@ -76,9 +76,9 @@ def run_neuroTB(config_filepath):
 
 
     # %% Evaluation each step
-    evaluation = networkAnalysis.Analysis(x_norm, input_model_name, config)
+    evaluation = networkAnalysis.Analysis(input_model_name, config)
     
-    evaluation.run(x_test[::data_size], y_test[::data_size])
+    evaluation.run(data_size)
     evaluation.compareAct(input_model_name)
     evaluation.evalNetwork()
     
