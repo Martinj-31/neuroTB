@@ -56,8 +56,7 @@ class Converter:
             w = np.array(neuron[2])
             if 'conv' in layer or layer == 'dense':
                 bias = neuron[3]
-            else:
-                pass
+            else: pass
 
             firing_rate = self.get_spikes(model=self.synapses.copy(), layer_in=layer, layer_out=layer, x=input_activation)
 
@@ -69,13 +68,13 @@ class Converter:
 
             new_weight = w * normalization_factor
             new_bias = bias + self.lower_bound
-            print(f"Max weight : {np.max(new_weight)} | Min weight : {np.min(new_weight)}\n")
+            print(f"Max ori weight : {np.max(w)} | Min ori weight : {np.min(w)}")
+            print(f"Max new weight : {np.max(new_weight)} | Min new weight : {np.min(new_weight)}\n")
 
             neuron[2] = new_weight
             if 'conv' in layer or layer == 'dense':
                 neuron[3] = new_bias
-            else:
-                pass
+            else: pass
 
             input_activation = firing_rate
 
@@ -99,8 +98,9 @@ class Converter:
                     for oc_idx, oc in enumerate(neuron[4]):
                         firing_rate[s:oc] = firing_rate[s:oc] + neuron[3][oc_idx]
                         s = oc
-                else:
-                    pass
+                elif 'dense' in layer:
+                    firing_rate = firing_rate + neuron[3]
+                else: pass
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
                 if layer == layer_out:
