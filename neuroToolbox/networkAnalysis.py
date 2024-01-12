@@ -16,7 +16,7 @@ class Analysis:
     Class for analysis converted SNN model.
     """
 
-    def __init__(self, x_norm, input_model_name, config):
+    def __init__(self, input_model_name, config):
         """
         Initialize the networkAnalysis instance.
 
@@ -27,7 +27,6 @@ class Analysis:
         """
         self.config = config
 
-        self.x_norm = x_norm
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
         self.input_model_name = input_model_name
@@ -46,16 +45,29 @@ class Analysis:
             self.synapses = pickle.load(f)
     
 
-    def run(self, image, label):
+    def run(self, data_size):
         print(f"Preparing for running converted snn.")
-        x_test = image
-        y_test = label
-        syn_operation = 0
+
+        x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
+        x_test = x_test_file['arr_0']
+        x_test = x_test[::data_size]
+        y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
+        y_test = y_test_file['arr_0']
+        y_test = y_test[::data_size]
+        
+        self.firing_rates = {}
+        for i in range(len(x_test)):
+            self.firing_rates[f"input {i+1}"] = {}
+        for i in range(len(x_test)):
+            for layer in self.synapses.keys():
+                self.firing_rates[f"input {i+1}"][layer] = []
 
         print(f"Input data length : {len(x_test)}")
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
+        weights = utils.weightDecompile(self.synapses)
+
         fr_dist = {}
         w_dict = {}
         w_cal = {}
@@ -65,45 +77,32 @@ class Analysis:
             w_cal[layer] = []
         
         score = 0
+        syn_operation = 0
         for input_idx in range(len(x_test)):
-            synCnt = 0
             firing_rate = x_test[input_idx].flatten()
-            for layer, neuron in self.synapses.items():
-                src = np.array(neuron[0]) - synCnt
-                synCnt += 1024
-                tar = np.array(neuron[1]) - synCnt
-                w = np.array(neuron[2])
-                source = len(np.unique(src))
-                target = len(np.unique(tar))
-                weights = np.zeros(source * target).reshape(source, target)
-                w_dict[layer] = w
-                for i in range(len(w)):
-                    weights[src[i]][tar[i]] = w[i]
-
+            for layer, synapse in self.synapses.items():
+                # Calculate synaptic operations
                 for neu_idx in range(len(firing_rate)):
-                    fan_out = len(np.where(weights[neu_idx][:] > 0)[0])
+                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0)[0])
                     syn_operation += firing_rate[neu_idx] * fan_out
-
-                firing_rate = np.dot(firing_rate, weights)
-                if 'conv' in layer:
-                    s = 0
-                    for oc_idx, oc in enumerate(neuron[4]):
-                        firing_rate[s:oc] = (firing_rate[s:oc] / self.v_th) + neuron[3][oc_idx]
-                        firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*self.t_ref + self.v_th))
-                        s = oc
-                else:
-                    firing_rate = firing_rate // self.v_th
-                    firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
+                firing_rate = np.dot(firing_rate, weights[layer])
+                firing_rate = self.add_bias(firing_rate, layer, synapse)
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
                 fr_dist[layer] = np.concatenate((fr_dist[layer], firing_rate))
+                self.firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.firing_rates[f"input {input_idx+1}"][layer], firing_rate))
             print(f"Firing rate from output layer for #{input_idx+1} input")
-            print(firing_rate)
-            print('')
+            print(f"{firing_rate}\n")
 
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
             else: pass
+
+        print(f"______________________________________")
+        print(f"Accuracy : {(score/len(x_test))*100} %")
+        print(f"Synaptic operation : {syn_operation}")
+        print(f"______________________________________\n")
+        print(f"End running\n\n")
 
         # for l in fr_dist.keys():
         #     max_fr = np.max(fr_dist[l])
@@ -124,12 +123,6 @@ class Analysis:
         #     plt.grid(True)
         #     plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
         #     plt.show()
-
-        print(f"______________________________________")
-        print(f"Accuracy : {(score/len(x_test))*100} %")
-        print(f"Synaptic operation : {syn_operation}")
-        print(f"______________________________________\n")
-        print(f"End running\n\n")
 
     
     def compareAct(self, input_model_name):
@@ -186,7 +179,7 @@ class Analysis:
                         plt.show()
             input_idx += 1
             print('')
-            
+
 
     def evalNetwork(self):
         activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
@@ -282,3 +275,28 @@ class Analysis:
                     plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{snn_layer[0]}")
                     plt.show()
             input_idx += 1
+
+
+    def IOcurve(self):
+
+        return
+
+
+    def spikes(self):
+        
+        return self.firing_rates
+    
+
+    def add_bias(self, firing_rate, layer, synapse):
+        if 'conv' in layer:
+            s = 0
+            for oc_idx, oc in enumerate(synapse[4]):
+                firing_rate[s:oc] = (firing_rate[s:oc] / self.v_th) + synapse[3][oc_idx]
+                firing_rate[s:oc] = np.floor(firing_rate[s:oc] / (firing_rate[s:oc]*self.t_ref + self.v_th))
+                s = oc
+        else:
+            firing_rate = firing_rate // self.v_th
+            firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
+
+        return firing_rate
+    
