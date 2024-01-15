@@ -63,7 +63,8 @@ outputs = keras.layers.Dense(units=10, activation='softmax')(x)
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
 
-keras.utils.plot_model(model, 'input_model.png', show_shapes=True)
+keras.utils.plot_model(model, os.path.join(path_wd + '/model_graph' + '/input_model.png'), show_shapes=True)
+
 
 # Compile the model
 model.compile(loss='categorical_crossentropy',

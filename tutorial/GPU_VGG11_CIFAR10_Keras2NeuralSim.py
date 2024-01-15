@@ -31,6 +31,7 @@ path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
 os.makedirs(path_wd + '/dataset/')
+os.makedirs(path_wd + '/model_graph/')
 
 print("path wd: ", path_wd)
 
@@ -77,6 +78,9 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
     outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias=False)(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
+
+    keras.utils.plot_model(model, os.path.join(path_wd + '/model_graph' + '/input_model.png'), show_shapes=True)
+
     return model
 ###############################################################################
 
