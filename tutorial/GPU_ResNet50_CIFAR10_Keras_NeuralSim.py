@@ -12,6 +12,9 @@ from datetime import datetime
 from tensorflow import keras
 from run import main
 import tensorflow as tf
+import time
+
+start = time.time()
 
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 gpus = tf.config.experimental.list_physical_devices('GPU')
