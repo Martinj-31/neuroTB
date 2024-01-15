@@ -18,7 +18,7 @@ class Parser:
     Class for parsing an ANN model into a format suitable for ANN to SNN conversion.
     """
 
-    def __init__(self, input_model, config, plot=False):
+    def __init__(self, input_model, config, plot=True):
         """
         Initialize the Parser instance.
 
@@ -34,8 +34,6 @@ class Parser:
 
         self._parsed_layer_list = []
         self.add_layer_mapping = {}
-
-        os.makedirs(self.config['paths']['path_wd'] + '/model_graph')
 
 
     def parse(self):
@@ -207,6 +205,10 @@ class Parser:
                         shortcut = previous_layers[-1](previous_layers[-4].output)
                         x = layer([previous_layers[-2].output, shortcut])
                         break
+                    elif len(previous_layers) == 3:
+                        input_tensor = previous_layers[-3].output
+                        x = layer([ x, input_tensor ])
+                        break
                     else: 
                         pass
             else:
@@ -224,6 +226,7 @@ class Parser:
             pass
 
         return model
+
 
 
       
