@@ -33,8 +33,10 @@ class Converter:
         lower_bound = self.config.getfloat('conversion', 'lower_x')
         upper_bound = self.config.getfloat('conversion', 'upper_x')
 
-        self.lower_bound = 1/self.t_ref * lower_bound
-        self.upper_bound = 1/self.t_ref * upper_bound
+        min = 1/self.t_ref * lower_bound
+        max = 1/self.t_ref * upper_bound
+        self.min_bound = min / (self.v_th - min*self.t_ref)
+        self.max_bound = max / (self.v_th - max*self.t_ref)
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
@@ -60,14 +62,14 @@ class Converter:
 
             firing_rate = self.get_spikes(model=self.synapses.copy(), layer_in=layer, layer_out=layer, x=input_activation)
 
-            scaled_firing_rate = self.min_max_scaling(firing_rate.flatten(), self.lower_bound, self.upper_bound)
-            scaled_firing_rate_shifted = scaled_firing_rate - self.lower_bound
+            scaled_firing_rate = self.min_max_scaling(firing_rate.flatten(), self.min_bound, self.max_bound)
+            scaled_firing_rate_shifted = scaled_firing_rate - self.min_bound
 
             normalization_factor = np.max(scaled_firing_rate_shifted) / np.max(firing_rate)
             print(f"  | Normalization factor : {normalization_factor} |")
 
             new_weight = w * normalization_factor
-            new_bias = bias + self.lower_bound
+            new_bias = bias + self.min_bound
             print(f"Max ori weight : {np.max(w)} | Min ori weight : {np.min(w)}")
             print(f"Max new weight : {np.max(new_weight)} | Min new weight : {np.min(new_weight)}\n")
 
