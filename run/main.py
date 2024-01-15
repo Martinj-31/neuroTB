@@ -43,12 +43,12 @@ def run_neuroTB(config_filepath):
     parser = parse.Parser(input_model, config)
 
     parsed_model = parser.parse()
+    parsed_model.summary()
     
     # For comparison
     parser.get_models_activation(input_model_name, name='input')
     parser.get_models_activation(input_model_name, name='parsed')
 
-    parsed_model.summary()
     
     score1, score2 = parser.parseAnalysis(input_model, parsed_model, x_test, y_test)
     print("input model Test loss : ", score1[0])
