@@ -20,7 +20,6 @@ path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
 os.makedirs(path_wd + '/dataset/')
-os.makedirs(path_wd + '/model_graph/')
 
 print("path wd: ", path_wd)
 from run import main
@@ -62,9 +61,6 @@ outputs = keras.layers.Dense(units=10, activation='softmax')(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
-
-keras.utils.plot_model(model, os.path.join(path_wd + '/model_graph' + '/input_model.png'), show_shapes=True)
-
 
 # Compile the model
 model.compile(loss='categorical_crossentropy',

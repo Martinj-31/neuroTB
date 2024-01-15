@@ -18,7 +18,7 @@ class Parser:
     Class for parsing an ANN model into a format suitable for ANN to SNN conversion.
     """
 
-    def __init__(self, input_model, config, plot=True):
+    def __init__(self, input_model, config, plot=False):
         """
         Initialize the Parser instance.
 
@@ -64,6 +64,11 @@ class Parser:
 
         print("\n\n####### parsing input model #######\n")
         
+        if self.plot == True:
+            os.makedirs(self.config["paths"]["path_wd"] + '/model_graph/')
+            keras.utils.plot_model(self.input_model, os.path.join(self.config["paths"]["path_wd"] + '/model_graph' + '/input_model.png'), show_shapes=True)
+        else: pass
+
         for i, layer in enumerate(layers):
             
             layer_type = layer.__class__.__name__
@@ -226,8 +231,6 @@ class Parser:
             pass
 
         return model
-
-
 
       
     def _get_BN_parameters(self, layer):
