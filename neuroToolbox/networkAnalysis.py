@@ -287,6 +287,36 @@ class Analysis:
             plt.show()
 
 
+    def IOcurve_2(self):
+        num_neuron = 200
+        input_firing_rate = np.arange(num_neuron)
+        weights = np.identity(num_neuron)
+        output_firing_rate = np.dot(input_firing_rate, weights)
+        output_firing_rate_2 = np.floor(output_firing_rate / (output_firing_rate*self.t_ref + self.v_th)) + 20
+        # output_firing_rate = np.floor(output_firing_rate / (output_firing_rate*self.t_ref + self.v_th))
+
+        current_min = np.min(input_firing_rate)
+        current_max = np.max(input_firing_rate)
+        scaled_input_firing_rate = np.array([((x - current_min) / (current_max - current_min)) * (180 - 20) + 20 for x in input_firing_rate])
+
+        current_min = np.min(output_firing_rate)
+        current_max = np.max(output_firing_rate)
+        scaled_output_firing_rate = np.array([((x - current_min) / (current_max - current_min)) * (180 - 20) + 20 for x in output_firing_rate])
+        scaled_output_firing_rate_shifted = scaled_output_firing_rate - 20
+
+        normalization_factor = np.max(scaled_output_firing_rate_shifted) / np.max(output_firing_rate)
+
+        new_weights = weights * normalization_factor
+
+        new_output_firing_rate = np.dot(input_firing_rate, new_weights)
+        new_output_firing_rate = np.floor(new_output_firing_rate / (new_output_firing_rate*self.t_ref + self.v_th)) + 20
+
+        plt.plot(input_firing_rate, output_firing_rate_2, 'r.')
+        plt.plot(scaled_input_firing_rate, new_output_firing_rate, 'b.')
+        plt.grid(True)
+        plt.show()
+
+
     def spikes(self):
         
         return self.firing_rates

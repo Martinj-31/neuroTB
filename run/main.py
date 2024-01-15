@@ -79,7 +79,8 @@ def run_neuroTB(config_filepath):
     evaluation = networkAnalysis.Analysis(input_model_name, config)
     
     evaluation.run(data_size)
-    evaluation.IOcurve()
+    # evaluation.IOcurve()
+    evaluation.IOcurve_2()
     evaluation.compareAct(input_model_name)
     evaluation.evalNetwork()
     
