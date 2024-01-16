@@ -190,13 +190,18 @@ class Analysis:
             print('')
 
 
-    def evalNetwork(self):
-        activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
+    def evalNetwork(self, model_name='input'):
+        if 'input' == model_name:
+            model = self.input_model
+        elif 'parsed' == model_name:
+            model = self.parsed_model
+        else: pass
+        activation_dir = os.path.join(self.config['paths']['path_wd'], f"{model_name}_model_activations")
 
         weights = utils.weightDecompile(self.synapses)
 
         input_idx = 0
-        for input_layer in self.input_model.layers:
+        for input_layer in model.layers:
             if 'input' in input_layer.name:
                 input_idx += 1
                 continue
@@ -210,18 +215,18 @@ class Analysis:
                     continue
                 else:
                     if 'batch' in input_layer.name:
-                        if snn_layer[0] == self.input_model.layers[input_idx-1].name:
-                            snn_layer_name = self.input_model.layers[input_idx-2].name
+                        if snn_layer[0] == model.layers[input_idx-1].name:
+                            snn_layer_name = model.layers[input_idx-2].name
                         else: continue
                     else:
                         if input_layer.name == snn_layer[0]:
-                            snn_layer_name = self.input_model.layers[input_idx-1].name
+                            snn_layer_name = model.layers[input_idx-1].name
                             if 'flatten' in snn_layer_name:
-                                snn_layer_name = self.input_model.layers[input_idx-2].name
+                                snn_layer_name = model.layers[input_idx-2].name
                             else: pass
                         else: continue
                     
-                    input_act_file = np.load(os.path.join(activation_dir, f"input_model_activation_{snn_layer_name}.npz"))
+                    input_act_file = np.load(os.path.join(activation_dir, f"{model_name}_model_activation_{snn_layer_name}.npz"))
                     input_act = input_act_file['arr_0']
 
                     if 'input' in snn_layer_name:
@@ -246,7 +251,7 @@ class Analysis:
                         firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
                         snn_fr = np.concatenate((snn_fr, firing_rate))
 
-                    loaded_act_file = np.load(os.path.join(activation_dir, f"input_model_activation_{input_layer.name}.npz"))
+                    loaded_act_file = np.load(os.path.join(activation_dir, f"{model_name}_model_activation_{input_layer.name}.npz"))
                     loaded_act = loaded_act_file['arr_0']
 
                     if 'conv' in snn_layer[0]:
@@ -327,7 +332,7 @@ class Analysis:
             s = 0
             for oc_idx, oc in enumerate(synapse[4]):
                 firing_rate[s:oc] = (firing_rate[s:oc] // self.v_th) + synapse[3][oc_idx]
-                s = oc
+                s = oc + 1
         elif 'dense' in layer:
             firing_rate = firing_rate // self.v_th + synapse[3]
         else:
