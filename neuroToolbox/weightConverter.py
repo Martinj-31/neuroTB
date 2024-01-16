@@ -69,7 +69,7 @@ class Converter:
             print(f"  | Normalization factor : {normalization_factor} |")
 
             new_weight = w * normalization_factor
-            new_bias = bias + self.min_bound
+            new_bias = bias * normalization_factor + self.min_bound
             print(f"Max ori weight : {np.max(w)} | Min ori weight : {np.min(w)}")
             print(f"Max new weight : {np.max(new_weight)} | Min new weight : {np.min(new_weight)}\n")
 
@@ -99,7 +99,7 @@ class Converter:
                     s = 0
                     for oc_idx, oc in enumerate(neuron[4]):
                         firing_rate[s:oc] = firing_rate[s:oc] + neuron[3][oc_idx]
-                        s = oc
+                        s = oc + 1
                 elif 'dense' in layer:
                     firing_rate = firing_rate + neuron[3]
                 else: pass
