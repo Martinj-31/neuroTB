@@ -190,6 +190,52 @@ class Analysis:
             print('')
 
 
+    def plot_compare(self):
+        activation_dir = os.path.join(self.config['paths']['path_wd'], f"parsed_model_activations")
+        x_norm = None
+        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
+        x_norm = x_norm_file['arr_0']
+
+        weights = utils.weightDecompile(self.synapses)
+
+        firing_rate = x_norm
+        for layer, synapse in self.synapses.items():
+            act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
+            acts = act_file['arr_0']
+
+            if 'conv' in layer:
+                activations = utils.Flattener_Conv2D(acts)
+            elif 'pooling' in layer:
+                activations = utils.Flattener_Pooling(acts)
+            elif 'dense' in layer:
+                activations = utils.Flattener_Dense(acts)
+            else: pass
+
+            fr = []
+            firing_rates = []
+            for idx in range(len(firing_rate)):
+                spikes = firing_rate[idx].flatten()
+                spikes = np.dot(spikes, weights[layer])
+                spikes = self.add_bias(spikes, layer, synapse)
+                neg_idx = np.where(spikes < 0)[0]
+                spikes[neg_idx] = 0
+                spikes = np.floor(spikes / (spikes*self.t_ref + self.v_th))
+                fr.append(spikes)
+                firing_rates = np.concatenate((firing_rates, spikes))
+            firing_rate = fr
+
+            plt.figure(figsize=(10, 10))
+            plt.scatter(activations, firing_rates, color='r', marker='o', s=10)
+            plt.title(f"DNN activation vs. SNN firing rates", fontsize=30)
+            plt.xlabel(f"Activations in {layer}", fontsize=27)
+            plt.ylabel(f"Firing rates in {layer}", fontsize=27)
+            plt.xticks(fontsize=20)
+            plt.yticks(fontsize=20)
+            plt.grid(True)
+            plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}")
+            plt.show()
+
+
     def evalNetwork(self, model_name='input'):
         if 'input' == model_name:
             model = self.input_model
@@ -299,7 +345,6 @@ class Analysis:
         upper_bound = 1/t_ref*0.9
         min = lower_bound / (v_th - lower_bound*t_ref)
         max = upper_bound / (v_th - upper_bound*t_ref)
-        print(min, max)
 
         num_neuron = 200
         input_firing_rate = np.arange(num_neuron)
@@ -314,13 +359,12 @@ class Analysis:
             scaled_firing_rate_shifted = scaled_firing_rate - min
 
             normalization_factor = np.max(scaled_firing_rate_shifted) / np.max(firing_rate)
-            print(normalization_factor)
             new_weights = weights * normalization_factor
 
             output_firing_rate = np.dot(input_firing_rate, new_weights)
             output_firing_rate = output_firing_rate / (output_firing_rate*t_ref + v_th)
 
-            input_firing_rate = firing_rate
+            input_firing_rate = output_firing_rate
 
             plt.plot(firing_rate, output_firing_rate, 'b.')
             plt.grid(True)
