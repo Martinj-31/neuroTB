@@ -1,2 +1,2 @@
 # neuroTB
-This repository is for DNN to SNN conversion toolbox for SNN hardware.
+This repository is for ANN to SNN conversion toolbox for SNN hardware.
