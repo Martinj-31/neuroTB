@@ -43,8 +43,6 @@ class Analysis:
             self.neurons = pickle.load(f)
         with open(self.snn_filepath + '_Converted_synapses.pkl', 'rb') as f:
             self.synapses = pickle.load(f)
-
-        self.data_size = 0
     
 
     def run(self, data_size):
@@ -52,41 +50,31 @@ class Analysis:
 
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
-        x_test = x_test[::data_size]
+        self.x_test = x_test[::data_size]
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
         y_test = y_test[::data_size]
-
-        self.data_size = len(x_test)
         
         self.input_firing_rates = {}
         self.output_firing_rates = {}
-        for i in range(len(x_test)):
+        for i in range(len(self.x_test)):
             self.input_firing_rates[f"input {i+1}"] = {}
             self.output_firing_rates[f"input {i+1}"] = {}
-        for i in range(len(x_test)):
+        for i in range(len(self.x_test)):
             for layer in self.synapses.keys():
                 self.input_firing_rates[f"input {i+1}"][layer] = []
                 self.output_firing_rates[f"input {i+1}"][layer] = []
 
-        print(f"Input data length : {len(x_test)}")
+        print(f"Input data length : {len(self.x_test)}")
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
         weights = utils.weightDecompile(self.synapses)
 
-        fr_dist = {}
-        w_dict = {}
-        w_cal = {}
-        for layer in self.synapses.keys():
-            fr_dist[layer] = []
-            w_dict[layer] = []
-            w_cal[layer] = []
-        
         score = 0
         syn_operation = 0
-        for input_idx in range(len(x_test)):
-            firing_rate = x_test[input_idx].flatten()
+        for input_idx in range(len(self.x_test)):
+            firing_rate = self.x_test[input_idx].flatten()
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
                 for neu_idx in range(len(firing_rate)):
@@ -98,7 +86,6 @@ class Analysis:
                 firing_rate[neg_idx] = 0
                 self.input_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.input_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
                 firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
-                fr_dist[layer] = np.concatenate((fr_dist[layer], firing_rate))
                 self.output_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.output_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
@@ -108,30 +95,10 @@ class Analysis:
             else: pass
 
         print(f"______________________________________")
-        print(f"Accuracy : {(score/len(x_test))*100} %")
+        print(f"Accuracy : {(score/len(self.x_test))*100} %")
         print(f"Synaptic operation : {syn_operation}")
         print(f"______________________________________\n")
         print(f"End running\n\n")
-
-        # for l in fr_dist.keys():
-        #     max_fr = np.max(fr_dist[l])
-        #     x_value = np.array([])
-        #     for f in range(int(max_fr)):
-        #         w_computed = f * w_dict[l]
-        #         neg_idx = np.where(w_computed < 0)[0]
-        #         w_computed[neg_idx] = 0
-        #         x_value = np.concatenate((np.ones(len(w_computed))*f, x_value))
-        #         w_cal[l] = np.concatenate((list(w_computed), w_cal[l])) 
-
-        #     plt.figure(figsize=(8, 6))
-        #     plt.plot(x_value, w_cal[l], 'b.')
-        #     plt.title(f"Firing rate * weight of {l} layer", fontsize=30)
-        #     plt.xlabel(f"Firing rate from 0 to maximum", fontsize=27)
-        #     plt.ylabel(f"Firing rates * weight", fontsize=27)
-        #     plt.yticks(fontsize=20)
-        #     plt.grid(True)
-        #     plt.savefig(self.config['paths']['path_wd'] + '/fr_distribution' + f"/{l}")
-        #     plt.show()
 
     
     def compareAct(self, input_model_name):
@@ -322,52 +289,49 @@ class Analysis:
 
 
     def IOcurve(self):
-        input_firing_rates = {}
-        output_firing_rates = {}
+        weights = utils.weightDecompile(self.synapses)
+
+        plot_input_spikes = {}
+        plot_output_spikes = {}
         for layer in self.synapses.keys():
-            input_firing_rates[layer] = []
-            output_firing_rates[layer] = []
-        for input_idx in range(self.data_size):
-            for layer in self.synapses.keys():
-                input_firing_rates[layer] = np.concatenate((input_firing_rates[layer], self.input_firing_rates[f"input {input_idx+1}"][layer]))
-                output_firing_rates[layer] = np.concatenate((output_firing_rates[layer], self.output_firing_rates[f"input {input_idx+1}"][layer]))
-        
+            plot_input_spikes[layer] = []
+            plot_output_spikes[layer] = []
+
+        for input_idx in range(len(self.x_test)):
+            input_spike = self.x_test[input_idx].flatten()
+            input_spike = np.reshape(input_spike, (len(input_spike), 1))
+            for layer, synapse in self.synapses.items():
+                cnt = 0
+                input_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
+                output_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
+                for i in range(len(input_spike)):
+                    for j in range(len(weights[layer][0])):
+                        for k in range(len(input_spike[0])):
+                            output_spike = input_spike[i][k] * weights[layer][k][j]
+                            if output_spike < 0:
+                                output_spike = 0
+                            else: pass
+                            output_spike = np.floor(output_spike / (output_spike*self.t_ref + self.v_th))
+                            input_spikes[cnt] = input_spike[i][k] * weights[layer][k][j]
+                            output_spikes[cnt] = output_spike
+                            cnt += 1
+                idx = np.where(input_spikes >= 0)[0]
+                plot_input_spikes[layer] = np.concatenate((plot_input_spikes[layer], input_spikes[idx]))
+                plot_output_spikes[layer] = np.concatenate((plot_output_spikes[layer], output_spikes[idx]))
+
+                next_spike = np.dot(input_spike.flatten(), weights[layer])
+                neg_idx = np.where(next_spike < 0)[0]
+                next_spike[neg_idx] = 0
+                next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th))
+                next_spike = np.reshape(next_spike, (len(next_spike), 1))
+                input_spike = next_spike
+                
         for layer in self.synapses.keys():
-            plt.plot(input_firing_rates[layer], output_firing_rates[layer], 'b.')
-            plt.title(f"IO curve {layer} layer")
-            plt.show()
-
-
-    def IOcurve_2(self):
-        v_th = 1
-        t_ref = 0.005
-        lower_bound = 1/t_ref*0.1
-        upper_bound = 1/t_ref*0.9
-        min = lower_bound / (v_th - lower_bound*t_ref)
-        max = upper_bound / (v_th - upper_bound*t_ref)
-
-        num_neuron = 200
-        input_firing_rate = np.arange(num_neuron)
-
-        for _ in range(5):
-            weights = np.identity(num_neuron)
-            firing_rate = np.dot(input_firing_rate, weights)
-            plt.plot(input_firing_rate, firing_rate, 'r.')
-            current_min = np.min(firing_rate)
-            current_max = np.max(firing_rate)
-            scaled_firing_rate = np.array([((x - current_min) / (current_max - current_min)) * (max - min) + min for x in firing_rate])
-            scaled_firing_rate_shifted = scaled_firing_rate - min
-
-            normalization_factor = np.max(scaled_firing_rate_shifted) / np.max(firing_rate)
-            new_weights = weights * normalization_factor
-
-            output_firing_rate = np.dot(input_firing_rate, new_weights)
-            output_firing_rate = output_firing_rate / (output_firing_rate*t_ref + v_th)
-
-            input_firing_rate = output_firing_rate
-
-            plt.plot(firing_rate, output_firing_rate, 'b.')
+            plt.plot(plot_input_spikes[layer], plot_output_spikes[layer], 'b.')
+            plt.title(f"IO curve {layer}")
             plt.grid(True)
+            plt.xscale('symlog')
+            plt.yscale('symlog')
             plt.show()
 
 
