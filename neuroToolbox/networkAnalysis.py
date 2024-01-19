@@ -288,7 +288,7 @@ class Analysis:
             input_idx += 1
 
 
-    def IOcurve(self):
+    def IOcurve(self, axis_scale='linear'):
         weights = utils.weightDecompile(self.synapses)
 
         plot_input_spikes = {}
@@ -325,13 +325,15 @@ class Analysis:
                 next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th))
                 next_spike = np.reshape(next_spike, (len(next_spike), 1))
                 input_spike = next_spike
-                
+
         for layer in self.synapses.keys():
             plt.plot(plot_input_spikes[layer], plot_output_spikes[layer], 'b.')
             plt.title(f"IO curve {layer}")
             plt.grid(True)
-            plt.xscale('symlog')
-            plt.yscale('symlog')
+            if axis_scale == 'symlog':
+                plt.xscale('symlog')
+                plt.yscale('symlog')
+            else: pass
             plt.show()
 
 
