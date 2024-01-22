@@ -100,62 +100,6 @@ class Analysis:
         print(f"______________________________________\n")
         print(f"End running\n\n")
 
-    
-    def compareAct(self, input_model_name):
-
-        print(f"##### Comparing activations between input model and parsed model. #####")
-
-        input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
-        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
-        
-        input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
-        corr_dir = os.path.join(self.config['paths']['path_wd'], 'acts_corr')
-        
-        os.makedirs(corr_dir, exist_ok=True)
-        input_idx = 0
-        for input_layer in input_model.layers:
-
-            print(f"Comparing {input_layer.name} layer...")
-
-            if 'input' in input_layer.name:
-                input_idx += 1
-                continue
-            else:
-                input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
-                input_act = input_act_file['arr_0']
-            for parsed_layer in parsed_model.layers:
-                if 'input' in parsed_layer.name:
-                    continue
-                else:
-                    if input_layer.output_shape != parsed_layer.output_shape:
-                        continue
-                    else:
-                        if 'batch' in input_layer.name:
-                            if (parsed_layer.name == input_model.layers[input_idx-1].name):
-                                print(f'Current parsed layer name : {parsed_layer.name}')
-                                loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
-                            else : continue
-                        else:
-                            if input_layer.name == parsed_layer.name :
-                                print(f'Current parsed layer name : {parsed_layer.name}')
-                                loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
-                            else : continue
-
-                        parsed_act = keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
-                        
-                        plt.figure(figsize=(10, 10))
-                        plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
-                        plt.title(f"Input vs. Parsed activation correlation", fontsize=30)
-                        plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize=27)
-                        plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize=27)
-                        plt.xticks(fontsize=20)
-                        plt.yticks(fontsize=20)
-                        plt.grid(True)
-                        plt.savefig(corr_dir + f"/{input_layer.name}")
-                        plt.show()
-            input_idx += 1
-            print('')
-
 
     def plot_compare(self):
         activation_dir = os.path.join(self.config['paths']['path_wd'], f"parsed_model_activations")
@@ -201,6 +145,245 @@ class Analysis:
             plt.grid(True)
             plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}")
             plt.show()
+    
+    
+    def IOcurve(self, axis_scale='linear'):
+        weights = utils.weightDecompile(self.synapses)
+
+        plot_input_spikes = {}
+        plot_output_spikes = {}
+        for layer in self.synapses.keys():
+            plot_input_spikes[layer] = []
+            plot_output_spikes[layer] = []
+
+        for input_idx in range(len(self.x_test)):
+            input_spike = self.x_test[input_idx].flatten()
+            input_spike = np.reshape(input_spike, (len(input_spike), 1))
+            for layer, synapse in self.synapses.items():
+                cnt = 0
+                input_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
+                output_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
+                for i in range(len(input_spike)):
+                    for j in range(len(weights[layer][0])):
+                        for k in range(len(input_spike[0])):
+                            output_spike = input_spike[i][k] * weights[layer][k][j]
+                            if output_spike < 0:
+                                output_spike = 0
+                            else: pass
+                            output_spike = np.floor(output_spike / (output_spike*self.t_ref + self.v_th))
+                            input_spikes[cnt] = input_spike[i][k] * weights[layer][k][j]
+                            output_spikes[cnt] = output_spike
+                            cnt += 1
+                idx = np.where(input_spikes >= 0)[0]
+                plot_input_spikes[layer] = np.concatenate((plot_input_spikes[layer], input_spikes[idx]))
+                plot_output_spikes[layer] = np.concatenate((plot_output_spikes[layer], output_spikes[idx]))
+
+                next_spike = np.dot(input_spike.flatten(), weights[layer])
+                neg_idx = np.where(next_spike < 0)[0]
+                next_spike[neg_idx] = 0
+                next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th))
+                next_spike = np.reshape(next_spike, (len(next_spike), 1))
+                input_spike = next_spike
+
+        for layer in self.synapses.keys():
+            plt.plot(plot_input_spikes[layer], plot_output_spikes[layer], 'b.')
+            plt.title(f"IO curve {layer}")
+            plt.grid(True)
+            if axis_scale == 'symlog':
+                plt.xscale('symlog')
+                plt.yscale('symlog')
+            else: pass
+            plt.show()
+
+
+    def spikes(self):
+        
+        return self.firing_rates
+    
+
+    def add_bias(self, firing_rate, layer, synapse):
+        if 'conv' in layer:
+            s = 0
+            for oc_idx, oc in enumerate(synapse[4]):
+                firing_rate[s:oc] = (firing_rate[s:oc] + synapse[3][oc_idx]) // self.v_th
+                s = oc + 1
+        elif 'dense' in layer:
+            firing_rate = (firing_rate + synapse[3]) // self.v_th
+        else:
+            firing_rate = firing_rate // self.v_th
+
+        return firing_rate
+            
+    
+    def act_compare(self, input_model_name):
+
+        print(f"##### Comparing activations between input model and parsed model. #####")
+
+        input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
+        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
+        
+        input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
+        corr_dir = os.path.join(self.config['paths']['path_wd'], 'acts_corr')
+        
+        def plot(input_act, parsed_act, input_layer, parsed_layer):
+            plt.figure(figsize=(10, 10))
+            plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
+            plt.title(f"Input vs. Parsed activation correlation", fontsize=30)
+            plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize=27)
+            plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize=27)
+            plt.xticks(fontsize=20)
+            plt.yticks(fontsize=20)
+            plt.grid(True)
+            plt.savefig(corr_dir + f"/{input_layer.name} - {parsed_layer.name}")
+            plt.show()
+
+        print(f'input_model_name : {input_model_name}')
+        os.makedirs(corr_dir, exist_ok=True)
+        if 'ResNet' in input_model_name:
+            input_idx = 0
+            add_idx = 0 
+            for input_layer in input_model.layers:
+
+                print(f"Comparing {input_layer.name} layer...")
+
+                if 'input' in input_layer.name:
+                    input_idx += 1
+                    continue
+                else:
+                    input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
+                    input_act = input_act_file['arr_0']
+                for parsed_layer in parsed_model.layers:
+                    if 'input' in parsed_layer.name:
+                        continue
+                    else:
+                        if input_layer.output_shape != parsed_layer.output_shape:
+                            if 'add' in input_layer.name:
+                                if (add_idx == 0):
+                                    if ('batch' in input_model.layers[input_idx-2].name) and ('concatenate' == parsed_layer.name): # convolution block 
+                                        print(f'Current parsed layer name : {parsed_layer.name}') 
+                                        loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                        loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                                    elif ('conv' in input_model.layers[input_idx-2].name) and ('concatenate' == parsed_layer.name): # identity block 
+                                        print(f'Current parsed layer name : {parsed_layer.name}') 
+                                        loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                        loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-5].name}.npz"))['arr_0']
+                                    else: continue
+
+                                    idx = parsed_model.layers.index(parsed_layer)
+
+                                    parsed_act = keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict([loaded_activation_A , loaded_activation_B])
+                                    parsed_act = keras.models.Model(inputs=parsed_model.layers[idx+1].input, outputs=parsed_model.layers[idx+1].output).predict([parsed_act])
+                                    plot(input_act, parsed_act, input_layer, parsed_model.layers[idx+1])
+                                    add_idx +=1
+                                    break
+                                elif (add_idx != 0):
+                                    if ('batch' in input_model.layers[input_idx-2].name) and ('concatenate' in parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]): # convolution block 
+                                        print(f'Current parsed layer name : {parsed_layer.name}') 
+                                        loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                        loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                                    elif ('conv' in input_model.layers[input_idx-2].name) and ('concatenate' in parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]): # identity block 
+                                        print(f'Current parsed layer name : {parsed_layer.name}') 
+                                        loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                        loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-5].name}.npz"))['arr_0']
+                                    else: continue
+
+                                    idx = parsed_model.layers.index(parsed_layer)
+
+                                    parsed_act = keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict([loaded_activation_A , loaded_activation_B])
+                                    parsed_act = keras.models.Model(inputs=parsed_model.layers[idx+1].input, outputs=parsed_model.layers[idx+1].output).predict([parsed_act])
+                                    plot(input_act, parsed_act, input_layer, parsed_model.layers[idx+1])
+                                    add_idx +=1
+                                    break
+                            elif 'global_average_pooling2d' in input_layer.name:
+                                if 'global_average_pooling2d_avg' in parsed_layer.name:
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    print(f'input_model.layers[input_idx-1].name : {input_model.layers[input_idx-1].name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                    
+                                    idx = parsed_model.layers.index(parsed_layer)
+
+                                    parsed_act = keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
+                                    parsed_act = keras.models.Model(inputs=parsed_model.layers[idx+1].input, outputs=parsed_model.layers[idx+1].output).predict([parsed_act])
+                                    plot(input_act, parsed_act, input_layer, parsed_model.layers[idx+1])
+                                    break
+                                else: continue
+                        else:
+                            if 'batch' in input_layer.name:
+                                if ('batch' in input_model.layers[input_idx+1].name) and (input_model.layers[input_idx-2].name == parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]):
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-3].name}.npz"))['arr_0']
+                                    pass
+                                elif ('batch' in input_model.layers[input_idx-1].name) and (input_model.layers[input_idx-2].name == parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]):
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-6].name}.npz"))['arr_0']
+                                    pass
+                                elif (parsed_layer.name == input_model.layers[input_idx-1].name) and (input_layer.name[-2:] == parsed_layer.name[-2:]):
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                                    pass
+                                elif (parsed_layer.name == input_model.layers[input_idx-1].name) and ( 'input' in parsed_model.layers[input_idx-2].name):
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                                    pass
+                                else: continue
+                            elif (input_layer.name == parsed_layer.name) and ('conv' in input_layer.name) and ('conv' in input_model.layers[input_idx-1].name):
+                                print(f'Current parsed layer name : {parsed_layer.name}')
+                                loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-4].name}.npz"))['arr_0']
+                            else:
+                                if input_layer.name == parsed_layer.name :
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                else : continue
+
+                            parsed_act = keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
+                            plot(input_act, parsed_act, input_layer, parsed_layer)
+                input_idx += 1
+                print(' ')
+
+        else: 
+            input_idx = 0
+            for input_layer in input_model.layers:
+
+                print(f"Comparing {input_layer.name} layer...")
+
+                if 'input' in input_layer.name:
+                    input_idx += 1
+                    continue
+                else:
+                    input_act_file = np.load(os.path.join(input_model_activation_dir, f"input_model_activation_{input_layer.name}.npz"))
+                    input_act = input_act_file['arr_0']
+                for parsed_layer in parsed_model.layers:
+                    if 'input' in parsed_layer.name:
+                        continue
+                    else:
+                        if input_layer.output_shape != parsed_layer.output_shape:
+                            continue
+                        else:
+                            if 'batch' in input_layer.name:
+                                if (parsed_layer.name == input_model.layers[input_idx-1].name):
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
+                                else : continue
+                            else:
+                                if input_layer.name == parsed_layer.name :
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
+                                else : continue
+
+                            parsed_act = keras.models.Model(inputs=parsed_layer.input, outputs=parsed_layer.output).predict(loaded_activation)
+
+                            plt.figure(figsize=(10, 10))
+                            plt.scatter(input_act, parsed_act, color='b', marker='o', s=10)
+                            plt.title(f"Input vs. Parsed activation correlation", fontsize=30)
+                            plt.xlabel(f'input_model : "{input_layer.name}" Activation', fontsize=27)
+                            plt.ylabel(f'parsed_model : "{parsed_layer.name}" Activation', fontsize=27)
+                            plt.xticks(fontsize=20)
+                            plt.yticks(fontsize=20)
+                            plt.grid(True)
+                            plt.savefig(corr_dir + f"/{input_layer.name}")
+                            plt.show()
+                input_idx += 1
+                print('')
 
 
     def evalNetwork(self, model_name='input'):
@@ -286,73 +469,5 @@ class Analysis:
                     plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{snn_layer[0]}")
                     plt.show()
             input_idx += 1
-
-
-    def IOcurve(self, axis_scale='linear'):
-        weights = utils.weightDecompile(self.synapses)
-
-        plot_input_spikes = {}
-        plot_output_spikes = {}
-        for layer in self.synapses.keys():
-            plot_input_spikes[layer] = []
-            plot_output_spikes[layer] = []
-
-        for input_idx in range(len(self.x_test)):
-            input_spike = self.x_test[input_idx].flatten()
-            input_spike = np.reshape(input_spike, (len(input_spike), 1))
-            for layer, synapse in self.synapses.items():
-                cnt = 0
-                input_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
-                output_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
-                for i in range(len(input_spike)):
-                    for j in range(len(weights[layer][0])):
-                        for k in range(len(input_spike[0])):
-                            output_spike = input_spike[i][k] * weights[layer][k][j]
-                            if output_spike < 0:
-                                output_spike = 0
-                            else: pass
-                            output_spike = np.floor(output_spike / (output_spike*self.t_ref + self.v_th))
-                            input_spikes[cnt] = input_spike[i][k] * weights[layer][k][j]
-                            output_spikes[cnt] = output_spike
-                            cnt += 1
-                idx = np.where(input_spikes >= 0)[0]
-                plot_input_spikes[layer] = np.concatenate((plot_input_spikes[layer], input_spikes[idx]))
-                plot_output_spikes[layer] = np.concatenate((plot_output_spikes[layer], output_spikes[idx]))
-
-                next_spike = np.dot(input_spike.flatten(), weights[layer])
-                neg_idx = np.where(next_spike < 0)[0]
-                next_spike[neg_idx] = 0
-                next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th))
-                next_spike = np.reshape(next_spike, (len(next_spike), 1))
-                input_spike = next_spike
-
-        for layer in self.synapses.keys():
-            plt.plot(plot_input_spikes[layer], plot_output_spikes[layer], 'b.')
-            plt.title(f"IO curve {layer}")
-            plt.grid(True)
-            if axis_scale == 'symlog':
-                plt.xscale('symlog')
-                plt.yscale('symlog')
-            else: pass
-            plt.show()
-
-
-    def spikes(self):
-        
-        return self.firing_rates
-    
-
-    def add_bias(self, firing_rate, layer, synapse):
-        if 'conv' in layer:
-            s = 0
-            for oc_idx, oc in enumerate(synapse[4]):
-                firing_rate[s:oc] = (firing_rate[s:oc] + synapse[3][oc_idx]) // self.v_th
-                s = oc + 1
-        elif 'dense' in layer:
-            firing_rate = (firing_rate + synapse[3]) // self.v_th
-        else:
-            firing_rate = firing_rate // self.v_th
-
-        return firing_rate
     
     
