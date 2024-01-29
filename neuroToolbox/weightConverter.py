@@ -78,7 +78,9 @@ class Converter:
                 neuron[3] = new_bias
             else: pass
 
-            input_activation = firing_rate
+            a = self.get_spikes(model=self.synapses.copy(), layer_in=layer, layer_out=layer, x=input_activation)
+            a = a / (a*self.t_ref + self.v_th)
+            input_activation = a
 
         with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
