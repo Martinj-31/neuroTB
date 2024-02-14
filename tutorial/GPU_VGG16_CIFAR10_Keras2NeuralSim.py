@@ -16,18 +16,12 @@ from datetime import datetime
 from tensorflow import keras
 from run import main
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        tf.config.experimental.set_memory_growth(gpus[0], True)
-    except RuntimeError as e:
-        print(e)
-
 path_wd = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(
     __file__)), '..', 'temp', str(datetime.now().strftime("%m-%d" + "/" + "%H%M%S"))))
 os.makedirs(path_wd)
-os.makedirs(path_wd + '/dataset/')
+
+# Add a channel dimension.
+axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 
 print("path wd: ", path_wd)
 
@@ -84,13 +78,8 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
     outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias=False)(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
-
     return model
 ###############################################################################
-
-
-# Add a channel dimension.
-axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
 
 # Load CIFAR-10 dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
@@ -103,6 +92,15 @@ x_test = x_test.astype('float32')
 num_classes = 10
 y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
+
+# Save the preprocessed dataset for later use
+np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
+np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
+np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
+# Extracting datasets for Normalization
+x_norm = x_train[::6000]
+np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
 
 # Build ResNet50 model
 model = build_model_structure()
@@ -120,22 +118,15 @@ model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_dat
 
 # Save the model
 model_name = 'VGG16_CIFAR10'
-model.summary()
-keras.models.save_model(model, os.path.join(path_wd + '/models/', model_name + '.h5'))
-
-# Save the preprocessed dataset for later use
-np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_test'), x_test)
-np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_train'), x_train)
-np.savez_compressed(os.path.join(path_wd + '/dataset/', 'y_test'), y_test)
-np.savez_compressed(os.path.join(path_wd + '/dataset/', 'y_train'), y_train)
-# Extracting datasets for Normalization
-x_norm = x_train[::6000]
-np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_norm'), x_norm)
+keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
 
 # Evaluate the model
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
+
+print("Summary of", model_name) # Print the summary of the loaded model
+model.summary()
 
 # Save the config file
 default_config_path = os.path.abspath(os.path.join(current_dir, "..", "default_config"))
@@ -146,12 +137,14 @@ default_config.read(default_config_path)
 
 # Update the config values with new values
 default_config['paths']['path_wd'] = path_wd
-default_config['paths']['dataset_path'] = path_wd + '/dataset/'
-default_config['paths']['models'] = path_wd + '/models/'
+default_config['paths']['dataset_path'] = path_wd
+default_config['paths']['filename_ann'] = model_name
+default_config['paths']['filename_snn'] = model_name + '_for_SNN'
+default_config['paths']['converted_model'] = path_wd + '/converted_model/'
 
-default_config['names']['input_model'] = model_name
-default_config['names']['parsed_model'] = 'parsed_' + model_name
-default_config['names']['snn_model'] = 'SNN_' + model_name
+# SNN configuration
+default_config['initial']['w_mag'] = '64.0'
+default_config['initial']['th_rate'] = '0.8'
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')

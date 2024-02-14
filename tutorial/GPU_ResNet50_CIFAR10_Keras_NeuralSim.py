@@ -16,7 +16,7 @@ import time
 
 start = time.time()
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -38,7 +38,10 @@ def identity_block(input_tensor, kernel_size, filters):
     x = keras.layers.Conv2D(filters1, (1, 1), activation='relu')(input_tensor)
     x = keras.layers.BatchNormalization()(x)
 
-    x = keras.layers.Conv2D(filters2, kernel_size, padding='same', activation='relu')(x)
+    x = keras.layers.Conv2D(filters1, kernel_size, padding='same', activation='relu')(x)
+    x = keras.layers.BatchNormalization()(x)
+
+    x = keras.layers.Conv2D(filters2, (1, 1), activation='relu')(x)
     x = keras.layers.BatchNormalization()(x)
 
     x = keras.layers.Add()([x, input_tensor])
@@ -52,10 +55,13 @@ def conv_block(input_tensor, kernel_size, filters, strides=(2, 2)):
     x = keras.layers.Conv2D(filters1, (1, 1), strides=strides, activation='relu')(input_tensor)
     x = keras.layers.BatchNormalization()(x)
 
-    x = keras.layers.Conv2D(filters2, kernel_size, padding='same', activation='relu')(x)
+    x = keras.layers.Conv2D(filters1, kernel_size, padding='same', activation='relu')(x)
+    x = keras.layers.BatchNormalization()(x)
+
+    x = keras.layers.Conv2D(filters2, (1, 1), activation='relu')(x)
     x = keras.layers.BatchNormalization()(x)
     
-    shortcut = keras.layers.Conv2D(filters2, (1, 1), strides=strides)(input_tensor)
+    shortcut = keras.layers.Conv2D(filters2, (1, 1), strides=strides, activation='relu')(input_tensor)
     shortcut = keras.layers.BatchNormalization()(shortcut)
 
     x = keras.layers.Add()([x, shortcut])
@@ -70,25 +76,25 @@ def build_resnet50(input_shape=(32, 32, 3), num_classes=10):
     x = keras.layers.BatchNormalization()(x)
 
     # ResNet blocks
-    x = conv_block(x, 3, [64, 64])
-    x = identity_block(x, 3, [64, 64])
-    x = identity_block(x, 3, [64, 64])
+    x = conv_block(x, 3, [64, 256], (1, 1))
+    x = identity_block(x, 3, [64, 256])
+    x = identity_block(x, 3, [64, 256])
 
-    x = conv_block(x, 3, [128, 128])
-    x = identity_block(x, 3, [128, 128])
-    x = identity_block(x, 3, [128, 128])
-    x = identity_block(x, 3, [128, 128])
+    x = conv_block(x, 3, [128, 512])
+    x = identity_block(x, 3, [128, 512])
+    x = identity_block(x, 3, [128, 512])
+    x = identity_block(x, 3, [128, 512])
 
-    x = conv_block(x, 3, [256, 256])
+    x = conv_block(x, 3, [256, 1024])
     for _ in range(5):
-        x = identity_block(x, 3, [256, 256])
+        x = identity_block(x, 3, [256, 1024])
 
-    x = conv_block(x, 3, [512, 512])
-    x = identity_block(x, 3, [512, 512])
-    x = identity_block(x, 3, [512, 512])
+    x = conv_block(x, 3, [512, 2048])
+    x = identity_block(x, 3, [512, 2048])
+    x = identity_block(x, 3, [512, 2048])
     
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = keras.layers.Dense(512, activation='relu')(x)
+    x = keras.layers.Dense(2048, activation='relu')(x)
     outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -116,7 +122,7 @@ model = build_resnet50(input_shape=(32, 32, 3), num_classes=num_classes)
 model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(learning_rate=0.001), metrics=['accuracy'])
 
 # Train the model
-batch_size = 128
+batch_size = 1024
 epochs = 1
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
@@ -126,7 +132,7 @@ print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
 # Save the model
-model_name = 'ResNet_CIFAR10'
+model_name = 'ResNet50_CIFAR10'
 model.summary()
 keras.models.save_model(model, os.path.join(path_wd + '/models/', model_name + '.h5'))
 

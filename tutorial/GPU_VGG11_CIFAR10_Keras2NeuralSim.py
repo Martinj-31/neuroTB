@@ -40,41 +40,41 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
     inputs = keras.layers.Input(shape=input_shape)
     
     # Block 1
-    x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same', use_bias=False)(inputs)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+    x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 2
-    x = keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+    x = keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 3
-    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
-    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 4
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Block 5
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', use_bias=False)(x)
-    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis, center = False)(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
     x = keras.layers.AveragePooling2D((2, 2))(x)
 
     # Fully connected layers
     x = keras.layers.Flatten()(x)
-    x = keras.layers.Dense(4096, activation='relu', use_bias=False)(x)
-    x = keras.layers.Dense(4096, activation='relu', use_bias=False)(x)
-    outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias=False)(x)
+    x = keras.layers.Dense(4096, activation='relu')(x)
+    x = keras.layers.Dense(4096, activation='relu')(x)
+    outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
 

@@ -16,7 +16,7 @@ import time
 
 start = time.time()
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -55,7 +55,7 @@ def conv_block(input_tensor, kernel_size, filters, strides=(2, 2)):
     x = keras.layers.Conv2D(filters2, kernel_size, padding='same', activation='relu')(x)
     x = keras.layers.BatchNormalization()(x)
     
-    shortcut = keras.layers.Conv2D(filters2, (1, 1), strides=strides)(input_tensor)
+    shortcut = keras.layers.Conv2D(filters2, (1, 1), strides=strides, activation='relu')(input_tensor)
     shortcut = keras.layers.BatchNormalization()(shortcut)
 
     x = keras.layers.Add()([x, shortcut])
