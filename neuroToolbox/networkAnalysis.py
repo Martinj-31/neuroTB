@@ -259,15 +259,16 @@ class Analysis:
                         if input_layer.output_shape != parsed_layer.output_shape:
                             if 'add' in input_layer.name:
                                 if (add_idx == 0):
-                                    if ('batch' in input_model.layers[input_idx-2].name) and ('concatenate' == parsed_layer.name): # convolution block 
+                                    if ('batch' in input_model.layers[input_idx-2].name) and ('concatenate' == parsed_layer.name): # convolution block (Input phase)
                                         print(f'Current parsed layer name : {parsed_layer.name}') 
                                         loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
                                         loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
-                                    elif ('conv' in input_model.layers[input_idx-2].name) and ('concatenate' == parsed_layer.name): # identity block 
+                                    elif ('conv' in input_model.layers[input_idx-2].name) and ('concatenate' == parsed_layer.name): # identity block (Input phase)
                                         print(f'Current parsed layer name : {parsed_layer.name}') 
                                         loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
                                         loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-5].name}.npz"))['arr_0']
-                                    else: continue
+                                    else: 
+                                        continue
 
                                     idx = parsed_model.layers.index(parsed_layer)
 
@@ -284,7 +285,10 @@ class Analysis:
                                     elif ('conv' in input_model.layers[input_idx-2].name) and ('concatenate' in parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]): # identity block 
                                         print(f'Current parsed layer name : {parsed_layer.name}') 
                                         loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
-                                        loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-5].name}.npz"))['arr_0']
+                                        if 'ResNet50' in input_model_name:
+                                            loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-7].name}.npz"))['arr_0']
+                                        else:
+                                            loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-5].name}.npz"))['arr_0']
                                     else: continue
 
                                     idx = parsed_model.layers.index(parsed_layer)
@@ -314,21 +318,29 @@ class Analysis:
                                     loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-3].name}.npz"))['arr_0']
                                     pass
                                 elif ('batch' in input_model.layers[input_idx-1].name) and (input_model.layers[input_idx-2].name == parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]):
-                                    print(f'Current parsed layer name : {parsed_layer.name}')
-                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-6].name}.npz"))['arr_0']
+                                    if 'ResNet50' in input_model_name:
+                                        print(f'Current parsed layer name : {parsed_layer.name}')
+                                        loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-8].name}.npz"))['arr_0']
+                                    else:   
+                                        print(f'Current parsed layer name : {parsed_layer.name}')
+                                        loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-6].name}.npz"))['arr_0']
                                     pass
                                 elif (parsed_layer.name == input_model.layers[input_idx-1].name) and (input_layer.name[-2:] == parsed_layer.name[-2:]):
                                     print(f'Current parsed layer name : {parsed_layer.name}')
                                     loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
                                     pass
-                                elif (parsed_layer.name == input_model.layers[input_idx-1].name) and ( 'input' in parsed_model.layers[input_idx-2].name):
+                                elif (parsed_layer.name == input_model.layers[input_idx-1].name) and ('input' in input_model.layers[input_idx-2].name):
                                     print(f'Current parsed layer name : {parsed_layer.name}')
                                     loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-2].name}.npz"))['arr_0']
                                     pass
                                 else: continue
                             elif (input_layer.name == parsed_layer.name) and ('conv' in input_layer.name) and ('conv' in input_model.layers[input_idx-1].name):
-                                print(f'Current parsed layer name : {parsed_layer.name}')
-                                loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-4].name}.npz"))['arr_0']
+                                if 'ResNet50' in input_model_name:
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-6].name}.npz"))['arr_0']
+                                else:
+                                    print(f'Current parsed layer name : {parsed_layer.name}')
+                                    loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-4].name}.npz"))['arr_0']
                             else:
                                 if input_layer.name == parsed_layer.name :
                                     print(f'Current parsed layer name : {parsed_layer.name}')
@@ -384,90 +396,3 @@ class Analysis:
                             plt.show()
                 input_idx += 1
                 print('')
-
-
-    def evalNetwork(self, model_name='input'):
-        if 'input' == model_name:
-            model = self.input_model
-        elif 'parsed' == model_name:
-            model = self.parsed_model
-        else: pass
-        activation_dir = os.path.join(self.config['paths']['path_wd'], f"{model_name}_model_activations")
-
-        weights = utils.weightDecompile(self.synapses)
-
-        input_idx = 0
-        for input_layer in model.layers:
-            if 'input' in input_layer.name:
-                input_idx += 1
-                continue
-            elif 'flatten' in input_layer.name:
-                input_idx += 1
-                continue
-            else: pass
-
-            for snn_layer_idx, snn_layer in enumerate(self.synapses.items()):
-                if np.prod(input_layer.output_shape[1:]) != list(self.neurons.values())[snn_layer_idx+1]:
-                    continue
-                else:
-                    if 'batch' in input_layer.name:
-                        if snn_layer[0] == model.layers[input_idx-1].name:
-                            snn_layer_name = model.layers[input_idx-2].name
-                        else: continue
-                    else:
-                        if input_layer.name == snn_layer[0]:
-                            snn_layer_name = model.layers[input_idx-1].name
-                            if 'flatten' in snn_layer_name:
-                                snn_layer_name = model.layers[input_idx-2].name
-                            else: pass
-                        else: continue
-                    
-                    input_act_file = np.load(os.path.join(activation_dir, f"{model_name}_model_activation_{snn_layer_name}.npz"))
-                    input_act = input_act_file['arr_0']
-
-                    if 'input' in snn_layer_name:
-                        input_acts = utils.Input_Image2D(input_act)
-                    elif 'conv' in snn_layer_name:
-                        input_acts = utils.Input_Conv2D(input_act)
-                    elif 'batch' in snn_layer_name:
-                        input_acts = utils.Input_Conv2D(input_act)
-                    elif 'pooling' in snn_layer_name:
-                        input_acts = utils.Input_Pooling(input_act)
-                    elif 'dense' in snn_layer_name:
-                        input_acts = utils.Input_Dense(input_act)
-                    else: pass
-
-                    snn_fr = []
-                    for idx in range(len(input_acts)):
-                        firing_rate = input_acts[idx].flatten()
-                        firing_rate = np.dot(firing_rate, weights[snn_layer[0]])
-                        firing_rate = self.add_bias(firing_rate, snn_layer[0], snn_layer[1])
-                        neg_idx = np.where(firing_rate < 0)[0]
-                        firing_rate[neg_idx] = 0
-                        firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
-                        snn_fr = np.concatenate((snn_fr, firing_rate))
-
-                    loaded_act_file = np.load(os.path.join(activation_dir, f"{model_name}_model_activation_{input_layer.name}.npz"))
-                    loaded_act = loaded_act_file['arr_0']
-
-                    if 'conv' in snn_layer[0]:
-                        acts = utils.Flattener_Conv2D(loaded_act)
-                    elif 'pooling' in snn_layer[0]:
-                        acts = utils.Flattener_Pooling(loaded_act)
-                    elif 'dense' in snn_layer[0]:
-                        acts = utils.Flattener_Dense(loaded_act)
-                    else: pass
-
-                    plt.figure(figsize=(10, 10))
-                    plt.scatter(acts, snn_fr, color='r', marker='o', s=10)
-                    plt.title(f"DNN activation vs. SNN firing rates", fontsize=30)
-                    plt.xlabel(f"Activations in {input_layer.name}", fontsize=27)
-                    plt.ylabel(f"Firing rates in {snn_layer[0]}", fontsize=27)
-                    plt.xticks(fontsize=20)
-                    plt.yticks(fontsize=20)
-                    plt.grid(True)
-                    plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{snn_layer[0]}")
-                    plt.show()
-            input_idx += 1
-    
-    
