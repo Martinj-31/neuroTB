@@ -16,7 +16,7 @@ class Analysis:
     Class for analysis converted SNN model.
     """
 
-    def __init__(self, input_model_name, config):
+    def __init__(self, config):
         """
         Initialize the networkAnalysis instance.
 
@@ -27,9 +27,9 @@ class Analysis:
         """
         self.config = config
 
-        self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
-        self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
-        self.input_model_name = input_model_name
+        self.input_model_name = config["names"]["input_model"]
+        self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
+        self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
 
         self.v_th = self.config.getint('conversion', 'threshold')
         self.t_ref = self.config.getint('conversion', 'refractory') / 1000
@@ -215,12 +215,12 @@ class Analysis:
         return firing_rate
             
     
-    def act_compare(self, input_model_name):
+    def act_compare(self):
 
         print(f"##### Comparing activations between input model and parsed model. #####")
 
-        input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
-        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
+        input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
+        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
         input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
         corr_dir = os.path.join(self.config['paths']['path_wd'], 'acts_corr')
@@ -237,9 +237,9 @@ class Analysis:
             plt.savefig(corr_dir + f"/{input_layer.name} - {parsed_layer.name}")
             plt.show()
 
-        print(f'input_model_name : {input_model_name}')
+        print(f'input_model_name : {self.input_model_name}')
         os.makedirs(corr_dir, exist_ok=True)
-        if 'ResNet' in input_model_name:
+        if 'ResNet' in self.input_model_name:
             input_idx = 0
             add_idx = 0 
             for input_layer in input_model.layers:
@@ -285,7 +285,7 @@ class Analysis:
                                     elif ('conv' in input_model.layers[input_idx-2].name) and ('concatenate' in parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]): # identity block 
                                         print(f'Current parsed layer name : {parsed_layer.name}') 
                                         loaded_activation_A = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-1].name}.npz"))['arr_0']
-                                        if 'ResNet50' in input_model_name:
+                                        if 'ResNet50' in self.input_model_name:
                                             loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-7].name}.npz"))['arr_0']
                                         else:
                                             loaded_activation_B = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-5].name}.npz"))['arr_0']
@@ -318,7 +318,7 @@ class Analysis:
                                     loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-3].name}.npz"))['arr_0']
                                     pass
                                 elif ('batch' in input_model.layers[input_idx-1].name) and (input_model.layers[input_idx-2].name == parsed_layer.name) and (input_layer.name[-2:] == parsed_layer.name[-2:]):
-                                    if 'ResNet50' in input_model_name:
+                                    if 'ResNet50' in self.input_model_name:
                                         print(f'Current parsed layer name : {parsed_layer.name}')
                                         loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-8].name}.npz"))['arr_0']
                                     else:   
@@ -335,7 +335,7 @@ class Analysis:
                                     pass
                                 else: continue
                             elif (input_layer.name == parsed_layer.name) and ('conv' in input_layer.name) and ('conv' in input_model.layers[input_idx-1].name):
-                                if 'ResNet50' in input_model_name:
+                                if 'ResNet50' in self.input_model_name:
                                     print(f'Current parsed layer name : {parsed_layer.name}')
                                     loaded_activation = np.load(os.path.join(self.config['paths']['path_wd'], 'input_model_activations', f"input_model_activation_{input_model.layers[input_idx-6].name}.npz"))['arr_0']
                                 else:
