@@ -46,8 +46,8 @@ def run_neuroTB(config_filepath):
     parsed_model.summary()
     
     # For comparison
-    parser.get_models_activation(input_model_name, name='input')
-    parser.get_models_activation(input_model_name, name='parsed')
+    parser.get_models_activation(name='input')
+    parser.get_models_activation(name='parsed')
 
     
     score1, score2 = parser.parseAnalysis(input_model, parsed_model, x_test, y_test)
@@ -76,12 +76,12 @@ def run_neuroTB(config_filepath):
 
 
     # %% Evaluation each step
-    evaluation = networkAnalysis.Analysis(input_model_name, config)
+    evaluation = networkAnalysis.Analysis(config)
     
     evaluation.run(data_size)
     evaluation.IOcurve()
-    evaluation.compareAct(input_model_name)
-    evaluation.evalNetwork(model_name='parsed')
+    evaluation.act_compare()
+    # evaluation.evalNetwork(model_name='parsed')
     evaluation.plot_compare()
     
     took = time.time() - start
