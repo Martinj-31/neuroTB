@@ -36,6 +36,8 @@ class Parser:
         self.add_layer_mapping = {}
         self.conv_weights = []
 
+        self.input_model_name = config["names"]["input_model"]
+
     def parse(self):
         """
         Parse the input model according to the specified rules for ANN to SNN conversion.
@@ -338,17 +340,17 @@ class Parser:
         return score1, score2
 
  
-    def get_models_activation(self, input_model_name, name='input'):
+    def get_models_activation(self, name='input'):
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
         
         if 'input' == name:
-            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{input_model_name}.h5"))
+            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
             model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
             os.makedirs(model_activation_dir, exist_ok=True)
         elif 'parsed' == name:
-            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{input_model_name}.h5"))
+            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
             model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
             os.makedirs(model_activation_dir, exist_ok=True)
         else: pass # Error code
