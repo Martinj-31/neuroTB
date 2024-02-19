@@ -1,4 +1,4 @@
-import os, sys, pickle
+import os, sys, pickle, math
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,60 +27,70 @@ class Converter:
         self.neurons = spike_model[0]
         self.synapses = spike_model[1]
         self.config = config
+        self.input_model_name = config["names"]["input_model"]
+
+        self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
 
         self.v_th = self.config.getint('conversion', 'threshold')
         self.t_ref = self.config.getint('conversion', 'refractory') / 1000
         lower_bound = self.config.getfloat('conversion', 'lower_x')
         upper_bound = self.config.getfloat('conversion', 'upper_x')
 
-        min = 1/self.t_ref * lower_bound
-        max = 1/self.t_ref * upper_bound
-        self.min_bound = min / (self.v_th - min*self.t_ref)
-        self.max_bound = max / (self.v_th - max*self.t_ref)
+        self.min = 1/self.t_ref * lower_bound
+        self.max = 1/self.t_ref * upper_bound
+        self.min_bound = self.min / (self.v_th - self.min*self.t_ref)
+        self.max_bound = self.max / (self.v_th - self.max*self.t_ref)
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
 
 
     def convertWeights(self):
-        model = self.synapses
+        activation_dir = os.path.join(self.config['paths']['path_wd'], f"parsed_model_activations")
 
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
         print("\n\n######## Converting weight ########\n")
-        
-        input_activation = x_norm
-        for layer, neuron in self.synapses.copy().items():
+
+        for layer in self.parsed_model.layers:
+
+            if 'input' in layer.name or 'flatten' in layer.name:
+                continue
+
             print(f" Weight conversion for {layer} layer...")
 
+            neuron = self.synapses[layer.name]
+
             w = np.array(neuron[2])
-            if 'conv' in layer or layer == 'dense':
+            if 'conv' in layer.name or layer.name == 'dense':
                 bias = neuron[3]
             else: pass
 
-            firing_rate = self.get_spikes(model=self.synapses.copy(), layer_in=layer, layer_out=layer, x=input_activation)
+            cur_activation_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer.name}.npz"))
+            cur_activation = cur_activation_file['arr_0']
 
-            scaled_firing_rate = self.min_max_scaling(firing_rate.flatten(), self.min_bound, self.max_bound)
-            scaled_firing_rate_shifted = scaled_firing_rate - self.min_bound
+            inbound = utils.get_inbound_layers_with_params(layer)
+            pre_layer = inbound[0]
+            pre_activation_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{pre_layer.name}.npz"))
+            pre_activation = pre_activation_file['arr_0']
 
-            normalization_factor = np.max(scaled_firing_rate_shifted) / np.max(firing_rate)
-            print(f"  | Normalization factor : {normalization_factor} |")
+            log_scaled_activation = np.log10(cur_activation+1)
+            log_scaled_activation = self.min_max_scaling(log_scaled_activation, 0, np.max(cur_activation))
+            plt.plot(cur_activation[0].flatten(), 'b.')
+            plt.plot(log_scaled_activation[0].flatten(), 'r.')
+            plt.hlines(np.max(cur_activation), 0, len(cur_activation[0].flatten()), color='gray')
+            plt.show()
 
-            new_weight = w * normalization_factor
-            new_bias = bias * normalization_factor + self.min_bound
-            print(f"Max ori weight : {np.max(w)} | Min ori weight : {np.min(w)}")
-            print(f"Max new weight : {np.max(new_weight)} | Min new weight : {np.min(new_weight)}\n")
+            # weight calculation
+            new_w = w
+            new_bias = bias
 
-            neuron[2] = new_weight
-            if 'conv' in layer or layer == 'dense':
+            neuron[2] = new_w
+            if 'conv' in layer.name or layer.name == 'dense':
                 neuron[3] = new_bias
             else: pass
-
-            a = self.get_spikes(model=self.synapses.copy(), layer_in=layer, layer_out=layer, x=input_activation)
-            a = a / (a*self.t_ref + self.v_th)
-            input_activation = a
 
         with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
