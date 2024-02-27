@@ -205,12 +205,12 @@ class Analysis:
         if 'conv' in layer:
             s = 0
             for oc_idx, oc in enumerate(synapse[4]):
-                firing_rate[s:oc] = (firing_rate[s:oc] + synapse[3][oc_idx]) // self.v_th
+                firing_rate[s:oc] = (firing_rate[s:oc] + synapse[3][oc_idx]) / self.v_th
                 s = oc + 1
         elif 'dense' in layer:
-            firing_rate = (firing_rate + synapse[3]) // self.v_th
+            firing_rate = (firing_rate + synapse[3]) / self.v_th
         else:
-            firing_rate = firing_rate // self.v_th
+            firing_rate = firing_rate / self.v_th
 
         return firing_rate
             
