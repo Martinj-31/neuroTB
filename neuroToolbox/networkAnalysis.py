@@ -72,14 +72,14 @@ class Analysis:
         weights = utils.weightDecompile(self.synapses)
 
         score = 0
-        syn_operation = 0
+        self.syn_operation = 0
         for input_idx in range(len(self.x_test)):
             firing_rate = self.x_test[input_idx].flatten()
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0)[0])
-                    syn_operation += firing_rate[neu_idx] * fan_out
+                    self.syn_operation += firing_rate[neu_idx] * fan_out
                 firing_rate = np.dot(firing_rate, weights[layer])
                 firing_rate = self.add_bias(firing_rate, layer, synapse)
                 neg_idx = np.where(firing_rate < 0)[0]
@@ -94,9 +94,10 @@ class Analysis:
                 score += 1
             else: pass
 
+        self.accuracy = (score/len(self.x_test))*100
         print(f"______________________________________")
-        print(f"Accuracy : {(score/len(self.x_test))*100} %")
-        print(f"Synaptic operation : {syn_operation}")
+        print(f"Accuracy : {self.accuracy} %")
+        print(f"Synaptic operation : {self.syn_operation}")
         print(f"______________________________________\n")
         print(f"End running\n\n")
 
@@ -396,3 +397,37 @@ class Analysis:
                             plt.show()
                 input_idx += 1
                 print('')
+                
+    
+    def genResultFile(self):
+        
+        logfile = open(self.config['paths']['path_wd'] + '/LOG.txt', 'w')
+        
+        logfile.writelines(f"///////////////////////////////////////////////// \n")
+        logfile.writelines(f"/// LOG file for experiment \n")
+        logfile.writelines(f"/// \n")
+        logfile.writelines(f"/// Experiment setup \n")
+        logfile.writelines(f"\n")
+        
+        logfile.writelines(f"Input Model Name : {self.config['names']['input_model']} \n")
+        logfile.writelines(f"Data set : {self.config['names']['dataset']} \n")
+        logfile.writelines(f"Test data set size : {self.config['test']['data_size']} \n")
+        logfile.writelines(f"\n")
+        
+        logfile.writelines(f"/// Neuron setup \n")
+        logfile.writelines(f"\n")
+        logfile.writelines(f"Refractory period : {self.config['conversion']['refractory']} ms \n")
+        logfile.writelines(f"Threshold : {self.config['conversion']['threshold']} \n")
+        logfile.writelines(f"\n")
+        
+        logfile.writelines(f"/// RESULT \n")
+        logfile.writelines(f"\n")
+        logfile.writelines(f"Accuracy for {self.config['names']['dataset']} {self.config['test']['data_size']} : {self.accuracy} % \n")
+        logfile.writelines(f"Synaptic operation : {self.syn_operation} \n")
+        logfile.writelines(f"\n")
+        logfile.writelines(f"\n")
+        logfile.writelines(f"///////////////////////////////////////////////// \n")
+        
+        logfile.close()
+        
+        
