@@ -59,7 +59,7 @@ class Converter:
             if 'input' in layer.name or 'flatten' in layer.name:
                 continue
 
-            print(f" Weight conversion for {layer} layer...")
+            print(f" Weight conversion for {layer.name} layer...")
 
             neuron = self.synapses[layer.name]
 
@@ -67,26 +67,23 @@ class Converter:
             if 'conv' in layer.name or layer.name == 'dense':
                 bias = neuron[3]
             else: pass
-
-            cur_activation_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer.name}.npz"))
-            cur_activation = cur_activation_file['arr_0']
+            
+            weights = utils.weightDecompile(self.synapses)
 
             inbound = utils.get_inbound_layers_with_params(layer)
             pre_layer = inbound[0]
             pre_activation_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{pre_layer.name}.npz"))
+            cur_activation_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer.name}.npz"))
+            
             pre_activation = pre_activation_file['arr_0']
-
-            log_scaled_activation = np.log10(cur_activation+1)
-            log_scaled_activation = self.min_max_scaling(log_scaled_activation, 0, np.max(cur_activation))
-            plt.plot(cur_activation[0].flatten(), 'b.')
-            plt.plot(log_scaled_activation[0].flatten(), 'r.')
-            plt.hlines(np.max(cur_activation), 0, len(cur_activation[0].flatten()), color='gray')
-            plt.show()
-
+            cur_activation = cur_activation_file['arr_0']
+            
             # weight calculation
-            new_w = w
+            # conversion_factor = (1+self.v_th)/(1-self.t_ref) * (weights[layer.name].shape[0]/weights[layer.name].shape[1])
+            conversion_factor = (1+self.v_th)/(1-self.t_ref)
+            new_w = w * conversion_factor
             new_bias = bias
-
+            print(f"Conversion factor : {conversion_factor}")
             neuron[2] = new_w
             if 'conv' in layer.name or layer.name == 'dense':
                 neuron[3] = new_bias
