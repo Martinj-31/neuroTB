@@ -30,9 +30,12 @@ class Analysis:
         self.input_model_name = config["names"]["input_model"]
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
-
-        self.v_th = self.config.getint('conversion', 'threshold')
-        self.t_ref = self.config.getint('conversion', 'refractory') / 1000
+        
+        if 'LIF' == config["conversion"]["neuron"]:
+            self.v_th = config.getint('LIF', 'threshold')
+            self.t_ref = config.getint('LIF', 'refractory') / 1000
+        elif 'IF' == config["conversion"]["neuron"]:
+            self.v_th = config.getint('IF', 'threshold')
 
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
@@ -69,7 +72,10 @@ class Analysis:
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
-        weights = utils.weightDecompile(self.synapses)
+        # weights = utils.weightDecompile(self.synapses)
+        weights = {}
+        for key in self.synapses.keys():
+            weights[key] = self.synapses[key][2]
 
         score = 0
         self.syn_operation = 0
@@ -108,7 +114,10 @@ class Analysis:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
-        weights = utils.weightDecompile(self.synapses)
+        # weights = utils.weightDecompile(self.synapses)
+        weights = {}
+        for key in self.synapses.keys():
+            weights[key] = self.synapses[key][2]
 
         firing_rate = x_norm
         for layer, synapse in self.synapses.items():
