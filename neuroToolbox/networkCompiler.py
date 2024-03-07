@@ -299,8 +299,6 @@ class networkCompiler:
 
         print(f"\n>>> Compiling DONE.\n\n")
 
-        return [self.neurons, self.synapses]
-
 
     def layers(self):
         return self.synapses
