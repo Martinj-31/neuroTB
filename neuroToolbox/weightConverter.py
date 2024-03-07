@@ -16,7 +16,7 @@ class Converter:
     Class for converting weight for SNN conversion.
     """
     
-    def __init__(self, spike_model, config):
+    def __init__(self, parsed_model, config):
         """
         Initialize the Converter instance.
 
@@ -24,22 +24,23 @@ class Converter:
             spike_model (tf.keras.Model): The compiled model for SNN from networkCompiler.
             config (configparser.ConfigParser): Configuration settings for weight conversion.
         """
-        self.neurons = spike_model[0]
-        self.synapses = spike_model[1]
         self.config = config
         self.input_model_name = config["names"]["input_model"]
 
-        self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
+        self.parsed_model = parsed_model
+        # self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
+        
+        if 'LIF' == config["conversion"]["neuron"]:
+            self.v_th = config.getint('LIF', 'threshold')
+            self.t_ref = config.getint('LIF', 'refractory') / 1000
+            alpha = config.getint('LIF', 'alpha')
+        elif 'IF' == config["conversion"]["neuron"]:
+            self.v_th = config.getint('IF', 'threshold')
 
-        self.v_th = self.config.getint('conversion', 'threshold')
-        self.t_ref = self.config.getint('conversion', 'refractory') / 1000
-        lower_bound = self.config.getfloat('conversion', 'lower_x')
-        upper_bound = self.config.getfloat('conversion', 'upper_x')
-
-        self.min = 1/self.t_ref * lower_bound
-        self.max = 1/self.t_ref * upper_bound
-        self.min_bound = self.min / (self.v_th - self.min*self.t_ref)
-        self.max_bound = self.max / (self.v_th - self.max*self.t_ref)
+        # self.min = 1/self.t_ref * lower_bound
+        # self.max = 1/self.t_ref * upper_bound
+        # self.min_bound = self.min / (self.v_th - self.min*self.t_ref)
+        # self.max_bound = self.max / (self.v_th - self.max*self.t_ref)
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
@@ -53,6 +54,95 @@ class Converter:
         x_norm = x_norm_file['arr_0']
 
         print("\n\n######## Converting weight ########\n")
+        
+        # weights = utils.weightDecompile(self.synapses)
+        
+        if 'LIF' == self.config["conversion"]["neuron"]:
+            
+            print(f">>Conversion for LIF neuron.\n")
+            
+            for layer in self.parsed_model.layers:
+                
+                if 'input' in layer.name or 'flatten' in layer.name:
+                    continue
+                else: pass
+                
+                print(f" Weight conversion for {layer.name} layer...")
+                
+                weights = layer.get_weights()
+            
+        elif 'IF' == self.config["conversion"]["neuron"]:
+            
+            print(f">>Conversion for IF neuron.\n")
+            
+            batch_size = self.config.getint('conversion', 'batch_size')
+            
+            norm_facs = {self.parsed_model.layers[0].name: 1.0}
+            max_weight_values = {}
+            
+            i = 0
+            for layer in self.parsed_model.layers:
+                
+                if 'input' in layer.name or 'flatten' in layer.name:
+                    continue
+                else: pass
+                
+                activations = self.get_activations_layer(self.parsed_model, layer, x_norm, batch_size, activation_dir)
+                
+                print(f"Maximum activation: {np.max(activations):.5f}.")
+                nonzero_activations = activations[np.nonzero(activations)]
+                del activations
+                perc = self.config.getfloat('IF', 'percentile')
+                
+                cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
+                norm_facs[layer.name] = cliped_max_activation
+                print(f"Cliped maximum activation: {norm_facs[layer.name]:.5f}.\n")
+                i += 1
+                
+            for layer in self.parsed_model.layers:
+                print(layer.name)
+                if 'input' in layer.name or 'flatten' in layer.name:
+                    continue
+                else: pass
+
+                parameters = layer.get_weights()
+                if 'pooling' in layer.name:
+                    ann_weights = parameters
+                else:
+                    ann_weights = parameters[0]
+                    bias = parameters[1]
+                    
+                if layer.activation.__name__ == 'softmax':
+                    norm_fac = 1.0
+                    print(f"\n Using norm_factor: {norm_fac:.2f}.")
+                else:
+                    norm_fac = norm_facs[layer.name]
+                    
+                inbound = utils.get_inbound_layers_with_params(layer)
+                
+                if len(inbound) == 0:
+                    if 'pooling' in layer.name:
+                        snn_weights = [ann_weights * norm_facs[self.parsed_model.layers[0].name] / norm_fac]
+                    else:
+                        snn_weights = [ann_weights * norm_facs[self.parsed_model.layers[0].name] / norm_fac, bias / norm_fac]
+                    print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.model.layers[0].name])
+                    print("  ---------------")
+                    print(" ", norm_fac)
+                elif len(inbound) == 1:
+                    if 'pooling' in layer.name:
+                        snn_weights = [ann_weights * norm_facs[inbound[0].name] / norm_fac]
+                    else:
+                        snn_weights = [ann_weights * norm_facs[inbound[0].name] / norm_fac, bias / norm_fac]
+                    print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
+                    print("  ---------------")
+                    print(" ", norm_fac)
+                else: snn_weights = [ann_weights, bias]
+                
+                layer.set_weights(snn_weights)
+                
+        else: pass
+        
+        print(f"\nWeight conversion DONE.<<<\n\n\n")
 
         for layer in self.parsed_model.layers:
 
@@ -68,7 +158,10 @@ class Converter:
                 bias = neuron[3]
             else: pass
             
-            weights = utils.weightDecompile(self.synapses)
+            if 'pooling' in layer.name:
+                neuron[2] = weights[layer.name]
+                continue
+            else: pass
 
             inbound = utils.get_inbound_layers_with_params(layer)
             pre_layer = inbound[0]
@@ -77,14 +170,15 @@ class Converter:
             
             pre_activation = pre_activation_file['arr_0']
             cur_activation = cur_activation_file['arr_0']
+
+            # median = np.median(pre_activation)
+            # scale = self.max_bound / median
+            # weights[layer.name] = weights[layer.name] * scale
             
             # weight calculation
-            # conversion_factor = (1+self.v_th)/(1-self.t_ref) * (weights[layer.name].shape[0]/weights[layer.name].shape[1])
-            conversion_factor = (1+self.v_th)/(1-self.t_ref)
-            new_w = w * conversion_factor
+
             new_bias = bias
-            print(f"Conversion factor : {conversion_factor}")
-            neuron[2] = new_w
+            neuron[2] = weights[layer.name]
             if 'conv' in layer.name or layer.name == 'dense':
                 neuron[3] = new_bias
             else: pass
@@ -92,7 +186,7 @@ class Converter:
         with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
             pickle.dump(self.synapses, f)
 
-        print(f"Weight conversion DONE.<<<\n\n\n")
+        print(f"\nWeight conversion DONE.<<<\n\n\n")
     
 
     def get_spikes(self, model, layer_in, layer_out, x):
@@ -144,3 +238,33 @@ class Converter:
         for key in keys_to_remove:
             del dictionary[key]
     
+    
+    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
+
+        # Set to 10 if batch_size is not specified
+        if batch_size is None:
+            batch_size = 10
+        
+        # If input sample x and batch_size are divided and the remainder is nonzero
+        if len(x) % batch_size != 0:
+            # Delete the remainder divided by input sample list x
+            x = x[: -(len(x) % batch_size)]
+        
+        print("Calculating activations of layer {}.".format(layer_out.name))
+        # Calculate the activation of the corresponding layer neuron by putting 
+        # an input sample in the predict function
+        activations = tf.keras.models.Model(inputs=layer_in.input, 
+                                            outputs=layer_out.output).predict(x, batch_size)
+        
+        # Save activations as an npz file
+        print("Writing activations to disk.")
+        if path is not None:
+            np.savez_compressed(os.path.join(path, f'activation_{layer_out.name}.npz'), activations)
+
+
+        return np.array(activations)
+    
+    
+    def get_percentile_activation(self, activations, percentile):
+
+        return np.percentile(activations, percentile) if activations.size else 1
