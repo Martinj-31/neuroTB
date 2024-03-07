@@ -25,12 +25,17 @@ convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling
 
 [conversion]
 batch_size = 1
-percentile = 99.9
 w_mag = 16.0
-threshold = 
-refractory = 
-lower_x = 
-upper_x =
+neuron = IF
+
+[IF]
+threshold = 1
+percentile = 99.9
+
+[LIF]
+threshold = 1
+refractory = 5
+alpha = 100
 
 [test]
-data_size = 
+data_size = 10
