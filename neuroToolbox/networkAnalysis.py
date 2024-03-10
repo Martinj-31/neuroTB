@@ -91,7 +91,7 @@ class Analysis:
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
                 self.input_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.input_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
-                firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
+                firing_rate = self.neuron_model(firing_rate, name=self.config["conversion"]["neuron"])
                 self.output_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.output_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
@@ -140,7 +140,7 @@ class Analysis:
                 spikes = self.add_bias(spikes, layer, synapse)
                 neg_idx = np.where(spikes < 0)[0]
                 spikes[neg_idx] = 0
-                spikes = np.floor(spikes / (spikes*self.t_ref + self.v_th))
+                spikes = self.neuron_model(spikes, name=self.config["conversion"]["neuron"])
                 fr.append(spikes)
                 firing_rates = np.concatenate((firing_rates, spikes))
             firing_rate = fr
@@ -222,6 +222,14 @@ class Analysis:
         else:
             firing_rate = firing_rate / self.v_th
 
+        return firing_rate
+    
+    
+    def neuron_model(self, firing_rate, name='IF'):
+        if 'IF' == name:
+            firing_rate = np.floor(firing_rate)
+        elif 'LIF' == name:
+            firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
         return firing_rate
             
     
@@ -425,8 +433,12 @@ class Analysis:
         
         logfile.writelines(f"/// Neuron setup \n")
         logfile.writelines(f"\n")
-        logfile.writelines(f"Refractory period : {self.config['conversion']['refractory']} ms \n")
-        logfile.writelines(f"Threshold : {self.config['conversion']['threshold']} \n")
+        logfile.writelines(f"Neuron model : {self.config['conversion']['neuron']} neuron \n")
+        if 'IF' == self.config["conversion"]["neuron"]:
+            logfile.writelines(f"Percentile : {self.config['IF']['percentile']} % \n")
+        elif 'LIF' == self.config["conversion"]["neuron"]:
+            logfile.writelines(f"Refractory period : {self.config['LIF']['refractory']} ms \n")
+            logfile.writelines(f"Threshold : {self.config['LIF']['threshold']} \n")
         logfile.writelines(f"\n")
         
         logfile.writelines(f"/// RESULT \n")
