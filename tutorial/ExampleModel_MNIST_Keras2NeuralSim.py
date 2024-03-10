@@ -112,12 +112,12 @@ default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name
 
-default_config['conversion']['neuron'] = 'IF'
+default_config['conversion']['neuron'] = 'LIF'
 default_config['conversion']['batch_size'] = '1'
 
 default_config['LIF']['refractory'] = '5'
 default_config['LIF']['threshold'] = '1'
-default_config['LIF']['alpha'] = '100'
+default_config['LIF']['max_ratio'] = '0.5'
 
 # default_config['IF']['threshold'] = '1'
 
