@@ -35,7 +35,7 @@ percentile = 99.9
 [LIF]
 threshold = 1
 refractory = 5
-alpha = 100
+max_ratio = 0.9
 
 [test]
 data_size = 10
