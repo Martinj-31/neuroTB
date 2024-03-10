@@ -298,6 +298,8 @@ class networkCompiler:
             pickle.dump(self.synapses, f)
 
         print(f"\n>>> Compiling DONE.\n\n")
+        
+        return [self.neurons, self.synapses]
 
 
     def layers(self):
