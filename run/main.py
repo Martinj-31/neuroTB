@@ -56,12 +56,8 @@ def run_neuroTB(config_filepath):
     print("parsed model Test loss : ", score2[0])
     print("parsed model Test accuracy : ", score2[1])
     
+    config['result']['parsed_model_acc'] = str(score2[1])
     
-    # %% Normalization and convert
-    converter = convert.Converter(parsed_model, config)
-    
-    converter.convertWeights()
-
     
     # %% Generate neurons and synapse connections for SNN
     batch_size = config["conversion"]["batch_size"]
@@ -73,9 +69,15 @@ def run_neuroTB(config_filepath):
 
     compiler.setup_layers(batch_shape)
     compiler.summarySNN()
-    compiler.build()
+    spike_model = compiler.build()
 
 
+    # %% Normalization and convert
+    converter = convert.Converter(spike_model, config)
+    
+    converter.convertWeights()
+    
+    
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(config)
     
