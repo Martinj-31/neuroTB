@@ -34,6 +34,13 @@ class networkCompiler:
         self.synCnt = 0
         self.core_cnt = 0
         self.flatten_shapes = []
+        
+        bias_flag = config["model"]["bias"]
+        if bias_flag == 'False':
+            self.bias_flag = False
+        elif bias_flag == 'True':
+            self.bias_flag = True
+        else: print(f"ERROR !!")
 
         self.neurons = {}
         self.synapses = {}
@@ -93,7 +100,9 @@ class networkCompiler:
         """
         print(f"Connecting layer...")
 
-        w, bias = layer.get_weights()
+        if self.bias_flag:
+            w, bias = layer.get_weights()
+        else: w = layer.get_weights()[0]
 
         length_src = w.shape[0]
         length_tar = w.shape[1]
@@ -132,7 +141,9 @@ class networkCompiler:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
         
-        self.synapses[layer.name] = [source, target, weights, bias]
+        if self.bias_flag:
+            self.synapses[layer.name] = [source, target, weights, bias]
+        else: self.synapses[layer.name] = [source, target, weights]
 
 
     def Synapse_convolution(self, layer):
@@ -158,7 +169,9 @@ class networkCompiler:
 
         print(f"Connecting layer...")
 
-        w, bias = layer.get_weights()
+        if self.bias_flag:
+            w, bias = layer.get_weights()
+        else: w = layer.get_weights()[0]
 
         # 'channel_first' : [batch_size, channels, height, width]
         # 'channel_last' : [batch_size, height, width, channels]
@@ -227,7 +240,9 @@ class networkCompiler:
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
 
-        self.synapses[layer.name] = [source, target, weights, bias, output_channels_idx]
+        if self.bias_flag:
+            self.synapses[layer.name] = [source, target, weights, bias, output_channels_idx]
+        else: self.synapses[layer.name] = [source, target, weights, output_channels_idx]
 
 
     def Synapse_pooling(self, layer):
