@@ -28,6 +28,10 @@ batch_size = 1
 w_mag = 16.0
 neuron = IF
 
+[model]
+bias = 
+input_trans = linear
+
 [IF]
 threshold = 1
 percentile = 99.9
@@ -35,7 +39,13 @@ percentile = 99.9
 [LIF]
 threshold = 1
 refractory = 5
+w_mag = 16.0
 max_ratio = 0.9
 
 [test]
 data_size = 10
+
+[result]
+input_model_acc = 
+parsed_model_acc = 
+converted_model_acc = 
