@@ -32,10 +32,19 @@ class Analysis:
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
         if 'LIF' == config["conversion"]["neuron"]:
-            self.v_th = config.getint('LIF', 'threshold')
+            self.v_th = config.getfloat('LIF', 'threshold')
             self.t_ref = config.getint('LIF', 'refractory') / 1000
         elif 'IF' == config["conversion"]["neuron"]:
             self.v_th = config.getint('IF', 'threshold')
+            
+        bias_flag = config["model"]["bias"]
+        if bias_flag == 'False':
+            self.bias_flag = False
+        elif bias_flag == 'True':
+            self.bias_flag = True
+        else: print(f"ERROR !!")
+        
+        self.input_trans = config["model"]['input_trans']
 
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
@@ -57,6 +66,10 @@ class Analysis:
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
         y_test = y_test[::data_size]
+        
+        if self.input_trans == 'log':
+            self.x_test = np.floor(np.exp(self.x_test / 47))
+        else: pass
         
         self.input_firing_rates = {}
         self.output_firing_rates = {}
@@ -87,7 +100,9 @@ class Analysis:
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0)[0])
                     self.syn_operation += firing_rate[neu_idx] * fan_out
                 firing_rate = np.dot(firing_rate, weights[layer])
-                firing_rate = self.add_bias(firing_rate, layer, synapse)
+                if self.bias_flag:
+                    firing_rate = self.add_bias(firing_rate, layer, synapse)
+                else: pass
                 neg_idx = np.where(firing_rate < 0)[0]
                 firing_rate[neg_idx] = 0
                 self.input_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.input_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
@@ -114,6 +129,10 @@ class Analysis:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
+        if self.input_trans == 'log':
+            x_norm = np.floor(np.exp(x_norm / 47))
+        else: pass
+
         # weights = utils.weightDecompile(self.synapses)
         weights = {}
         for key in self.synapses.keys():
@@ -137,7 +156,9 @@ class Analysis:
             for idx in range(len(firing_rate)):
                 spikes = firing_rate[idx].flatten()
                 spikes = np.dot(spikes, weights[layer])
-                spikes = self.add_bias(spikes, layer, synapse)
+                if self.bias_flag:
+                    spikes = self.add_bias(spikes, layer, synapse)
+                else: pass
                 neg_idx = np.where(spikes < 0)[0]
                 spikes[neg_idx] = 0
                 spikes = self.neuron_model(spikes, name=self.config["conversion"]["neuron"])
@@ -153,6 +174,8 @@ class Analysis:
             plt.xticks(fontsize=20)
             plt.yticks(fontsize=20)
             plt.grid(True)
+            plt.yscale('symlog')
+            plt.ylim([1, 500])
             plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}")
             plt.show()
     
@@ -431,18 +454,28 @@ class Analysis:
         logfile.writelines(f"Test data set size : {self.config['test']['data_size']} \n")
         logfile.writelines(f"\n")
         
-        logfile.writelines(f"/// Neuron setup \n")
+        logfile.writelines(f"/// Model setup \n")
+        if 'True' == self.config["model"]["bias"]:
+            logfile.writelines(f"Bias : YES\n")
+        elif 'False' == self.config["model"]["bias"]:
+            logfile.writelines(f"Bias : NO\n")
+        logfile.writelines(f"Input domain : {self.config['model']['input_trans']} \n")
+        
         logfile.writelines(f"\n")
+        
+        logfile.writelines(f"/// Neuron setup \n")
         logfile.writelines(f"Neuron model : {self.config['conversion']['neuron']} neuron \n")
         if 'IF' == self.config["conversion"]["neuron"]:
             logfile.writelines(f"Percentile : {self.config['IF']['percentile']} % \n")
         elif 'LIF' == self.config["conversion"]["neuron"]:
             logfile.writelines(f"Refractory period : {self.config['LIF']['refractory']} ms \n")
             logfile.writelines(f"Threshold : {self.config['LIF']['threshold']} \n")
+        
         logfile.writelines(f"\n")
         
         logfile.writelines(f"/// RESULT \n")
-        logfile.writelines(f"\n")
+        logfile.writelines(f"Input Model Accuracy : {float(self.config['result']['input_model_acc'])*100:.2f} %\n")
+        logfile.writelines(f"Parsed Model Accuracy : {float(self.config['result']['parsed_model_acc'])*100:.2f} %\n\n")
         logfile.writelines(f"Accuracy for {self.config['names']['dataset']} {self.config['test']['data_size']} : {self.accuracy} % \n")
         logfile.writelines(f"Synaptic operation : {self.syn_operation} \n")
         logfile.writelines(f"\n")
