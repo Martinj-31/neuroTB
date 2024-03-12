@@ -46,18 +46,24 @@ y_test = keras.utils.to_categorical(y_test, 10)
 input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
+bias_flag = False
+
 # Convolutional layers
-x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), activation='relu', padding='same')(inputs)
-x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x) 
+x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias=bias_flag)(inputs)
+if bias_flag:
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+else: pass
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
-x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='same')(x)
-x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias=bias_flag)(x)
+if bias_flag:
+    x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+else: pass
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Flatten()(x)
-x = keras.layers.Dense(units=100, activation='relu')(x)
-outputs = keras.layers.Dense(units=10, activation='softmax')(x)
+x = keras.layers.Dense(units=100, activation='relu', use_bias=bias_flag)(x)
+outputs = keras.layers.Dense(units=10, activation='softmax', use_bias=bias_flag)(x)
 
 # Create the model
 model = keras.Model(inputs=inputs, outputs=outputs)
@@ -112,16 +118,22 @@ default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name
 
+default_config['model']['bias'] = str(bias_flag)
+default_config['model']['input_trans'] = 'log'
+
 default_config['conversion']['neuron'] = 'LIF'
 default_config['conversion']['batch_size'] = '1'
 
 default_config['LIF']['refractory'] = '5'
-default_config['LIF']['threshold'] = '1'
+default_config['LIF']['threshold'] = '128.0'
+default_config['LIF']['w_mag'] = '64.0'
 default_config['LIF']['max_ratio'] = '0.5'
 
 # default_config['IF']['threshold'] = '1'
 
-default_config['test']['data_size'] = '10'
+default_config['test']['data_size'] = '1000'
+
+default_config['result']['input_model_acc'] = str(score[1])
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
