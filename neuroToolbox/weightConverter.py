@@ -2,7 +2,6 @@ import os, sys, pickle, math
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from scipy.integrate import quad
 from scipy.optimize import minimize_scalar
 
@@ -32,7 +31,7 @@ class Converter:
         self.config = config
         self.input_model_name = config["names"]["input_model"]
         
-        bias_flag = config["model"]["bias"]
+        bias_flag = config["options"]["bias"]
         if bias_flag == 'False':
             self.bias_flag = False
         elif bias_flag == 'True':
@@ -41,14 +40,11 @@ class Converter:
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
-        if 'LIF' == config["conversion"]["neuron"]:
-            self.v_th = config.getfloat('LIF', 'threshold')
-            self.t_ref = config.getint('LIF', 'refractory') / 1000
-            self.w_mag = config.getfloat('LIF', 'w_mag')
-            max_ratio = config.getfloat('LIF', 'max_ratio')
-            # self.alpha = (self.v_th*max_ratio) / ((1-max_ratio)*self.t_ref)
-        elif 'IF' == config["conversion"]["neuron"]:
-            self.v_th = config.getint('IF', 'threshold')
+        self.v_th = config.getfloat('spiking_neuron', 'initial_threshold')
+        self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
+        self.w_mag = config.getfloat('spiking_neuron', 'w_mag')
+        
+        self.percentile = config.getfloat('options', 'percentile')
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
@@ -65,22 +61,9 @@ class Converter:
         
         weights = utils.weightDecompile(self.synapses)
         
-        if 'LIF' == self.config["conversion"]["neuron"]:
-            
-            print(f">>Conversion for LIF neuron.\n")
-            
-            # def log_lif(x, beta, T, V):
-            #     if x == 0:
-            #         return 0
-            #     return (1/V)*x**(np.log(beta/(beta*T + V)) / np.log(beta))
-            
-            # def lif(x, T, V):
-            #     return x/(x*T + V)
-            
-            # def difference_of_integrals(beta):
-            #     integral_A, _ = quad(lambda x: lif(x, self.t_ref, self.v_th) - log_lif(x, beta, self.t_ref, self.v_th), 0, beta)
-            #     integral_B, _ = quad(lambda x: log_lif(x, beta, self.t_ref, self.v_th) - lif(x, self.t_ref, self.v_th), beta, self.alpha)
-            #     return abs(integral_B - integral_A)
+        print(f">>Conversion for IF neuron.\n")
+        
+        if 'False' == self.config['options']['max_norm']:
             
             # v_th = {}
             for layer in self.parsed_model.layers:
@@ -103,9 +86,6 @@ class Converter:
                     else: ann_weights = [weights[layer.name]]
                 else: ann_weights = [weights[layer.name]]
                 
-                # min_value = minimize_scalar(difference_of_integrals, bounds=(0, self.alpha), method='bounded')
-                # beta = min_value.x
-                
                 # Weight normalization
                 max_ann_weights = np.max(abs(ann_weights[0]))
                 snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
@@ -122,9 +102,9 @@ class Converter:
                 pickle.dump(self.synapses, f)
                 
         # Need to edit
-        elif 'IF' == self.config["conversion"]["neuron"]:
+        elif 'True' == self.config['options']['max_norm']:
             
-            print(f">>Conversion for IF neuron.\n")
+            print(f">>Max-norm option.\n")
             
             batch_size = self.config.getint('conversion', 'batch_size')
             norm_facs = {self.parsed_model.layers[0].name: 1.0}
