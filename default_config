@@ -28,19 +28,16 @@ batch_size = 1
 w_mag = 16.0
 neuron = IF
 
-[model]
+[options]
 bias = 
 input_trans = linear
-
-[IF]
-threshold = 1
+max_norm = False
 percentile = 99.9
 
-[LIF]
-threshold = 1
+[spiking_neuron]
+initial_threshold = 1.0
 refractory = 5
 w_mag = 16.0
-max_ratio = 0.9
 
 [test]
 data_size = 10
