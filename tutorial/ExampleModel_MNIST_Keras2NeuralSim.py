@@ -95,7 +95,7 @@ x_norm = x_train[::6000]
 np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_norm'), x_norm)
 
 # Evaluate the model
-score = model.evaluate(x_test, y_test, verbose=0)
+score = model.evaluate(x_test[::int(10000 / 1000)], y_test[::int(10000 / 1000)], verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
@@ -118,20 +118,19 @@ default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name
 
-default_config['model']['bias'] = str(bias_flag)
-default_config['model']['input_trans'] = 'log'
-
-default_config['conversion']['neuron'] = 'LIF'
+default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
 
-default_config['LIF']['refractory'] = '5'
-default_config['LIF']['threshold'] = '128.0'
-default_config['LIF']['w_mag'] = '64.0'
-default_config['LIF']['max_ratio'] = '0.5'
+default_config['spiking_neuron']['refractory'] = '5'
+default_config['spiking_neuron']['initial_threshold'] = '16.0'
+default_config['spiking_neuron']['w_mag'] = '64.0'
 
-# default_config['IF']['threshold'] = '1'
+default_config['options']['bias'] = str(bias_flag)
+default_config['options']['input_trans'] = 'log'
+default_config['options']['max_norm'] = str(False)
+default_config['options']['percentile'] = '99.9'
 
-default_config['test']['data_size'] = '1000'
+default_config['test']['data_size'] = '10'
 
 default_config['result']['input_model_acc'] = str(score[1])
 
