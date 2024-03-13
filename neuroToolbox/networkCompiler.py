@@ -35,7 +35,7 @@ class networkCompiler:
         self.core_cnt = 0
         self.flatten_shapes = []
         
-        bias_flag = config["model"]["bias"]
+        bias_flag = config["options"]["bias"]
         if bias_flag == 'False':
             self.bias_flag = False
         elif bias_flag == 'True':
