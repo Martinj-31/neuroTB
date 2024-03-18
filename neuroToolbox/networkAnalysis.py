@@ -31,7 +31,7 @@ class Analysis:
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
-        self.v_th = config.getfloat('spiking_neuron', 'initial_threshold')
+        self.v_th = config.getfloat('spiking_neuron', 'threshold')
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
             
         bias_flag = config["options"]["bias"]
