@@ -64,25 +64,13 @@ class Analysis:
         y_test = y_test_file['arr_0']
         y_test = y_test[::data_size]
         
-        if self.input_trans == 'log':
-            self.x_test = np.floor(np.exp(self.x_test / 47))
-        else: pass
-        
-        self.input_firing_rates = {}
-        self.output_firing_rates = {}
-        for i in range(len(self.x_test)):
-            self.input_firing_rates[f"input {i+1}"] = {}
-            self.output_firing_rates[f"input {i+1}"] = {}
-        for i in range(len(self.x_test)):
-            for layer in self.synapses.keys():
-                self.input_firing_rates[f"input {i+1}"][layer] = []
-                self.output_firing_rates[f"input {i+1}"][layer] = []
+        self.x_test = utils.log_transfer(self.x_test, self.input_trans)
 
         print(f"Input data length : {len(self.x_test)}")
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
-        # weights = utils.weightDecompile(self.synapses)
+        
         weights = {}
         for key in self.synapses.keys():
             weights[key] = self.synapses[key][2]
@@ -96,16 +84,7 @@ class Analysis:
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0)[0])
                     self.syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = np.dot(firing_rate, weights[layer])
-                if self.bias_flag:
-                    firing_rate = self.add_bias(firing_rate, layer, synapse)
-                else: pass
-                firing_rate = firing_rate / self.v_th
-                neg_idx = np.where(firing_rate < 0)[0]
-                firing_rate[neg_idx] = 0
-                self.input_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.input_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
-                firing_rate = self.neuron_model(firing_rate)
-                self.output_firing_rates[f"input {input_idx+1}"][layer] = np.concatenate((self.output_firing_rates[f"input {input_idx+1}"][layer], firing_rate))
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, self.t_ref, layer, synapse, self.bias_flag)
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
@@ -127,11 +106,8 @@ class Analysis:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
-        if self.input_trans == 'log':
-            x_norm = np.floor(np.exp(x_norm / 47))
-        else: pass
+        x_norm = utils.log_transfer(x_norm, self.input_trans)
 
-        # weights = utils.weightDecompile(self.synapses)
         weights = {}
         for key in self.synapses.keys():
             weights[key] = self.synapses[key][2]
@@ -153,14 +129,7 @@ class Analysis:
             firing_rates = []
             for idx in range(len(firing_rate)):
                 spikes = firing_rate[idx].flatten()
-                spikes = np.dot(spikes, weights[layer])
-                if self.bias_flag:
-                    spikes = self.add_bias(spikes, layer, synapse)
-                else: pass
-                spikes = spikes / self.v_th
-                neg_idx = np.where(spikes < 0)[0]
-                spikes[neg_idx] = 0
-                spikes = self.neuron_model(spikes)
+                spikes = utils.neuron_model(spikes, weights[layer], self.v_th, self.t_ref, layer, synapse, self.bias_flag)
                 fr.append(spikes)
                 firing_rates = np.concatenate((firing_rates, spikes))
             firing_rate = fr
@@ -174,6 +143,7 @@ class Analysis:
             plt.yticks(fontsize=20)
             plt.grid(True)
             plt.yscale('symlog')
+            plt.ylim([1, 1000])
             plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}")
             plt.show()
     
@@ -230,26 +200,6 @@ class Analysis:
     def spikes(self):
         
         return self.firing_rates
-    
-
-    def add_bias(self, firing_rate, layer, synapse):
-        if 'conv' in layer:
-            s = 0
-            for oc_idx, oc in enumerate(synapse[4]):
-                firing_rate[s:oc] = (firing_rate[s:oc] + synapse[3][oc_idx])
-                s = oc + 1
-        elif 'dense' in layer:
-            firing_rate = (firing_rate + synapse[3])
-        else:
-            firing_rate = firing_rate
-
-        return firing_rate
-    
-    
-    def neuron_model(self, firing_rate):
-        firing_rate = np.floor(firing_rate / (firing_rate*self.t_ref + self.v_th))
-        
-        return firing_rate
             
     
     def act_compare(self):
@@ -442,7 +392,6 @@ class Analysis:
         
         ori_x = x_norm
         log_x = np.floor(np.exp(x_norm / 47))
-        log_x = np.exp(x_norm / 47)
         
         plt.figure(figsize=(10, 10))
         plt.scatter(ori_x, log_x, color='r', marker='o', s=10)
