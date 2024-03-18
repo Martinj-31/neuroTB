@@ -391,7 +391,7 @@ class Analysis:
         x_norm = x_norm_file['arr_0']
         
         ori_x = x_norm
-        log_x = np.floor(np.exp(x_norm / 47))
+        log_x = utils.log_transfer(ori_x, 'log')
         
         plt.figure(figsize=(10, 10))
         plt.scatter(ori_x, log_x, color='r', marker='o', s=10)
