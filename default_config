@@ -27,6 +27,7 @@ convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling
 batch_size = 1
 w_mag = 16.0
 neuron = IF
+scaling_precision = 1
 
 [options]
 bias = 
@@ -35,7 +36,7 @@ max_norm = False
 percentile = 99.9
 
 [spiking_neuron]
-initial_threshold = 1.0
+threshold = 1.0
 refractory = 5
 w_mag = 16.0
 
