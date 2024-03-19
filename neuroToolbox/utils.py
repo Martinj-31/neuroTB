@@ -130,80 +130,64 @@ def weightDecompile(synapses):
         weight_list[layer] = weights
 
     return weight_list
+
+
+def Activation_Flattener(loaded_activations, layer_name):
+    if 'conv' in layer_name:
+        acts = []
+        for ic in range(loaded_activations.shape[0]):
+            for oc in range(loaded_activations.shape[-1]):
+                acts = np.concatenate((acts, loaded_activations[ic, :, :, oc].flatten()))
+    elif 'pooling' in layer_name:
+        acts = []
+        for ic in range(loaded_activations.shape[0]):
+            for oc in range(loaded_activations.shape[-1]):
+                for i in range(loaded_activations.shape[1]):
+                    for j in range(loaded_activations.shape[2]):
+                        acts = np.concatenate((acts, loaded_activations[ic, i, j, oc].flatten()))
+    elif 'dense' in layer_name:
+        acts = []
+        for ic in range(loaded_activations.shape[0]):
+            for oc in range(loaded_activations.shape[-1]):
+                acts = np.concatenate((acts, loaded_activations[ic, oc].flatten()))
+    else: pass
     
-
-def Flattener_Dense(loaded_act):
-    acts = []
-    for ic in range(loaded_act.shape[0]):
-        for oc in range(loaded_act.shape[-1]):
-            acts = np.concatenate((acts, loaded_act[ic, oc].flatten()))
-
     return acts
 
 
-def Flattener_Pooling(loaded_act):
-    acts = []
-    for ic in range(loaded_act.shape[0]):
-        for oc in range(loaded_act.shape[-1]):
-            for i in range(loaded_act.shape[1]):
-                for j in range(loaded_act.shape[2]):
-                    acts = np.concatenate((acts, loaded_act[ic, i, j, oc].flatten()))
-
-    return acts
-
-
-def Flattener_Conv2D(loaded_act):
-    acts = []
-    for ic in range(loaded_act.shape[0]):
-        for oc in range(loaded_act.shape[-1]):
-            acts = np.concatenate((acts, loaded_act[ic, :, :, oc].flatten()))
-
-    return acts
-
-
-def Input_Dense(input_act):
-    input_acts = []
-    for ic in range(input_act.shape[0]):
-        temp = []
-        for oc in range(input_act.shape[-1]):
-            temp = np.concatenate((temp, input_act[ic, oc].flatten()))
-        input_acts.append(temp)
-
-    return input_acts
-
-
-def Input_Pooling(input_act):
-    input_acts = []
-    for ic in range(input_act.shape[0]):
-        temp = []
-        for oc in range(input_act.shape[-1]):
-            for i in range(input_act.shape[1]):
-                for j in range(input_act.shape[2]):
-                    temp = np.concatenate((temp, input_act[ic, i, j, oc].flatten()))
-        input_acts.append(temp)
-
-    return input_acts
-
-
-def Input_Conv2D(input_act):
-    input_acts = []
-    for ic in range(input_act.shape[0]):
-        temp = []
-        for oc in range(input_act.shape[-1]):
-            temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
-        input_acts.append(temp)
+def Input_Activation(input_activations, layer_name):
+    if 'conv' in layer_name:
+        input_acts = []
+        for ic in range(input_activations.shape[0]):
+            temp = []
+            for oc in range(input_activations.shape[-1]):
+                temp = np.concatenate((temp, input_activations[ic, :, :, oc].flatten()))
+            input_acts.append(temp)
+    elif 'pooling' in layer_name:
+        input_acts = []
+        for ic in range(input_activations.shape[0]):
+            temp = []
+            for oc in range(input_activations.shape[-1]):
+                for i in range(input_activations.shape[1]):
+                    for j in range(input_activations.shape[2]):
+                        temp = np.concatenate((temp, input_activations[ic, i, j, oc].flatten()))
+            input_acts.append(temp)
+    elif 'dense' in layer_name:
+        input_acts = []
+        for ic in range(input_activations.shape[0]):
+            temp = []
+            for oc in range(input_activations.shape[-1]):
+                temp = np.concatenate((temp, input_activations[ic, oc].flatten()))
+            input_acts.append(temp)
+    elif 'input' in layer_name:
+        input_acts = []
+        for ic in range(input_activations.shape[0]):
+            temp = []
+            for oc in range(input_activations.shape[-1]):
+                temp = np.concatenate((temp, input_activations[ic, :, :, oc].flatten()))
+            input_acts.append(temp)
+    else: pass
     
-    return input_acts
-
-
-def Input_Image2D(input_act):
-    input_acts = []
-    for ic in range(input_act.shape[0]):
-        temp = []
-        for oc in range(input_act.shape[-1]):
-            temp = np.concatenate((temp, input_act[ic, :, :, oc].flatten()))
-        input_acts.append(temp)
-
     return input_acts
 
 
