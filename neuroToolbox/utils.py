@@ -188,7 +188,7 @@ def Input_Activation(input_activations, layer_name):
             input_acts.append(temp)
     else: pass
     
-    return input_acts
+    return np.array(input_acts)
 
 
 def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bias_flag):
