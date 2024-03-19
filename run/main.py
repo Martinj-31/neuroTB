@@ -89,7 +89,7 @@ def run_neuroTB(config_filepath):
     
     took = time.time() - start
     
-    print(f"Total simulation time : {took}")
+    print(f"Total simulation time : {took:.2f} seconds.")
     
     evaluation.genResultFile()
     # evaluation.input_log_domain_trans_plot()
