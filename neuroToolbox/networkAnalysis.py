@@ -116,14 +116,8 @@ class Analysis:
         for layer, synapse in self.synapses.items():
             act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
             acts = act_file['arr_0']
-
-            if 'conv' in layer:
-                activations = utils.Flattener_Conv2D(acts)
-            elif 'pooling' in layer:
-                activations = utils.Flattener_Pooling(acts)
-            elif 'dense' in layer:
-                activations = utils.Flattener_Dense(acts)
-            else: pass
+            
+            activations = utils.Activation_Flattener(acts, layer)
 
             fr = []
             firing_rates = []
