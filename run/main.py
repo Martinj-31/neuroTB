@@ -81,6 +81,8 @@ def run_neuroTB(config_filepath):
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(config)
     
+    evaluation.input_log_domain_trans_plot()
+    
     evaluation.run(data_size)
     # evaluation.IOcurve()
     # evaluation.act_compare()
@@ -92,4 +94,3 @@ def run_neuroTB(config_filepath):
     print(f"Total simulation time : {took:.2f} seconds.")
     
     evaluation.genResultFile()
-    # evaluation.input_log_domain_trans_plot()
