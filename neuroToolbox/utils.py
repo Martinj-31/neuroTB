@@ -214,10 +214,14 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bi
     return spikes
 
 
-def log_transfer(input_data, input_trans):
+def log_transfer(input_data, input_trans, clip=True):
     if input_trans == 'log':
-        factor = np.max(input_data) / np.log(np.max(input_data))
-        input_data = np.floor(np.exp(input_data / factor))
+        exp_input_data = np.exp(input_data)
+        normalized_exp_data = exp_input_data / np.max(exp_input_data)
+        input_data = normalized_exp_data * np.max(input_data)
+        if clip:
+            input_data = np.floor(normalized_exp_data * np.max(input_data))
+        else: input_data = normalized_exp_data * np.max(input_data)
     else: input_data = input_data
     
     return input_data
