@@ -25,9 +25,9 @@ convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling
 
 [conversion]
 batch_size = 1
-w_mag = 16.0
 neuron = IF
 scaling_precision = 1
+firing_range = 0.9
 
 [options]
 bias = 
