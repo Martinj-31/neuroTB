@@ -191,7 +191,7 @@ def Input_Activation(input_activations, layer_name):
     return np.array(input_acts)
 
 
-def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bias_flag):
+def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bias_flag, clip=True):
     spikes = np.dot(spikes, weights)
     if bias_flag:
         if 'conv' in layer_name:
@@ -207,15 +207,17 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bi
     
     neg_idx = np.where(spikes < 0)[0]
     spikes[neg_idx] = 0
-    spikes = np.floor((spikes / threshold) / ((spikes / threshold)*refractory + 1))
+    if clip:
+        spikes = np.floor((spikes / threshold) / ((spikes / threshold)*refractory + 1))
+    else: spikes = (spikes / threshold) / ((spikes / threshold)*refractory + 1)
     
     return spikes
 
 
 def log_transfer(input_data, input_trans):
     if input_trans == 'log':
-        input_data = input_data / np.max(input_data)
-        input_data = np.floor((np.exp(input_data) - 1) / np.max(np.exp(input_data) - 1) * 255)
+        factor = np.max(input_data) / np.log(np.max(input_data))
+        input_data = np.floor(np.exp(input_data / factor))
     else: input_data = input_data
     
     return input_data
