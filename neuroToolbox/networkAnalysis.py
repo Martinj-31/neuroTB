@@ -117,7 +117,7 @@ class Analysis:
             act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
             acts = act_file['arr_0']
             
-            activations = utils.Activation_Flattener(acts, layer)
+            activations = utils.Input_Activation(acts, layer)
 
             fr = []
             firing_rates = []
@@ -129,7 +129,7 @@ class Analysis:
             firing_rate = fr
 
             plt.figure(figsize=(10, 10))
-            plt.scatter(activations, firing_rates, color='r', marker='o', s=10)
+            plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
             plt.title(f"DNN activation vs. SNN firing rates", fontsize=30)
             plt.xlabel(f"Activations in {layer}", fontsize=27)
             plt.ylabel(f"Firing rates in {layer}", fontsize=27)
@@ -385,7 +385,7 @@ class Analysis:
         x_norm = x_norm_file['arr_0']
         
         ori_x = x_norm
-        log_x = utils.log_transfer(ori_x, 'log')
+        log_x = utils.log_transfer(ori_x, self.input_trans)
         
         plt.figure(figsize=(10, 10))
         plt.scatter(ori_x, log_x, color='r', marker='o', s=10)
