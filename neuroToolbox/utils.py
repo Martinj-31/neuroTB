@@ -214,17 +214,22 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bi
     return spikes
 
 
-def log_transfer(input_data, input_trans, clip=True):
-    if input_trans == 'log':
-        exp_input_data = np.exp(input_data)
-        normalized_exp_data = exp_input_data / np.max(exp_input_data)
-        input_data = normalized_exp_data * np.max(input_data)
+def log_transfer(input_data, trans_domain, clip=True):
+    if trans_domain == 'log':
+        log_input_data = np.zeros_like(input_data)
+        max_data = np.max(abs(input_data))
+        factor = max_data / np.log(max_data)
+        pos_idx = np.where(input_data >= 0)
+        neg_idx = np.where(input_data < 0)
         if clip:
-            input_data = np.floor(normalized_exp_data * np.max(input_data))
-        else: input_data = normalized_exp_data * np.max(input_data)
-    else: input_data = input_data
+            log_input_data[pos_idx] = np.floor(np.exp(input_data[pos_idx] / factor))
+            log_input_data[neg_idx] = np.floor(np.exp((-1)*input_data[neg_idx] / factor) * (-1))
+        else:
+            log_input_data[pos_idx] = np.exp(input_data[pos_idx] / factor)
+            log_input_data[neg_idx] = np.exp((-1)*input_data[neg_idx] / factor) * (-1)
+    else: log_input_data = input_data
     
-    return input_data
+    return log_input_data
 
 
 def spikeGen(input_spikes, neurons, duration, delta_t):
