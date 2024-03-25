@@ -31,7 +31,7 @@ firing_range = 0.9
 
 [options]
 bias = 
-input_trans = linear
+trans_domain = linear
 max_norm = False
 percentile = 99.9
 
