@@ -214,22 +214,34 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bi
     return spikes
 
 
-def log_transfer(input_data, trans_domain, clip=True):
+def data_transfer(input_data, trans_domain, clip=True):
     if trans_domain == 'log':
-        log_input_data = np.zeros_like(input_data)
+        transferred_data = np.zeros_like(input_data)
         max_data = np.max(abs(input_data))
-        factor = max_data / np.log(max_data)
+        factor = max_data / np.log(max_data + 1)
         pos_idx = np.where(input_data >= 0)
         neg_idx = np.where(input_data < 0)
         if clip:
-            log_input_data[pos_idx] = np.floor(np.exp(input_data[pos_idx] / factor))
-            log_input_data[neg_idx] = np.floor(np.exp((-1)*input_data[neg_idx] / factor) * (-1))
+            transferred_data[pos_idx] = np.floor(np.exp(input_data[pos_idx] / factor)) - 1
+            transferred_data[neg_idx] = np.floor(np.exp((-1)*input_data[neg_idx] / factor) * (-1)) + 1
         else:
-            log_input_data[pos_idx] = np.exp(input_data[pos_idx] / factor)
-            log_input_data[neg_idx] = np.exp((-1)*input_data[neg_idx] / factor) * (-1)
-    else: log_input_data = input_data
+            transferred_data[pos_idx] = np.exp(input_data[pos_idx] / factor) - 1
+            transferred_data[neg_idx] = np.exp((-1)*input_data[neg_idx] / factor) * (-1) + 1
+    elif trans_domain == 'linear':
+        transferred_data = np.zeros_like(input_data)
+        max_data = np.max(abs(input_data))
+        factor = max_data / np.log(max_data + 1)
+        pos_idx = np.where(input_data >= 0)
+        neg_idx = np.where(input_data < 0)
+        if clip:
+            transferred_data[pos_idx] = np.log(input_data[pos_idx] + 1) * factor
+            transferred_data[neg_idx] = (-1) * np.log((-1) * (input_data[neg_idx] - 1)) * factor
+        else:
+            transferred_data[pos_idx] = np.log(input_data[pos_idx] + 1) * factor
+            transferred_data[neg_idx] = (-1) * np.log((-1) * (input_data[neg_idx] - 1)) * factor
+    else: transferred_data = input_data
     
-    return log_input_data
+    return transferred_data
 
 
 def spikeGen(input_spikes, neurons, duration, delta_t):
