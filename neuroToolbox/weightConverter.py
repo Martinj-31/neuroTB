@@ -74,7 +74,6 @@ class Converter:
         
         if 'False' == self.config['options']['max_norm']:
             first_layer_flag = True
-            i=0
             for layer in self.parsed_model.layers:               
                 if 'input' in layer.name:
                     input_data = utils.Input_Activation(x_norm, layer.name)
@@ -99,7 +98,7 @@ class Converter:
                 else: ann_weights = [weights[layer.name]]
 
                 max_ann_weights = np.max(abs(ann_weights[0]))
-                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag * (i+1.3)
+                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
                 
                 if first_layer_flag:
                     first_layer_flag = False
