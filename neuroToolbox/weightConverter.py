@@ -36,7 +36,7 @@ class Converter:
             self.bias_flag = True
         else: print(f"ERROR !!")
         
-        self.input_trans = config["options"]["input_trans"]
+        self.trans_domain = config["options"]["trans_domain"]
         
         self.scaling_precision = config.getfloat('conversion', 'scaling_precision')
         self.firing_range = config.getfloat('conversion', 'firing_range')
@@ -73,13 +73,11 @@ class Converter:
             print(f"# Replaced by a very small value that can be ignored.\n")
         
         if 'False' == self.config['options']['max_norm']:
-            pre_layer_acts = x_norm
-            linear_spikes = x_norm
-            log_spikes = utils.log_transfer(pre_layer_acts, self.input_trans)
-            
+            first_layer_flag = True
+            i=0
             for layer in self.parsed_model.layers:               
                 if 'input' in layer.name:
-                    firing_rate = x_norm
+                    input_data = utils.Input_Activation(x_norm, layer.name)
                     continue
                 elif 'flatten' in layer.name:
                     continue
@@ -90,90 +88,64 @@ class Converter:
                 neuron = self.synapses[layer.name]
                 
                 # Prepare activations from previous layer and current layer.
-                inbound = utils.get_inbound_layers_with_params(layer)
-                pre_layer = inbound[0]
-                pre_layer_activations_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{pre_layer.name}.npz"))
                 layer_activations_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer.name}.npz"))
-                pre_layer_activations = pre_layer_activations_file['arr_0']
                 layer_activations = layer_activations_file['arr_0']
+                activations = utils.Input_Activation(layer_activations, layer.name)
                 
                 if self.bias_flag:
                     if 'conv' in layer.name or 'dense' == layer.name:
                         ann_weights = [weights[layer.name], neuron[3]]
-                        print(ann_weights[1])
                     else: ann_weights = [weights[layer.name]]
                 else: ann_weights = [weights[layer.name]]
 
                 max_ann_weights = np.max(abs(ann_weights[0]))
-                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
+                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag * (i+1.3)
                 
-                firing_rate = self.get_output_spikes(log_spikes, snn_weights, layer.name)
-                nonzero_firing_rate = firing_rate[np.nonzero(firing_rate)]
-                mean = np.average(nonzero_firing_rate)
-                max_firing_rate = np.max(nonzero_firing_rate)
-                target_firing_rate = mean / max_firing_rate * (1/self.t_ref)*self.firing_range
-                
-                print(f"Target firing rate : {target_firing_rate}")
-                
-                while True:
-                    firing_rate = self.get_output_spikes(log_spikes, snn_weights, layer.name)
-                    nonzero_firing_rate = firing_rate[np.nonzero(firing_rate)]
-                    print(np.average(nonzero_firing_rate.flatten()))
+                if first_layer_flag:
+                    first_layer_flag = False
+                    input_spikes = self.get_input_spikes(input_data, snn_weights, layer.name)
+                    log_input_spikes = utils.data_transfer(input_spikes, 'log', False)
+                    output_spikes = log_input_spikes / (log_input_spikes*self.t_ref + 1)
+                else:
+                    input_data = utils.data_transfer(log_input_spikes, 'linear', False)
                     
-                    if target_firing_rate*0.99 <= np.average(nonzero_firing_rate.flatten()) <= target_firing_rate*1.01:
-                        print(f"  ==> Average firing rate : {np.average(nonzero_firing_rate.flatten())}")
-                        print(f"  ==> Scaling factor : {np.max(snn_weights) / (np.max(ann_weights[0] / max_ann_weights * self.w_mag))}\n")
-                        break
-                    elif np.average(nonzero_firing_rate.flatten()) <= target_firing_rate:
-                        snn_weights *= 1 + self.scaling_precision
-                    elif np.average(nonzero_firing_rate.flatten()) >= target_firing_rate:
-                        snn_weights *= 1 - self.scaling_precision
-                    else: pass
-                
-                # Compare firing rate with activations.
-                np.set_printoptions(threshold=np.inf, linewidth=np.inf)
-                previous_layer_activations = utils.Input_Activation(pre_layer_activations, pre_layer.name)
-                current_layer_activations = utils.Input_Activation(layer_activations, layer.name)
-                log_domain_input = utils.log_transfer(previous_layer_activations, self.input_trans)
-                
-                linear_activations = self.get_activations(previous_layer_activations, ann_weights[0], layer.name)
-                log_activations = self.get_activations(log_domain_input, ann_weights[0], layer.name)
-                
-                linear_input_spikes = self.get_input_spikes(linear_spikes, snn_weights, layer.name)
-                log_input_spikes = self.get_input_spikes(log_spikes, snn_weights, layer.name)
-                
-                linear_output_spikes = self.get_output_spikes(linear_spikes, snn_weights, layer.name)
-                log_output_spikes = self.get_output_spikes(log_spikes, snn_weights, layer.name)
-                
-                plt.plot(linear_activations.flatten(), log_output_spikes.flatten(), 'o', markersize=2, color='blue', linestyle='None')
-                plt.title(f"{layer.name}", fontsize=20)
-                plt.xlabel(f"Log Activations", fontsize=15)
-                plt.ylabel(f"Log Spikes", fontsize=15)
-                plt.yscale('symlog')
-                plt.show()
-                
-                # plt.plot(linear_activations.flatten(), current_layer_activations.flatten(), 'o', markersize=2, color='black', linestyle='None', label='ReLU')
-                # plt.plot(linear_input_spikes.flatten(), linear_output_spikes.flatten(), 'o', markersize=2, color='blue', linestyle='None', label='IF neuron')
-                # plt.plot(log_input_spikes.flatten(), log_output_spikes.flatten(), 'o', markersize=2, color='red', linestyle='None', label='Log IF neuron')
-                # plt.yscale('symlog')
-                # plt.title(f"{layer.name}", fontsize=20)
-                # plt.xlabel(f"Input Activation or Firing rate", fontsize=15)
-                # plt.ylabel(f"Output Activation for Firing rate", fontsize=15)
-                # plt.legend(fontsize='xx-large')
-                # plt.show()
-                
-                log_spikes = utils.log_transfer(current_layer_activations, self.input_trans)
-                log_spikes = self.min_max_scaling(log_spikes, 0, 255)
-                
-                linear_spikes = linear_output_spikes
-                # log_spikes = log_output_spikes
-                
+                    input_spikes = self.get_input_spikes(input_data, snn_weights, layer.name)
+                    log_input_spikes = utils.data_transfer(input_spikes, 'log', False)
+                    output_spikes = log_input_spikes / (log_input_spikes*self.t_ref + 1)
+                    
+                    nonzero_output_spikes = output_spikes[np.nonzero(output_spikes)]
+                    mean = np.average(nonzero_output_spikes)
+                    max_output_spikes = np.max(nonzero_output_spikes)
+                    target_output_spikes = mean / max_output_spikes * (1/self.t_ref)*self.firing_range
+                    
+                    print(f"Target firing rate : {target_output_spikes}")
+
+                    while True:
+                        input_spikes = self.get_input_spikes(input_data, snn_weights, layer.name)
+                        log_input_spikes = utils.data_transfer(input_spikes, 'log', False)
+                        output_spikes = log_input_spikes / (log_input_spikes*self.t_ref + 1)
+                        
+                        nonzero_output_spikes = output_spikes[np.nonzero(output_spikes)]
+                        print(np.average(nonzero_output_spikes.flatten()))
+                        
+                        if target_output_spikes*0.95 <= np.average(nonzero_output_spikes.flatten()) <= target_output_spikes*1.05:
+                            print(f"  ==> Average firing rate : {np.average(nonzero_output_spikes.flatten())}")
+                            print(f"  ==> Scaling factor : {np.max(snn_weights) / (np.max(ann_weights[0] / max_ann_weights * self.w_mag))}\n")
+                            break
+                        elif np.average(nonzero_output_spikes.flatten()) <= target_output_spikes:
+                            snn_weights *= 1 + self.scaling_precision
+                        elif np.average(nonzero_output_spikes.flatten()) >= target_output_spikes:
+                            snn_weights *= 1 - self.scaling_precision
+                        else: pass
+                    
                 if self.bias_flag:
                     if 'conv' in layer.name or 'dense' == layer.name:
                         neuron[2] = snn_weights
                         neuron[3] = ann_weights[1]
                     else: neuron[2] = snn_weights
                 else: neuron[2] = snn_weights
+                
+                log_input_spikes = output_spikes 
 
             with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
                 pickle.dump(self.synapses, f)
@@ -243,7 +215,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th, self.t_ref, layer_name, synapse, self.bias_flag)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th, self.t_ref, layer_name, synapse, self.bias_flag, False)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -255,7 +227,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th, 0, layer_name, synapse, self.bias_flag)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th, 0, layer_name, synapse, self.bias_flag, False)
             spikes.append(firing_rate)
         
         return np.array(spikes)
