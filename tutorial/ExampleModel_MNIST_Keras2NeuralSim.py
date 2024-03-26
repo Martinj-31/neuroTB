@@ -22,7 +22,7 @@ os.makedirs(path_wd)
 os.makedirs(path_wd + '/dataset/')
 
 print("path wd: ", path_wd)
-from run import main
+from run.main import run_neuroTB
 
 
 # %% Load MNIST dataset and preprocess
@@ -120,17 +120,19 @@ default_config['names']['snn_model'] = 'SNN_' + model_name
 
 default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
+default_config['conversion']['scaling_precision'] = '0.1'
+default_config['conversion']['firing_range'] = '0.9'
 
 default_config['spiking_neuron']['refractory'] = '5'
-default_config['spiking_neuron']['initial_threshold'] = '16.0'
+default_config['spiking_neuron']['threshold'] = '128.0'
 default_config['spiking_neuron']['w_mag'] = '64.0'
 
 default_config['options']['bias'] = str(bias_flag)
-default_config['options']['input_trans'] = 'log'
+default_config['options']['trans_domain'] = 'log'
 default_config['options']['max_norm'] = str(False)
 default_config['options']['percentile'] = '99.9'
 
-default_config['test']['data_size'] = '10'
+default_config['test']['data_size'] = '1000'
 
 default_config['result']['input_model_acc'] = str(score[1])
 
@@ -140,5 +142,4 @@ config_filepath = os.path.join(path_wd, 'config')
 # Write the updated config values to a new file named 'config'
 with open(config_filepath, 'w') as configfile:
     default_config.write(configfile)
-
-main.run_neuroTB(config_filepath)  # Use run_neuroTB instead of run_n
+run_neuroTB(config_filepath)  # Use run_neuroTB instead of run_n
