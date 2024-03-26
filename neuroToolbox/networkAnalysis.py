@@ -40,8 +40,6 @@ class Analysis:
         elif bias_flag == 'True':
             self.bias_flag = True
         else: print(f"ERROR !!")
-        
-        self.input_trans = config["options"]['input_trans']
 
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
@@ -63,8 +61,6 @@ class Analysis:
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
         y_test = y_test[::data_size]
-        
-        self.x_test = utils.log_transfer(self.x_test, self.input_trans)
 
         print(f"Input data length : {len(self.x_test)}")
         print(f"...\n")
@@ -79,12 +75,22 @@ class Analysis:
         self.syn_operation = 0
         for input_idx in range(len(self.x_test)):
             firing_rate = self.x_test[input_idx].flatten()
+            first_layer_flag = True
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0)[0])
                     self.syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, self.t_ref, layer, synapse, self.bias_flag)
+                if first_layer_flag:
+                    first_layer_flag = False
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
+                    log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
+                    firing_rate = np.floor(log_firing_rate / (log_firing_rate*self.t_ref + 1))
+                else:
+                    firing_rate = utils.data_transfer(firing_rate, 'linear', False)
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
+                    log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
+                    firing_rate = np.floor(log_firing_rate / (log_firing_rate*self.t_ref + 1))
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
@@ -106,39 +112,52 @@ class Analysis:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
 
-        x_norm = utils.log_transfer(x_norm, self.input_trans)
-
         weights = {}
         for key in self.synapses.keys():
             weights[key] = self.synapses[key][2]
 
         firing_rate = x_norm
+        first_layer_flag = True
         for layer, synapse in self.synapses.items():
             act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
             acts = act_file['arr_0']
             
             activations = utils.Input_Activation(acts, layer)
 
-            fr = []
-            firing_rates = []
-            for idx in range(len(firing_rate)):
-                spikes = firing_rate[idx].flatten()
-                spikes = utils.neuron_model(spikes, weights[layer], self.v_th, self.t_ref, layer, synapse, self.bias_flag)
-                fr.append(spikes)
-                firing_rates = np.concatenate((firing_rates, spikes))
-            firing_rate = fr
+            if first_layer_flag:
+                first_layer_flag = False
+                fr = []
+                for idx in range(len(firing_rate)):
+                    spikes = firing_rate[idx].flatten()
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
+                    fr.append(spikes)
+                firing_rate = np.array(fr)
+                log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
+                firing_rate = log_firing_rate / (log_firing_rate*self.t_ref + 1)
+            else:
+                fr = []
+                firing_rate = utils.data_transfer(firing_rate, 'linear', False)
+                for idx in range(len(firing_rate)):
+                    spikes = firing_rate[idx].flatten()
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
+                    fr.append(spikes)
+                firing_rate = np.array(fr)
+                log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
+                firing_rate = log_firing_rate / (log_firing_rate*self.t_ref + 1)
 
             plt.figure(figsize=(10, 10))
             plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
-            plt.title(f"DNN activation vs. SNN firing rates", fontsize=30)
+            # plt.title(f"DNN activation vs. SNN firing rates", fontsize=30)
+            plt.title(f"DNN activation vs. Expected firing rates", fontsize=30)
             plt.xlabel(f"Activations in {layer}", fontsize=27)
-            plt.ylabel(f"Firing rates in {layer}", fontsize=27)
+            # plt.ylabel(f"Firing rates in {layer}", fontsize=27)
+            plt.ylabel(f"Expected firing rates in {layer}", fontsize=27)
             plt.xticks(fontsize=20)
             plt.yticks(fontsize=20)
             plt.grid(True)
             plt.yscale('symlog')
-            plt.ylim([1, 1000])
-            plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}")
+            plt.ylim([1,200])
+            plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}", transparent=True)
             plt.show()
     
     
@@ -385,13 +404,14 @@ class Analysis:
         x_norm = x_norm_file['arr_0']
         
         ori_x = x_norm
-        log_x = utils.log_transfer(ori_x, self.input_trans)
+        max_value = np.max(abs(ori_x))
+        log_x = utils.data_transfer(ori_x, 'log', max_value)
         
         plt.figure(figsize=(10, 10))
         plt.scatter(ori_x, log_x, color='r', marker='o', s=10)
         plt.title(f"Log domain transfer correlation", fontsize=30)
-        plt.xlabel(f"Linear domain", fontsize=27)
-        plt.ylabel(f"Log domain", fontsize=27)
+        plt.xlabel(f"Before transfer", fontsize=27)
+        plt.ylabel(f"After transfer", fontsize=27)
         plt.xticks(fontsize=20)
         plt.yticks(fontsize=20)
         plt.grid(True)
@@ -420,7 +440,7 @@ class Analysis:
             logfile.writelines(f"Bias : YES\n")
         elif 'False' == self.config["options"]["bias"]:
             logfile.writelines(f"Bias : NO\n")
-        logfile.writelines(f"Input domain : {self.config['options']['input_trans']} \n")
+        logfile.writelines(f"Input domain : {self.config['options']['trans_domain']} \n")
         
         logfile.writelines(f"\n")
         
