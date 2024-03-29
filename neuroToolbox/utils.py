@@ -191,8 +191,8 @@ def Input_Activation(input_activations, layer_name):
     return np.array(input_acts)
 
 
-def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bias_flag, clip=True):
-    spikes = np.dot(spikes, weights)
+def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, clip=True):
+    spikes = get_weighted_sum(spikes, weights, precision)
     if bias_flag:
         if 'conv' in layer_name:
             s = 0
@@ -210,6 +210,19 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bi
     if clip:
         spikes = np.floor((spikes / threshold) / ((spikes / threshold)*refractory + 1))
     else: spikes = (spikes / threshold) / ((spikes / threshold)*refractory + 1)
+    
+    return spikes
+
+
+def get_weighted_sum(spikes, w, precision='FP32'):
+    if precision == 'FP8':
+        spikes = np.tile(spikes, (w.shape[1], 1))
+        spikes = np.multiply(spikes, w.T)
+        spikes = toFloat34_2d(spikes)
+        spikes = np.sum(spikes, axis=1)
+    elif precision == 'FP32':
+        spikes = np.dot(spikes, w)
+    else: pass
     
     return spikes
 
@@ -244,6 +257,78 @@ def data_transfer(input_data, trans_domain, clip=True):
     return transferred_data
 
 
-def spikeGen(input_spikes, neurons, duration, delta_t):
+def toFloat34(before_value):
     
-    return
+    reference = np.array([  0.      ,   1.0625   ,   1.125   ,   1.1875   ,   1.25    ,   1.3125   ,
+                            1.375   ,   1.4375   ,   1.5     ,   1.5625   ,   1.625   ,   1.6875   ,
+                            1.75    ,   1.8125   ,   1.875   ,   1.9375   ,   2.      ,   2.125    ,
+                            2.25    ,   2.375    ,   2.5     ,   2.625    ,   2.75    ,   2.875    ,
+                            3.      ,   3.125    ,   3.25    ,   3.375    ,   3.5     ,   3.625    ,
+                            3.75    ,   3.875    ,   4.      ,   4.25     ,   4.5     ,   4.75     ,
+                            5.      ,   5.25     ,   5.5     ,   5.75     ,   6.      ,   6.25     ,
+                            6.5     ,   6.75     ,   7.      ,   7.25     ,   7.5     ,   7.75     ,
+                            8.      ,   8.5      ,   9.      ,   9.5      ,   10.     ,   10.5     ,
+                            11.     ,   11.5     ,   12.     ,   12.5     ,   13.     ,   13.5     ,
+                            14.     ,   14.5     ,   15.     ,   15.5     ,   16.     ,   17.      ,
+                            18.     ,   19.      ,   20.     ,   21.      ,   22.     ,   23.      ,
+                            24.     ,   25.      ,   26.     ,   27.      ,   28.     ,   29.      ,
+                            30.     ,   31.      ,   32.     ,   34.      ,   36.     ,   38.      ,
+                            40.     ,   42.      ,   44.     ,   46.      ,   48.     ,   50.      ,
+                            52.     ,   54.      ,   56.     ,   58.      ,   60.     ,   62.      ,
+                            64.     ,   68.      ,   72.     ,   76.      ,   80.     ,   84.      ,
+                            88.     ,   92.      ,   96.     ,   100.     ,   104.    ,   108.     ,
+                            112.    ,   116.     ,   120.    ,   124.     ,   128.    ,   136.     ,
+                            144.    ,   152.     ,   160.    ,   168.     ,   176.    ,   184.     ,
+                            192.    ,   200.     ,   208.    ,   216.     ,   224.    ,   232.     ,
+                            240.    ,   248.                                                          ])
+    
+    before_value_array = np.atleast_1d(before_value)
+    sign_array = np.sign(before_value_array)
+    abs_before_value = np.abs(before_value_array)
+    abs_diff = np.abs(abs_before_value[:, None] - reference)
+    abs_diff[abs_before_value[:, None] < reference] = np.inf
+    indices = np.argmin(abs_diff, axis=1)
+
+    after_value = reference[indices]
+    result = sign_array * after_value
+    
+    return result if isinstance(before_value, np.ndarray) else result[0]
+
+
+def toFloat34_2d(before_array):
+    
+    for i in range(before_array.shape[0]):
+        before_array[i, :] = toFloat34(before_array[i, :])
+    
+    return before_array
+
+
+def toInt8(before_value):
+    
+    reference = np.array([
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 
+        30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 
+        40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 
+        50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 
+        60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 
+        70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 
+        80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 
+        90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 
+        100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 
+        110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 
+        120, 121, 122, 123, 124, 125, 126, 127
+    ])
+    
+    before_value_array = np.atleast_1d(before_value)
+    sign_array = np.sign(before_value_array)
+    abs_before_value = np.abs(before_value_array)
+    abs_diff = np.abs(abs_before_value[:, None] - reference)
+    abs_diff[abs_before_value[:, None] < reference] = np.inf
+    indices = np.argmin(abs_diff, axis=1)
+
+    after_value = reference[indices]
+    result = sign_array * after_value
+    
+    return result if isinstance(before_value, np.ndarray) else result[0]
