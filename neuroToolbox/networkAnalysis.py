@@ -31,6 +31,8 @@ class Analysis:
         self.input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
+        self.fp_precision = config["conversion"]["fp_precision"]
+        
         self.v_th = config.getfloat('spiking_neuron', 'threshold')
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
             
@@ -75,22 +77,12 @@ class Analysis:
         self.syn_operation = 0
         for input_idx in range(len(self.x_test)):
             firing_rate = self.x_test[input_idx].flatten()
-            first_layer_flag = True
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
                 for neu_idx in range(len(firing_rate)):
-                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0)[0])
+                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     self.syn_operation += firing_rate[neu_idx] * fan_out
-                if first_layer_flag:
-                    first_layer_flag = False
-                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
-                    log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
-                    firing_rate = np.floor(log_firing_rate / (log_firing_rate*self.t_ref + 1))
-                else:
-                    firing_rate = utils.data_transfer(firing_rate, 'linear', False)
-                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
-                    log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
-                    firing_rate = np.floor(log_firing_rate / (log_firing_rate*self.t_ref + 1))
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
@@ -117,33 +109,19 @@ class Analysis:
             weights[key] = self.synapses[key][2]
 
         firing_rate = x_norm
-        first_layer_flag = True
+        
         for layer, synapse in self.synapses.items():
             act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
             acts = act_file['arr_0']
             
             activations = utils.Input_Activation(acts, layer)
 
-            if first_layer_flag:
-                first_layer_flag = False
-                fr = []
-                for idx in range(len(firing_rate)):
-                    spikes = firing_rate[idx].flatten()
-                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
-                    fr.append(spikes)
-                firing_rate = np.array(fr)
-                log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
-                firing_rate = log_firing_rate / (log_firing_rate*self.t_ref + 1)
-            else:
-                fr = []
-                firing_rate = utils.data_transfer(firing_rate, 'linear', False)
-                for idx in range(len(firing_rate)):
-                    spikes = firing_rate[idx].flatten()
-                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th, 0, layer, synapse, self.bias_flag, False)
-                    fr.append(spikes)
-                firing_rate = np.array(fr)
-                log_firing_rate = utils.data_transfer(firing_rate, 'log', False)
-                firing_rate = log_firing_rate / (log_firing_rate*self.t_ref + 1)
+            fr = []
+            for idx in range(len(firing_rate)):
+                spikes = firing_rate[idx].flatten()
+                spikes = utils.neuron_model(spikes, weights[layer], self.v_th, self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                fr.append(spikes)
+            firing_rate = np.array(fr)
 
             plt.figure(figsize=(10, 10))
             plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
@@ -404,8 +382,7 @@ class Analysis:
         x_norm = x_norm_file['arr_0']
         
         ori_x = x_norm
-        max_value = np.max(abs(ori_x))
-        log_x = utils.data_transfer(ori_x, 'log', max_value)
+        log_x = utils.data_transfer(ori_x, 'log')
         
         plt.figure(figsize=(10, 10))
         plt.scatter(ori_x, log_x, color='r', marker='o', s=10)
