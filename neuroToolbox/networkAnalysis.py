@@ -133,8 +133,8 @@ class Analysis:
             plt.xticks(fontsize=20)
             plt.yticks(fontsize=20)
             plt.grid(True)
-            plt.yscale('symlog')
-            plt.ylim([1,200])
+            # plt.yscale('symlog')
+            # plt.ylim([1,200])
             plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}", transparent=True)
             plt.show()
     
