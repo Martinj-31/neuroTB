@@ -345,18 +345,25 @@ class Parser:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
         
-        if 'input' == name:
-            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
-            model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
-            os.makedirs(model_activation_dir, exist_ok=True)
-        elif 'parsed' == name:
-            model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
-            model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
-            os.makedirs(model_activation_dir, exist_ok=True)
-        else: pass # Error code
+        model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
+        
+        input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
+        os.makedirs(input_model_activation_dir, exist_ok=True)
+        parsed_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
+        os.makedirs(parsed_model_activation_dir, exist_ok=True)
         
         for layer in model.layers:
             model_activation = tf.keras.models.Model(inputs=model.input, outputs=layer.output).predict(x_norm)
+            print(layer.name)
+            np.savez_compressed(os.path.join(input_model_activation_dir, f"input_model_activation_{layer.name}.npz"), model_activation)
+            if 'lambda' in layer.name:
+                inbound = utils.get_inbound_layers_with_params(layer)
+                pre_layer = inbound[0]
+                np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{pre_layer.name}.npz"), model_activation)
+            elif 'conv' in layer.name or 'dense' in layer.name:
+                if hasattr(layer, 'activation'):
+                    if layer.activation.__name__ == 'softmax':
+                        np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
+            else: np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
+                
             
-            np.savez_compressed(os.path.join(model_activation_dir, f"{name}_model_activation_{layer.name}.npz"), model_activation)
-
