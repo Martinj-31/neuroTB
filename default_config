@@ -29,6 +29,7 @@ neuron = IF
 scaling_precision = 1
 firing_range = 0.9
 fp_precision = FP32
+epoch = 10
 
 [options]
 bias = 
