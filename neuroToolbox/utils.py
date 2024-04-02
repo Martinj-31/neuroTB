@@ -132,6 +132,16 @@ def weightDecompile(synapses):
     return weight_list
 
 
+def weightFormat(weights, format='FP32'):
+    if 'FP32' == format:
+        weights = weights
+    elif 'FP8' == format:
+        weights = toFloat34(weights)
+    else: pass
+    
+    return weights
+
+
 def Activation_Flattener(loaded_activations, layer_name):
     if 'conv' in layer_name:
         acts = []
@@ -223,7 +233,7 @@ def get_weighted_sum(spikes, w, precision='FP32'):
     if precision == 'FP8':
         spikes = np.tile(spikes, (w.shape[1], 1))
         spikes = np.multiply(spikes, w.T)
-        spikes = toFloat34_2d(spikes)
+        spikes = toFloat34(spikes)
         spikes = np.sum(spikes, axis=1)
     elif precision == 'FP32':
         spikes = np.dot(spikes, w)
@@ -263,7 +273,6 @@ def data_transfer(input_data, trans_domain, clip=True):
 
 
 def toFloat34(before_value):
-    
     reference = np.array([  0.      ,   1.0625   ,   1.125   ,   1.1875   ,   1.25    ,   1.3125   ,
                             1.375   ,   1.4375   ,   1.5     ,   1.5625   ,   1.625   ,   1.6875   ,
                             1.75    ,   1.8125   ,   1.875   ,   1.9375   ,   2.      ,   2.125    ,
@@ -286,26 +295,21 @@ def toFloat34(before_value):
                             144.    ,   152.     ,   160.    ,   168.     ,   176.    ,   184.     ,
                             192.    ,   200.     ,   208.    ,   216.     ,   224.    ,   232.     ,
                             240.    ,   248.                                                          ])
-    
-    before_value_array = np.atleast_1d(before_value)
+
+    before_value_array = np.atleast_1d(before_value).astype(float)
     sign_array = np.sign(before_value_array)
     abs_before_value = np.abs(before_value_array)
-    abs_diff = np.abs(abs_before_value[:, None] - reference)
-    abs_diff[abs_before_value[:, None] < reference] = np.inf
-    indices = np.argmin(abs_diff, axis=1)
-
-    after_value = reference[indices]
-    result = sign_array * after_value
     
+    indices = np.searchsorted(reference, abs_before_value, side="left")
+    
+    indices[indices == len(reference)] = len(reference) - 1
+    lower_bound_diff = abs_before_value - reference[indices - 1]
+    upper_bound_diff = reference[indices] - abs_before_value
+
+    indices[lower_bound_diff <= upper_bound_diff] -= 1
+
+    result = sign_array * reference[indices]
     return result if isinstance(before_value, np.ndarray) else result[0]
-
-
-def toFloat34_2d(before_array):
-    
-    for i in range(before_array.shape[0]):
-        before_array[i, :] = toFloat34(before_array[i, :])
-    
-    return before_array
 
 
 def toInt8(before_value):
