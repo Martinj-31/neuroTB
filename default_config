@@ -39,7 +39,7 @@ percentile = 99.9
 [spiking_neuron]
 threshold = 1.0
 refractory = 5
-w_mag = 16.0
+w_mag = 1.0
 
 [test]
 data_size = 10
