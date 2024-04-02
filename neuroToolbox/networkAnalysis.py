@@ -119,7 +119,7 @@ class Analysis:
             fr = []
             for idx in range(len(firing_rate)):
                 spikes = firing_rate[idx].flatten()
-                spikes = utils.neuron_model(spikes, weights[layer], self.v_th, self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                spikes = utils.neuron_model(spikes, weights[layer], self.v_th, self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
                 fr.append(spikes)
             firing_rate = np.array(fr)
 
