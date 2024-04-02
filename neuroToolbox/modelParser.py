@@ -354,7 +354,6 @@ class Parser:
         
         for layer in model.layers:
             model_activation = tf.keras.models.Model(inputs=model.input, outputs=layer.output).predict(x_norm)
-            print(layer.name)
             np.savez_compressed(os.path.join(input_model_activation_dir, f"input_model_activation_{layer.name}.npz"), model_activation)
             if 'lambda' in layer.name:
                 inbound = utils.get_inbound_layers_with_params(layer)
