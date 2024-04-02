@@ -207,9 +207,14 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, pr
     
     neg_idx = np.where(spikes < 0)[0]
     spikes[neg_idx] = 0
-    if clip:
-        spikes = np.floor((spikes / threshold) / ((spikes / threshold)*refractory + 1))
+    
+    if 'pooling' in layer_name:
+        spikes = spikes / threshold
     else: spikes = (spikes / threshold) / ((spikes / threshold)*refractory + 1)
+    
+    if clip:
+        spikes = np.floor(spikes)
+    else: pass
     
     return spikes
 
