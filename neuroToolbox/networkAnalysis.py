@@ -33,7 +33,6 @@ class Analysis:
         
         self.fp_precision = config["conversion"]["fp_precision"]
         
-        self.v_th = config.getfloat('spiking_neuron', 'threshold')
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
             
         bias_flag = config["options"]["bias"]
@@ -84,7 +83,7 @@ class Analysis:
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     self.syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th, self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
@@ -121,7 +120,7 @@ class Analysis:
             fr = []
             for idx in range(len(firing_rate)):
                 spikes = firing_rate[idx].flatten()
-                spikes = utils.neuron_model(spikes, weights[layer], self.v_th, self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
                 fr.append(spikes)
             firing_rate = np.array(fr)
 
@@ -164,7 +163,7 @@ class Analysis:
                             if output_spike < 0:
                                 output_spike = 0
                             else: pass
-                            output_spike = np.floor(output_spike / (output_spike*self.t_ref + self.v_th))
+                            output_spike = np.floor(output_spike / (output_spike*self.t_ref + self.v_th[layer]))
                             input_spikes[cnt] = input_spike[i][k] * weights[layer][k][j]
                             output_spikes[cnt] = output_spike
                             cnt += 1
@@ -175,7 +174,7 @@ class Analysis:
                 next_spike = np.dot(input_spike.flatten(), weights[layer])
                 neg_idx = np.where(next_spike < 0)[0]
                 next_spike[neg_idx] = 0
-                next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th))
+                next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th[layer]))
                 next_spike = np.reshape(next_spike, (len(next_spike), 1))
                 input_spike = next_spike
 
@@ -193,7 +192,12 @@ class Analysis:
     def spikes(self):
         
         return self.firing_rates
-            
+    
+    
+    def set_threshold(self, threshold):
+        
+        self.v_th = threshold
+    
     
     def act_compare(self):
 
