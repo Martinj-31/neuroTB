@@ -45,6 +45,7 @@ class Converter:
         self.firing_range = config.getfloat('conversion', 'firing_range')
         self.fp_precision = config["conversion"]["fp_precision"]
         self.epoch = config.getint('conversion', 'epoch')
+        self.normalization = config["conversion"]["normalization"]
         self.optimizer = config["conversion"]["optimizer"]
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
@@ -105,7 +106,13 @@ class Converter:
                     else: ann_weights = [weights[layer.name]]
                 else: ann_weights = [weights[layer.name]]
                 
-                snn_weights = ann_weights[0]
+                if 'on' == self.normalization:
+                    max_ann_weights = np.max(abs(ann_weights[0]))
+                    snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
+                    self.v_th[layer.name] = 1.0 * self.w_mag
+                else:
+                    snn_weights = ann_weights[0]
+                    self.v_th[layer.name] = 1.0
                 snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
                 
                 if self.bias_flag:
@@ -114,8 +121,6 @@ class Converter:
                         neuron[3] = ann_weights[1]
                     else: neuron[2] = snn_weights
                 else: neuron[2] = snn_weights
-                
-                self.v_th[layer.name] = 1.0
                 
                 with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
                     pickle.dump(self.synapses, f)
