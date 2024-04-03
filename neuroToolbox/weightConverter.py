@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import neuroToolbox.utils as utils
+from tqdm import tqdm
 
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,16 +37,27 @@ class Converter:
             self.bias_flag = True
         else: print(f"ERROR !!")
         
+        self.mac_operation = config.getfloat('result', 'input_model_mac')
+        
         self.trans_domain = config["options"]["trans_domain"]
         
         self.scaling_precision = config.getfloat('conversion', 'scaling_precision')
         self.firing_range = config.getfloat('conversion', 'firing_range')
+        self.fp_precision = config["conversion"]["fp_precision"]
+        self.epoch = config.getint('conversion', 'epoch')
+        self.optimizer = config["conversion"]["optimizer"]
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
-        self.v_th = config.getfloat('spiking_neuron', 'threshold')
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
         self.w_mag = config.getfloat('spiking_neuron', 'w_mag')
+        
+        self.init_v_th = config.getfloat('spiking_neuron', 'threshold')
+        self.v_th = {}
+        for layer in self.parsed_model.layers:
+            if 'input' in layer.name or 'flatten' in layer.name:
+                continue
+            else: self.v_th[layer.name] = self.init_v_th
         
         self.percentile = config.getfloat('options', 'percentile')
 
@@ -54,11 +66,18 @@ class Converter:
 
 
     def convertWeights(self):
-        activation_dir = os.path.join(self.config['paths']['path_wd'], f"parsed_model_activations")
-
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
+        
+        data_size = int(10000 / self.config.getint('test', 'data_size'))
+        data_size = 50
+        x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
+        x_test = x_test_file['arr_0']
+        x_test = x_test[::data_size]
+        y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
+        y_test = y_test_file['arr_0']
+        y_test = y_test[::data_size]
 
         print("\n\n######## Converting weight ########\n")
         
@@ -71,72 +90,24 @@ class Converter:
             print(f"###################################################")
             print(f"# Refractory period is 0.")
             print(f"# Replaced by a very small value that can be ignored.\n")
-        
-        if 'False' == self.config['options']['max_norm']:
-            first_layer_flag = True
-            for layer in self.parsed_model.layers:               
-                if 'input' in layer.name:
-                    input_data = utils.Input_Activation(x_norm, layer.name)
-                    continue
-                elif 'flatten' in layer.name:
+            
+        if 'off' == self.optimizer:
+            for layer in self.parsed_model.layers:
+                if 'input' in layer.name or 'flatten' in layer.name:
                     continue
                 else: pass
                 
-                print(f" Weight conversion for {layer.name} layer...\n")
-
                 neuron = self.synapses[layer.name]
-                
-                # Prepare activations from previous layer and current layer.
-                layer_activations_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer.name}.npz"))
-                layer_activations = layer_activations_file['arr_0']
-                activations = utils.Input_Activation(layer_activations, layer.name)
                 
                 if self.bias_flag:
                     if 'conv' in layer.name or 'dense' == layer.name:
                         ann_weights = [weights[layer.name], neuron[3]]
                     else: ann_weights = [weights[layer.name]]
                 else: ann_weights = [weights[layer.name]]
-
-                max_ann_weights = np.max(abs(ann_weights[0]))
-                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
                 
-                if first_layer_flag:
-                    first_layer_flag = False
-                    input_spikes = self.get_input_spikes(input_data, snn_weights, layer.name)
-                    log_input_spikes = utils.data_transfer(input_spikes, 'log', False)
-                    output_spikes = log_input_spikes / (log_input_spikes*self.t_ref + 1)
-                else:
-                    input_data = utils.data_transfer(log_input_spikes, 'linear', False)
-                    
-                    input_spikes = self.get_input_spikes(input_data, snn_weights, layer.name)
-                    log_input_spikes = utils.data_transfer(input_spikes, 'log', False)
-                    output_spikes = log_input_spikes / (log_input_spikes*self.t_ref + 1)
-                    
-                    nonzero_output_spikes = output_spikes[np.nonzero(output_spikes)]
-                    mean = np.average(nonzero_output_spikes)
-                    max_output_spikes = np.max(nonzero_output_spikes)
-                    target_output_spikes = mean / max_output_spikes * (1/self.t_ref)*self.firing_range
-                    
-                    print(f"Target firing rate : {target_output_spikes}")
-
-                    while True:
-                        input_spikes = self.get_input_spikes(input_data, snn_weights, layer.name)
-                        log_input_spikes = utils.data_transfer(input_spikes, 'log', False)
-                        output_spikes = log_input_spikes / (log_input_spikes*self.t_ref + 1)
-                        
-                        nonzero_output_spikes = output_spikes[np.nonzero(output_spikes)]
-                        print(np.average(nonzero_output_spikes.flatten()))
-                        
-                        if target_output_spikes*0.95 <= np.average(nonzero_output_spikes.flatten()) <= target_output_spikes*1.05:
-                            print(f"  ==> Average firing rate : {np.average(nonzero_output_spikes.flatten())}")
-                            print(f"  ==> Scaling factor : {np.max(snn_weights) / (np.max(ann_weights[0] / max_ann_weights * self.w_mag))}\n")
-                            break
-                        elif np.average(nonzero_output_spikes.flatten()) <= target_output_spikes:
-                            snn_weights *= 1 + self.scaling_precision
-                        elif np.average(nonzero_output_spikes.flatten()) >= target_output_spikes:
-                            snn_weights *= 1 - self.scaling_precision
-                        else: pass
-                    
+                snn_weights = ann_weights[0]
+                snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
+                
                 if self.bias_flag:
                     if 'conv' in layer.name or 'dense' == layer.name:
                         neuron[2] = snn_weights
@@ -144,67 +115,102 @@ class Converter:
                     else: neuron[2] = snn_weights
                 else: neuron[2] = snn_weights
                 
-                log_input_spikes = output_spikes 
-
+                self.v_th[layer.name] = 1.0
+                
+                with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
+                    pickle.dump(self.synapses, f)
+                    
+            return
+        
+        for layer in self.parsed_model.layers:
+            if 'input' in layer.name or 'flatten' in layer.name:
+                continue
+            else: pass
+            
+            print(f" Weight Normalization for {layer.name} layer...\n")
+            
+            neuron = self.synapses[layer.name]
+            
+            if self.bias_flag:
+                if 'conv' in layer.name or 'dense' == layer.name:
+                    ann_weights = [weights[layer.name], neuron[3]]
+                else: ann_weights = [weights[layer.name]]
+            else: ann_weights = [weights[layer.name]]
+            
+            # Weight Normalization
+            max_ann_weights = np.max(abs(ann_weights[0]))
+            snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
+            snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
+            
+            # Weight adaptation
+            if self.bias_flag:
+                if 'conv' in layer.name or 'dense' == layer.name:
+                    neuron[2] = snn_weights
+                    neuron[3] = ann_weights[1]
+                else: neuron[2] = snn_weights
+            else: neuron[2] = snn_weights
+            
             with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
                 pickle.dump(self.synapses, f)
-                
-        # Need to edit
-        elif 'True' == self.config['options']['max_norm']:
-            
-            print(f">>Max-norm option.\n")
-            
-            batch_size = self.config.getint('conversion', 'batch_size')
-            norm_facs = {self.parsed_model.layers[0].name: 1.0}
-            
-            for layer in self.parsed_model.layers:
-                
-                if len(layer.weights) == 0:
-                    continue
-                
-                activations = self.get_activations_layer(self.parsed_model, layer, x_norm, batch_size, activation_dir)
-                
-                print(f"Maximum activation: {np.max(activations):.5f}.")
-                nonzero_activations = activations[np.nonzero(activations)]
-                del activations
-                perc = self.config.getfloat('IF', 'percentile')
-                
-                cliped_max_activation = self.get_percentile_activation(nonzero_activations, perc)
-                norm_facs[layer.name] = cliped_max_activation
-                print(f"Cliped maximum activation: {norm_facs[layer.name]:.5f}.\n")
-                i += 1
-
-            for layer in self.parsed_model.layers:
-
-                if len(layer.weights) == 0:
-                    continue
-
-                ann_weights, bias = layer.get_weights()
-                    
-                if layer.activation.__name__ == 'softmax':
-                    norm_fac = 1.0
-                    print(f"\n Using norm_factor: {norm_fac:.2f}.")
-                else:
-                    norm_fac = norm_facs[layer.name]
-                    
-                inbound = self.get_inbound_layers_with_params(layer)
-                
-                if len(inbound) == 0:
-                    snn_weights = [ann_weights * norm_facs[self.parsed_model.layers[0].name] / norm_fac, bias / norm_fac]
-                    print("\n +++++ input norm_facs +++++ \n ", norm_facs[self.parsed_model.layers[0].name])
-                    print("  ---------------")
-                    print(" ", norm_fac)
-                elif len(inbound) == 1:
-                    snn_weights = [ann_weights * norm_facs[inbound[0].name] / norm_fac, bias / norm_fac]
-                    print("\n +++++ norm_facs +++++\n ", norm_facs[inbound[0].name])
-                    print("  ---------------")
-                    print(" ", norm_fac)
-                else: snn_weights = [ann_weights, bias]
-                
-                layer.set_weights(snn_weights)
-                
-        else: pass
+            print('')
         
+        err = 0
+        for i in range(self.epoch):
+            print(f"Epoch {i+1}")
+            print(f"Target firing rate range : {self.firing_range}")
+            
+            for layer in self.parsed_model.layers:
+                if 'input' in layer.name:
+                    input_data = utils.Input_Activation(x_norm, layer.name)
+                    continue
+                elif 'flatten' in layer.name:
+                    continue
+                else: pass
+                
+                print(f" Threshold balancing for {layer.name} layer...\n")
+                
+                neuron = self.synapses[layer.name]
+                
+                snn_weights = neuron[2]
+                    
+                while True:
+                    output_spikes = self.get_output_spikes(input_data, snn_weights, layer.name)
+                    
+                    max_output_spikes = np.max(output_spikes)
+                    print(max_output_spikes)
+                    
+                    if self.firing_range*0.95 <= max_output_spikes <= self.firing_range*1.05:
+                        break
+                    
+                    if max_output_spikes < self.firing_range:
+                        self.v_th[layer.name] -= 1
+                    elif max_output_spikes > self.firing_range:
+                        self.v_th[layer.name] += 1
+                    else: pass
+                
+                input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
+                
+            score, synOps = self.score(x_test, y_test)
+            print(score, synOps)
+            
+            error = float(self.config['result']['input_model_acc'])*100 - score
+            print(error, error - err)
+            if error - err > 0:
+                sign = 1
+            elif error - err < 0:
+                sign = -1
+            err = error
+            
+            alpha = 0.3
+            acc_error = score / float(self.config['result']['input_model_acc'])*100
+            cal_error = synOps / self.mac_operation
+            sub_error = acc_error*alpha + cal_error*(1-alpha)
+            print(sub_error)
+            
+            self.firing_range += sign*1
+            
+        print(f"THreshold :{self.v_th}")
+
         print(f"\nWeight conversion DONE.<<<\n\n\n")
     
 
@@ -214,7 +220,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th, self.t_ref, layer_name, synapse, self.bias_flag, False)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.bias_flag)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -226,7 +232,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th, 0, layer_name, synapse, self.bias_flag, False)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], 0, layer_name, synapse, self.bias_flag, False)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -244,14 +250,35 @@ class Converter:
         return np.array(acts)
     
     
-    def min_max_scaling(self, data, new_min=0, new_max=1):
+    def score(self, x, y):
+        x_test = x
+        y_test = y
+        
+        weights = {}
+        for key in self.synapses.keys():
+            weights[key] = self.synapses[key][2]
+        
+        score = 0
+        syn_operation = 0
+        for input_idx in tqdm(range(len(x_test)), ncols=70, ascii=' ='):
+            firing_rate = x_test[input_idx].flatten()
+            for layer, synapse in self.synapses.items():
+                for neu_idx in range(len(firing_rate)):
+                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
+                    syn_operation += firing_rate[neu_idx] * fan_out
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
 
-        current_min = np.min(data)
-        current_max = np.max(data)
-
-        scaled_data = [((x - current_min) / (current_max - current_min)) * (new_max - new_min) + new_min for x in data]
-
-        return np.array(scaled_data)
+            if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
+                score += 1
+            else: pass
+        score = (score/len(x_test))*100
+        
+        return score, syn_operation
+    
+    
+    def get_threshold(self):
+        
+        return self.v_th
     
     
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
