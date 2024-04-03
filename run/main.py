@@ -87,7 +87,7 @@ def run_neuroTB(config_filepath):
     # evaluation.IOcurve()
     # evaluation.act_compare()
     # evaluation.evalNetwork(model_name='parsed')
-    # evaluation.plot_compare()
+    evaluation.plot_compare()
     
     took = time.time() - start
     
