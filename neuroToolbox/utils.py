@@ -309,6 +309,7 @@ def toFloat34(before_value):
     indices[lower_bound_diff <= upper_bound_diff] -= 1
 
     result = sign_array * reference[indices]
+    
     return result if isinstance(before_value, np.ndarray) else result[0]
 
 
@@ -330,14 +331,18 @@ def toInt8(before_value):
         120, 121, 122, 123, 124, 125, 126, 127
     ])
     
-    before_value_array = np.atleast_1d(before_value)
+    before_value_array = np.atleast_1d(before_value).astype(float)
     sign_array = np.sign(before_value_array)
     abs_before_value = np.abs(before_value_array)
-    abs_diff = np.abs(abs_before_value[:, None] - reference)
-    abs_diff[abs_before_value[:, None] < reference] = np.inf
-    indices = np.argmin(abs_diff, axis=1)
+    
+    indices = np.searchsorted(reference, abs_before_value, side="left")
+    
+    indices[indices == len(reference)] = len(reference) - 1
+    lower_bound_diff = abs_before_value - reference[indices - 1]
+    upper_bound_diff = reference[indices] - abs_before_value
 
-    after_value = reference[indices]
-    result = sign_array * after_value
+    indices[lower_bound_diff <= upper_bound_diff] -= 1
+
+    result = sign_array * reference[indices]
     
     return result if isinstance(before_value, np.ndarray) else result[0]
