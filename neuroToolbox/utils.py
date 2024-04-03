@@ -137,6 +137,8 @@ def weightFormat(weights, format='FP32'):
         weights = weights
     elif 'FP8' == format:
         weights = toFloat34(weights)
+    elif 'INT8' == format:
+        weights = toInt8(weights)
     else: pass
     
     return weights
@@ -237,6 +239,11 @@ def get_weighted_sum(spikes, w, precision='FP32'):
         spikes = np.sum(spikes, axis=1)
     elif precision == 'FP32':
         spikes = np.dot(spikes, w)
+    elif precision == 'INT8':
+        spikes = np.tile(spikes, (w.shape[1], 1))
+        spikes = np.multiply(spikes, w.T)
+        spikes = toInt8(spikes)
+        spikes = np.sum(spikes, axis=1)
     else: pass
     
     return spikes
