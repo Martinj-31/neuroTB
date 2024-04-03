@@ -36,7 +36,8 @@ def run_neuroTB(config_filepath):
     # Read 'input_model' value from config.ini
     input_model_name = config["names"]["input_model"]
     # Load the model using the input_model_name
-    input_model = keras.models.load_model(os.path.join(config["paths"]["models"], f"{input_model_name}.h5")) 
+    input_model = keras.models.load_model(os.path.join(config["paths"]["models"], f"{input_model_name}.h5"))
+    data_size = int(10000 / config.getint('test', 'data_size'))
 
     start = time.time()
     # %% Parse model
@@ -46,9 +47,8 @@ def run_neuroTB(config_filepath):
     parsed_model.summary()
     
     # For comparison
-    parser.get_models_activation(name='input')
-    parser.get_models_activation(name='parsed')
-
+    parser.get_model_activation()
+    parser.get_model_MAC(data_size)
     
     score1, score2 = parser.parseAnalysis(input_model, parsed_model, x_test, y_test)
     print("input model Test loss : ", score1[0])
@@ -63,7 +63,6 @@ def run_neuroTB(config_filepath):
     batch_size = config["conversion"]["batch_size"]
     batch_shape = list(list(parsed_model.layers[0].input_shape)[0])
     batch_shape[0] = batch_size
-    data_size = int(10000 / config.getint('test', 'data_size'))
     
     compiler = net.networkCompiler(parsed_model, config)
 
@@ -76,18 +75,19 @@ def run_neuroTB(config_filepath):
     converter = convert.Converter(spike_model, config)
     
     converter.convertWeights()
+    threshold = converter.get_threshold()
     
     
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(config)
     
-    evaluation.input_log_domain_trans_plot()
-    
+    # evaluation.input_log_domain_trans_plot()
+    evaluation.set_threshold(threshold)
     evaluation.run(data_size)
     # evaluation.IOcurve()
     # evaluation.act_compare()
     # evaluation.evalNetwork(model_name='parsed')
-    evaluation.plot_compare()
+    # evaluation.plot_compare()
     
     took = time.time() - start
     
