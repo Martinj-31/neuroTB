@@ -129,7 +129,6 @@ default_config['names']['snn_model'] = 'SNN_' + model_name
 
 default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
-default_config['conversion']['scaling_precision'] = '0.1'
 default_config['conversion']['firing_range'] = '0.9'
 default_config['conversion']['fp_precision'] = 'FP32'
 default_config['conversion']['epoch'] = '5'
@@ -142,8 +141,6 @@ default_config['spiking_neuron']['w_mag'] = '64.0'
 
 default_config['options']['bias'] = str(bias_flag)
 default_config['options']['trans_domain'] = 'log'
-default_config['options']['max_norm'] = str(False)
-default_config['options']['percentile'] = '99.9'
 
 default_config['test']['data_size'] = '10'
 

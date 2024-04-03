@@ -69,7 +69,7 @@ class Analysis:
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
-        
+
         weights = {}
         for key in self.synapses.keys():
             weights[key] = self.synapses[key][2]
@@ -430,8 +430,6 @@ class Analysis:
         logfile.writelines(f"/// Neuron setup \n")
         logfile.writelines(f"Neuron model : {self.config['conversion']['neuron']} neuron \n")
         if 'IF' == self.config["conversion"]["neuron"]:
-            logfile.writelines(f"Percentile : {self.config['options']['percentile']} % \n")
-        elif 'LIF' == self.config["conversion"]["neuron"]:
             logfile.writelines(f"Refractory period : {self.config['spiking_neuron']['refractory']} ms \n")
             logfile.writelines(f"Threshold : {self.config['spiking_neuron']['threshold']} \n")
         

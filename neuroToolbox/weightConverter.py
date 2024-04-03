@@ -41,7 +41,6 @@ class Converter:
         
         self.trans_domain = config["options"]["trans_domain"]
         
-        self.scaling_precision = config.getfloat('conversion', 'scaling_precision')
         self.firing_range = config.getfloat('conversion', 'firing_range')
         self.fp_precision = config["conversion"]["fp_precision"]
         self.epoch = config.getint('conversion', 'epoch')
@@ -59,8 +58,6 @@ class Converter:
             if 'input' in layer.name or 'flatten' in layer.name:
                 continue
             else: self.v_th[layer.name] = self.init_v_th
-        
-        self.percentile = config.getfloat('options', 'percentile')
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
@@ -310,11 +307,6 @@ class Converter:
 
 
         return np.array(activations)
-    
-    
-    def get_percentile_activation(self, activations, percentile):
-
-        return np.percentile(activations, percentile) if activations.size else 1
     
     
     def get_inbound_layers_with_params(self, layer):

@@ -24,9 +24,8 @@ epochs = 1
 convertible_layers = {'InputLayer', 'Dense', 'Conv1D', 'Conv2D', 'AveragePooling2D', 'Flatten', 'Activation'}
 
 [conversion]
-batch_size = 1
+batch_size = 1s
 neuron = IF
-scaling_precision = 1
 firing_range = 0.9
 fp_precision = FP32
 epoch = 10
@@ -36,8 +35,6 @@ normalization = off
 [options]
 bias = 
 trans_domain = linear
-max_norm = False
-percentile = 99.9
 
 [spiking_neuron]
 threshold = 1.0
