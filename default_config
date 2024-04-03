@@ -49,3 +49,4 @@ data_size = 10
 input_model_acc = 
 parsed_model_acc = 
 converted_model_acc = 
+input_model_mac = 
