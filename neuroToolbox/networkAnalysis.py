@@ -42,6 +42,8 @@ class Analysis:
         elif bias_flag == 'True':
             self.bias_flag = True
         else: print(f"ERROR !!")
+        
+        self.mac_operation = self.config["result"]["input_model_mac"]
 
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
         os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
@@ -434,7 +436,8 @@ class Analysis:
         logfile.writelines(f"/// RESULT \n")
         logfile.writelines(f"Input Model Accuracy : {float(self.config['result']['input_model_acc'])*100:.2f} %\n")
         logfile.writelines(f"Parsed Model Accuracy : {float(self.config['result']['parsed_model_acc'])*100:.2f} %\n\n")
-        logfile.writelines(f"Accuracy for {self.config['names']['dataset']} {self.config['test']['data_size']} : {self.accuracy} % \n")
+        logfile.writelines(f"Accuracy for {self.config['names']['dataset']} {self.config['test']['data_size']} : {self.accuracy} % \n\n")
+        logfile.writelines(f"MAC operation : {self.mac_operation} \n")
         logfile.writelines(f"Synaptic operation : {self.syn_operation} \n")
         logfile.writelines(f"\n")
         logfile.writelines(f"\n")
