@@ -340,7 +340,7 @@ class Parser:
         return score1, score2
 
  
-    def get_models_activation(self, name='input'):
+    def get_model_activation(self, name='input'):
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
@@ -366,3 +366,63 @@ class Parser:
             else: np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
                 
             
+    def get_model_MAC(self, data_size):
+        MAC = 0
+        data_size = 10000/data_size
+        
+        bias_flag = self.config["options"]["bias"]
+        if bias_flag == 'False':
+            bias_flag = False
+        elif bias_flag == 'True':
+            bias_flag = True
+        else: print(f"ERROR !!")
+        
+        model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
+        for layer in model.layers:
+            
+            if 'conv' in layer.name:
+                if bias_flag:
+                    w, bias = layer.get_weights()
+                else: w = layer.get_weights()[0]
+            
+                ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
+                
+                input_channels = w.shape[2]
+                output_channels = w.shape[3]
+                height_fm = layer.input_shape[1 + ii]
+                width_fm = layer.input_shape[2 + ii]
+                height_kn, width_kn = layer.kernel_size
+                stride_y, stride_x = layer.strides
+                
+                if 'valid' == layer.padding:
+                    padding_y = 0
+                    padding_x = 0
+                    numCols = int((width_fm - width_kn)/stride_x + 1)
+                    numRows = int((height_fm - height_kn)/stride_y + 1)
+                elif 'same' == layer.padding:
+                    padding_y = (height_kn - 1) // 2
+                    padding_x = (width_kn - 1) // 2
+                    numCols = int((width_fm - width_kn + 2*padding_x)/stride_x + 1)
+                    numRows = int((height_fm - height_kn + 2*padding_y)/stride_y + 1)
+
+                mac = height_kn * width_kn * input_channels * output_channels * numCols * numRows
+                MAC += mac
+            
+            elif 'dense' in layer.name:
+                if bias_flag:
+                    w, bias = layer.get_weights()
+                else: w = layer.get_weights()[0]
+                
+                length_src = w.shape[0]
+                length_tar = w.shape[1]
+                
+                mac = length_src * length_tar
+                MAC += mac
+            
+            else: pass
+            
+        MAC *= data_size
+        
+        self.config["result"]["input_model_mac"] = str(MAC)
+        
+        
