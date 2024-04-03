@@ -1,9 +1,10 @@
 import os, sys, configparser, ssl
 import numpy as np
-import matplotlib.pyplot as plt
+import keras.backend as K
 
 from datetime import datetime
 from tensorflow import keras
+from keras.layers import Lambda
 
 
 # %% Setup environment.
@@ -23,6 +24,7 @@ os.makedirs(path_wd + '/dataset/')
 
 print("path wd: ", path_wd)
 from run.main import run_neuroTB
+import neuroToolbox.utils as utils
 
 
 # %% Load MNIST dataset and preprocess
@@ -40,6 +42,10 @@ x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32')
 y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
 
+# Input domain transfer to Log domain
+x_train = utils.data_transfer(x_train, 'log', False)
+x_test = utils.data_transfer(x_test, 'log')
+
 
 # %% Define DNN model.
 # Define the input layer
@@ -49,20 +55,23 @@ inputs = keras.layers.Input(input_shape)
 bias_flag = False
 
 # Convolutional layers
-x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias=bias_flag)(inputs)
+x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(inputs)
+x = Lambda(lambda x: K.clip(x, 0, 1e+7)/(K.clip(x, 0, 1e+7)*0.005+1))(x)
 if bias_flag:
     x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 else: pass
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
-x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='same', use_bias=bias_flag)(x)
+x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(x)
+x = Lambda(lambda x: K.clip(x, 0, 1e+7)/(K.clip(x, 0, 1e+7)*0.005+1))(x)
 if bias_flag:
     x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 else: pass
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Flatten()(x)
-x = keras.layers.Dense(units=100, activation='relu', use_bias=bias_flag)(x)
+x = keras.layers.Dense(units=100, use_bias=bias_flag)(x)
+x = Lambda(lambda x: K.clip(x, 0, 1e+7)/(K.clip(x, 0, 1e+7)*0.005+1))(x)
 outputs = keras.layers.Dense(units=10, activation='softmax', use_bias=bias_flag)(x)
 
 # Create the model
@@ -70,12 +79,12 @@ model = keras.Model(inputs=inputs, outputs=outputs)
 
 # Compile the model
 model.compile(loss='categorical_crossentropy',
-              optimizer=keras.optimizers.Adam(learning_rate=0.001),
-              metrics=['accuracy'])
+            optimizer=keras.optimizers.Adam(learning_rate=0.001),
+            metrics=['accuracy'])
 
 # Train the model
 batch_size = 64
-epochs = 1
+epochs = 10
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 
@@ -122,9 +131,12 @@ default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
 default_config['conversion']['scaling_precision'] = '0.1'
 default_config['conversion']['firing_range'] = '0.9'
+default_config['conversion']['fp_precision'] = 'FP32'
+default_config['conversion']['epoch'] = '5'
+default_config['conversion']['optimizer'] = 'on'
 
 default_config['spiking_neuron']['refractory'] = '5'
-default_config['spiking_neuron']['threshold'] = '128.0'
+default_config['spiking_neuron']['threshold'] = '1.0'
 default_config['spiking_neuron']['w_mag'] = '64.0'
 
 default_config['options']['bias'] = str(bias_flag)
@@ -132,7 +144,7 @@ default_config['options']['trans_domain'] = 'log'
 default_config['options']['max_norm'] = str(False)
 default_config['options']['percentile'] = '99.9'
 
-default_config['test']['data_size'] = '1000'
+default_config['test']['data_size'] = '10'
 
 default_config['result']['input_model_acc'] = str(score[1])
 
