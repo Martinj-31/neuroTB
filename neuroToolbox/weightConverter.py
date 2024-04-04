@@ -46,8 +46,25 @@ class Converter:
         self.epoch = config.getint('conversion', 'epoch')
         self.normalization = config["conversion"]["normalization"]
         self.optimizer = config["conversion"]["optimizer"]
+        
+        self.error_list = []
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
+        
+        data_size = int(10000 / self.config.getint('test', 'data_size'))
+        data_size = 50
+        
+        x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
+        x_test = x_test_file['arr_0']
+        self.x_test = x_test[::data_size]
+        
+        y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
+        y_test = y_test_file['arr_0']
+        self.y_test = y_test[::data_size]
+        
+        x_norm = None
+        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
+        self.x_norm = x_norm_file['arr_0']
         
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
         self.w_mag = config.getfloat('spiking_neuron', 'w_mag')
@@ -64,18 +81,6 @@ class Converter:
 
 
     def convertWeights(self):
-        x_norm = None
-        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
-        x_norm = x_norm_file['arr_0']
-        
-        data_size = int(10000 / self.config.getint('test', 'data_size'))
-        data_size = 50
-        x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
-        x_test = x_test_file['arr_0']
-        x_test = x_test[::data_size]
-        y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
-        y_test = y_test_file['arr_0']
-        y_test = y_test[::data_size]
 
         print("\n\n######## Converting weight ########\n")
         
@@ -156,20 +161,22 @@ class Converter:
                 pickle.dump(self.synapses, f)
             print('')
         
-        err = 0
-        for i in range(self.epoch):
-            print(f"Epoch {i+1}")
+        
+        print(f" Threshold balancing for each layer...\n")
+        
+        pre_error = 0
+        direction = -1
+        for epoch in range(self.epoch):
+            print(f"Epoch {epoch+1}")
             print(f"Target firing rate range : {self.firing_range}")
             
             for layer in self.parsed_model.layers:
                 if 'input' in layer.name:
-                    input_data = utils.Input_Activation(x_norm, layer.name)
+                    input_data = utils.Input_Activation(self.x_norm, layer.name)
                     continue
                 elif 'flatten' in layer.name:
                     continue
                 else: pass
-                
-                print(f" Threshold balancing for {layer.name} layer...\n")
                 
                 neuron = self.synapses[layer.name]
                 
@@ -179,7 +186,7 @@ class Converter:
                     output_spikes = self.get_output_spikes(input_data, snn_weights, layer.name)
                     
                     max_output_spikes = np.max(output_spikes)
-                    print(max_output_spikes)
+                    # print(max_output_spikes)
                     
                     if self.firing_range*0.95 <= max_output_spikes <= self.firing_range*1.05:
                         break
@@ -192,24 +199,28 @@ class Converter:
                 
                 input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
                 
-            score, synOps = self.score(x_test, y_test)
-            print(score, synOps)
+            score, synOps = self.score(self.x_test, self.y_test)
             
-            error = float(self.config['result']['input_model_acc'])*100 - score
-            print(error, error - err)
-            if error - err > 0:
-                sign = 1
-            elif error - err < 0:
-                sign = -1
-            err = error
+            # error = float(self.config['result']['input_model_acc'])*100 - score
+
+            alpha = 0.9
+            acc_error = score / (float(self.config['result']['input_model_acc'])*100)
+            ops_error = synOps / self.mac_operation
+            error = ops_error*alpha + (1 - acc_error)*(1-alpha)
             
-            alpha = 0.3
-            acc_error = score / float(self.config['result']['input_model_acc'])*100
-            cal_error = synOps / self.mac_operation
-            sub_error = acc_error*alpha + cal_error*(1-alpha)
-            print(sub_error)
+            if epoch == 0:
+                direction = -1
+            else:
+                if error > pre_error:
+                    direction *= -1
+                elif error == pre_error:
+                    direction = -1
             
-            self.firing_range += sign*1
+            print(f"{pre_error} --> {error}\n\n")
+
+            self.error_list.append(error)
+            pre_error = error
+            self.firing_range += direction
             
         print(f"THreshold :{self.v_th}")
 
@@ -281,6 +292,11 @@ class Converter:
     def get_threshold(self):
         
         return self.v_th
+    
+    
+    def error(self):
+        
+        return self.error_list
     
     
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
