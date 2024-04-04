@@ -382,6 +382,17 @@ class Analysis:
                 print('')
     
     
+    def error_plot(self, error_list):
+        
+        plt.figure(figsize=(10, 10))
+        plt.plot(error_list, marker='o', linestyle='-', color='blue')
+        plt.title(f"Error {len(error_list)}", fontsize=30)
+        plt.xlabel(f"Epochr", fontsize=27)
+        plt.ylabel(f"Error", fontsize=27)
+        plt.grid(True)
+        plt.show()
+    
+    
     def input_log_domain_trans_plot(self):
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
