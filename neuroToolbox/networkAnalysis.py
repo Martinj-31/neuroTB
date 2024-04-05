@@ -443,7 +443,16 @@ class Analysis:
         logfile.writelines(f"Neuron model : {self.config['conversion']['neuron']} neuron \n")
         if 'IF' == self.config["conversion"]["neuron"]:
             logfile.writelines(f"Refractory period : {self.config['spiking_neuron']['refractory']} ms \n")
-            logfile.writelines(f"Threshold : {self.config['spiking_neuron']['threshold']} \n")
+            logfile.writelines(f"Threshold : {self.v_th} \n")
+        
+        logfile.writelines(f"\n")
+        
+        logfile.writelines(f"/// Conversion setup \n")
+        logfile.writelines(f"Normalization : {self.config['conversion']['normalization']} \n")
+        logfile.writelines(f"Optimizer : {self.config['conversion']['optimizer']} \n")
+        logfile.writelines(f"Loss alpha : {self.config['conversion']['loss_alpha']} \n")
+        logfile.writelines(f"Format : {self.config['conversion']['fp_precision']} \n")
+        logfile.writelines(f"Epoch : {self.config['conversion']['epoch']} \n")
         
         logfile.writelines(f"\n")
         
