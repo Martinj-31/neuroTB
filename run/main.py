@@ -83,7 +83,7 @@ def run_neuroTB(config_filepath):
     evaluation = networkAnalysis.Analysis(config)
     
     # evaluation.input_log_domain_trans_plot()
-    # evaluation.error_plot(error_list)
+    evaluation.plot_error(error_list)
     evaluation.set_threshold(threshold)
     evaluation.run(data_size)
     # evaluation.IOcurve()
