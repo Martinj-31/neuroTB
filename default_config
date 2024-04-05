@@ -32,6 +32,7 @@ epoch = 10
 optimizer = off
 normalization = off
 loss_alpha = 0.5
+scaling_step = 1
 
 [options]
 bias = 
