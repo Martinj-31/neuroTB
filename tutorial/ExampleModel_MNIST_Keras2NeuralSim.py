@@ -129,11 +129,13 @@ default_config['names']['snn_model'] = 'SNN_' + model_name
 
 default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
-default_config['conversion']['firing_range'] = '0.9'
+default_config['conversion']['firing_range'] = '100'
 default_config['conversion']['fp_precision'] = 'FP32'
-default_config['conversion']['epoch'] = '5'
-default_config['conversion']['normalization'] = 'off'
+default_config['conversion']['epoch'] = '100'
+default_config['conversion']['normalization'] = 'on'
 default_config['conversion']['optimizer'] = 'off'
+default_config['conversion']['loss_alpha'] = '0.2'
+default_config['conversion']['scaling_step'] = '1'
 
 default_config['spiking_neuron']['refractory'] = '5'
 default_config['spiking_neuron']['threshold'] = '128.0'
