@@ -45,9 +45,6 @@ class Analysis:
         self.mac_operation = self.config["result"]["input_model_mac"]
 
         self.snn_filepath = os.path.join(self.config['paths']['models'], self.config['names']['snn_model'])
-        os.makedirs(self.config['paths']['path_wd'] + '/snn_model_firing_rates')
-        os.makedirs(self.config['paths']['path_wd'] + '/map_corr')
-        os.makedirs(self.config['paths']['path_wd'] + '/fr_corr')
 
         with open(self.snn_filepath + '_Converted_neurons.pkl', 'rb') as f:
             self.neurons = pickle.load(f)
@@ -100,6 +97,8 @@ class Analysis:
 
 
     def plot_compare(self):
+        os.makedirs(self.config['paths']['path_wd'] + '/fr_corr')
+        
         activation_dir = os.path.join(self.config['paths']['path_wd'], f"parsed_model_activations")
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
@@ -382,14 +381,16 @@ class Analysis:
                 print('')
     
     
-    def error_plot(self, error_list):
+    def plot_error(self, error_list):
+        os.makedirs(self.config['paths']['path_wd'] + '/error')
         
         plt.figure(figsize=(10, 10))
         plt.plot(error_list, marker='o', linestyle='-', color='blue')
         plt.title(f"Error {len(error_list)}", fontsize=30)
-        plt.xlabel(f"Epochr", fontsize=27)
+        plt.xlabel(f"Epoch", fontsize=27)
         plt.ylabel(f"Error", fontsize=27)
         plt.grid(True)
+        plt.savefig(self.config['paths']['path_wd'] + '/error' + f"/error", transparent=True)
         plt.show()
     
     
