@@ -47,7 +47,7 @@ class Converter:
         self.normalization = config["conversion"]["normalization"]
         self.optimizer = config["conversion"]["optimizer"]
         self.loss_alpha = config.getfloat('conversion', 'loss_alpha')
-        self.scaling_step = config.getint(('conversion', 'scaling_step'))
+        self.scaling_step = config.getint('conversion', 'scaling_step')
         
         self.error_list = []
 
