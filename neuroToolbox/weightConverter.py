@@ -46,6 +46,8 @@ class Converter:
         self.epoch = config.getint('conversion', 'epoch')
         self.normalization = config["conversion"]["normalization"]
         self.optimizer = config["conversion"]["optimizer"]
+        self.loss_alpha = config.getfloat('conversion', 'loss_alpha')
+        self.scaling_step = config.getint(('conversion', 'scaling_step'))
         
         self.error_list = []
 
@@ -203,7 +205,7 @@ class Converter:
             
             # error = float(self.config['result']['input_model_acc'])*100 - score
 
-            alpha = 0.9
+            alpha = self.loss_alpha
             acc_error = score / (float(self.config['result']['input_model_acc'])*100)
             ops_error = synOps / self.mac_operation
             error = ops_error*alpha + (1 - acc_error)*(1-alpha)
@@ -220,7 +222,7 @@ class Converter:
 
             self.error_list.append(error)
             pre_error = error
-            self.firing_range += direction
+            self.firing_range += direction * self.scaling_step
             
         print(f"THreshold :{self.v_th}")
 
