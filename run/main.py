@@ -76,14 +76,14 @@ def run_neuroTB(config_filepath):
     
     converter.convertWeights()
     threshold = converter.get_threshold()
-    error_list = converter.error()
+    error_list, synops_error_list, acc_error_list, firing_range_list = converter.error()
     
     
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(config)
     
     # evaluation.input_log_domain_trans_plot()
-    evaluation.plot_error(error_list)
+    evaluation.plot_error(error_list, synops_error_list, acc_error_list)
     evaluation.set_threshold(threshold)
     evaluation.run(data_size)
     # evaluation.IOcurve()
