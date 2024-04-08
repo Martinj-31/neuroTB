@@ -6,7 +6,6 @@ from datetime import datetime
 from tensorflow import keras
 from keras.layers import Lambda
 
-import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 # Add the path of the parent directory (neuroTB) to sys.path
