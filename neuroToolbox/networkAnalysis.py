@@ -381,16 +381,22 @@ class Analysis:
                 print('')
     
     
-    def plot_error(self, error_list):
+    def plot_error(self, error_list, synops_error_list, acc_error_list):
         os.makedirs(self.config['paths']['path_wd'] + '/error')
         
         plt.figure(figsize=(10, 10))
-        plt.plot(error_list, marker='o', linestyle='-', color='blue')
-        plt.title(f"Error {len(error_list)}", fontsize=30)
+        plt.plot(error_list, marker='o', linestyle='-', color='red', label=f"Total error")
+        plt.plot(synops_error_list, marker='o', linestyle='-', color='blue', label="SynOps error")
+        plt.plot(acc_error_list, marker='o', linestyle='-', color='green', label=f"Performance error")
+        plt.title(f"Error on epoch {len(error_list)}", fontsize=30)
         plt.xlabel(f"Epoch", fontsize=27)
         plt.ylabel(f"Error", fontsize=27)
+        plt.ylim([0, 0.18])
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
         plt.grid(True)
-        plt.savefig(self.config['paths']['path_wd'] + '/error' + f"/error", transparent=True)
+        plt.legend(fontsize='xx-large')
+        plt.savefig(self.config['paths']['path_wd'] + '/error' + f"/error")
         plt.show()
     
     
