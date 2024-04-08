@@ -50,6 +50,9 @@ class Converter:
         self.scaling_step = config.getint('conversion', 'scaling_step')
         
         self.error_list = []
+        self.synops_error_list = []
+        self.acc_error_list = []
+        self.firing_range_list = []
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
@@ -170,7 +173,7 @@ class Converter:
         direction = -1
         for epoch in range(self.epoch):
             print(f"Epoch {epoch+1}")
-            print(f"Target firing rate range : {self.firing_range}")
+            print(f"Target firing rate range : {self.firing_range}\n")
             
             for layer in self.parsed_model.layers:
                 if 'input' in layer.name:
@@ -183,32 +186,40 @@ class Converter:
                 neuron = self.synapses[layer.name]
                 
                 snn_weights = neuron[2]
-                    
+                
+                cnt = 0
                 while True:
                     output_spikes = self.get_output_spikes(input_data, snn_weights, layer.name)
+                    nonzero_output_spikes = output_spikes[np.nonzero(output_spikes)]
+                    avg_output_spikes = np.mean(nonzero_output_spikes)
                     
-                    max_output_spikes = np.max(output_spikes)
-                    # print(max_output_spikes)
-                    
-                    if self.firing_range*0.95 <= max_output_spikes <= self.firing_range*1.05:
+                    if self.firing_range*0.95 <= avg_output_spikes <= self.firing_range*1.05:
+                        break
+                    elif cnt == 50:
                         break
                     
-                    if max_output_spikes < self.firing_range:
+                    if avg_output_spikes < self.firing_range:
                         self.v_th[layer.name] -= 1
-                    elif max_output_spikes > self.firing_range:
+                    elif avg_output_spikes > self.firing_range:
                         self.v_th[layer.name] += 1
                     else: pass
+                    
+                    cnt += 1
                 
                 input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
                 
             score, synOps = self.score(self.x_test, self.y_test)
-            
-            # error = float(self.config['result']['input_model_acc'])*100 - score
 
-            alpha = self.loss_alpha
-            acc_error = score / (float(self.config['result']['input_model_acc'])*100)
+            acc_error = (float(self.config['result']['input_model_acc'])*100) - score
             ops_error = synOps / self.mac_operation
-            error = ops_error*alpha + (1 - acc_error)*(1-alpha)
+            error = ops_error*self.loss_alpha + acc_error*(1-self.loss_alpha)
+            
+            print(f"Scaled threshold : \n{self.v_th}\n")
+            print(f"{'Error table':<13} | {'SynOps error':<20} | {'Perf error':<30}   ")
+            print(f"{'-'*65}")
+            print(f"{'Pure':<13} | {ops_error:<20} | {acc_error:<30}")
+            print(f"{'Alpha scaled':<13} | {ops_error*self.loss_alpha:<20} | {acc_error*(1-self.loss_alpha):<30}")
+            print(f"{'-'*65}\n")
             
             if epoch == 0:
                 direction = -1
@@ -217,12 +228,21 @@ class Converter:
                     direction *= -1
                 elif error == pre_error:
                     direction = -1
-            
+                    
+            print(f"Error change")
             print(f"{pre_error} --> {error}\n\n")
 
             self.error_list.append(error)
+            self.synops_error_list.append(ops_error*self.loss_alpha)
+            self.acc_error_list.append(acc_error*(1-self.loss_alpha))
+            
             pre_error = error
+            
             self.firing_range += direction * self.scaling_step
+            if self.firing_range == 0:
+                self.firing_range = 1.0
+            
+            self.firing_range_list.append(self.firing_range)
             
         print(f"THreshold :{self.v_th}")
 
@@ -298,7 +318,7 @@ class Converter:
     
     def error(self):
         
-        return self.error_list
+        return self.error_list, self.synops_error_list, self.acc_error_list, self.firing_range_list
     
     
     def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
