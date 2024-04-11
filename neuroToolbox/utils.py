@@ -132,11 +132,11 @@ def weightDecompile(synapses):
     return weight_list
 
 
-def weightFormat(weights, format='FP32'):
+def weightFormat(weights, format='FP32', stochastic_rounding=False):
     if 'FP32' == format:
         weights = weights
     elif 'FP8' == format:
-        weights = toFloat34(weights)
+        weights = convert_number_format(weights, stochastic_rounding)
     elif 'INT8' == format:
         weights = toInt8(weights)
     else: pass
@@ -203,8 +203,8 @@ def Input_Activation(input_activations, layer_name):
     return np.array(input_acts)
 
 
-def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, clip=True):
-    spikes = get_weighted_sum(spikes, weights, precision)
+def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, stochastic_rounding, bias_flag, clip=True):
+    spikes = get_weighted_sum(spikes, weights, precision, stochastic_rounding)
     if bias_flag:
         if 'conv' in layer_name:
             s = 0
@@ -231,11 +231,11 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, pr
     return spikes
 
 
-def get_weighted_sum(spikes, w, precision='FP32'):
+def get_weighted_sum(spikes, w, precision='FP32', stochastic_rounding=False):
     if precision == 'FP8':
         spikes = np.tile(spikes, (w.shape[1], 1))
         spikes = np.multiply(spikes, w.T)
-        spikes = toFloat34(spikes)
+        spikes = convert_number_format(spikes, stochastic_rounding)
         spikes = np.sum(spikes, axis=1)
     elif precision == 'FP32':
         spikes = np.dot(spikes, w)
@@ -277,6 +277,109 @@ def data_transfer(input_data, trans_domain, clip=True):
     else: transferred_data = input_data
     
     return transferred_data
+
+
+def convert_number_format(before_number, stochastic_rounding):
+    reference = np.array([  0.      ,   1.0625   ,   1.125   ,   1.1875   ,   1.25    ,   1.3125   ,
+                            1.375   ,   1.4375   ,   1.5     ,   1.5625   ,   1.625   ,   1.6875   ,
+                            1.75    ,   1.8125   ,   1.875   ,   1.9375   ,   2.      ,   2.125    ,
+                            2.25    ,   2.375    ,   2.5     ,   2.625    ,   2.75    ,   2.875    ,
+                            3.      ,   3.125    ,   3.25    ,   3.375    ,   3.5     ,   3.625    ,
+                            3.75    ,   3.875    ,   4.      ,   4.25     ,   4.5     ,   4.75     ,
+                            5.      ,   5.25     ,   5.5     ,   5.75     ,   6.      ,   6.25     ,
+                            6.5     ,   6.75     ,   7.      ,   7.25     ,   7.5     ,   7.75     ,
+                            8.      ,   8.5      ,   9.      ,   9.5      ,   10.     ,   10.5     ,
+                            11.     ,   11.5     ,   12.     ,   12.5     ,   13.     ,   13.5     ,
+                            14.     ,   14.5     ,   15.     ,   15.5     ,   16.     ,   17.      ,
+                            18.     ,   19.      ,   20.     ,   21.      ,   22.     ,   23.      ,
+                            24.     ,   25.      ,   26.     ,   27.      ,   28.     ,   29.      ,
+                            30.     ,   31.      ,   32.     ,   34.      ,   36.     ,   38.      ,
+                            40.     ,   42.      ,   44.     ,   46.      ,   48.     ,   50.      ,
+                            52.     ,   54.      ,   56.     ,   58.      ,   60.     ,   62.      ,
+                            64.     ,   68.      ,   72.     ,   76.      ,   80.     ,   84.      ,
+                            88.     ,   92.      ,   96.     ,   100.     ,   104.    ,   108.     ,
+                            112.    ,   116.     ,   120.    ,   124.     ,   128.    ,   136.     ,
+                            144.    ,   152.     ,   160.    ,   168.     ,   176.    ,   184.     ,
+                            192.    ,   200.     ,   208.    ,   216.     ,   224.    ,   232.     ,
+                            240.    ,   248.                                                          ])
+    before_number_array = np.array(before_number)  # 직접 배열로 변환
+    sign_array = np.sign(before_number_array)
+    abs_before_number_array = np.abs(before_number_array)
+    
+    if stochastic_rounding:
+        # Find the nearest lower and higher reference numbers for each before_number
+        nearest_lower = np.vectorize(lambda x: reference[reference <= x][-1] if x >= reference[0] else reference[0])(abs_before_number_array)
+        nearest_higher = np.vectorize(lambda x: reference[reference >= x][0] if x <= reference[-1] else reference[-1])(abs_before_number_array)
+        
+        # Calculate the probabilities for rounding down or up
+        prob_lower = 1 - (abs_before_number_array - nearest_lower) / (nearest_higher - nearest_lower)
+        random_probs = np.random.rand(*prob_lower.shape)  # 입력 배열과 동일한 모양의 랜덤 배열 생성
+        
+        # Apply stochastic rounding based on the calculated probabilities
+        after_number = np.where(random_probs < prob_lower, nearest_lower, nearest_higher)
+    else:
+        # 최소 차이에 해당하는 인덱스를 찾기 위해 expand_dims를 사용하여 차원을 맞춤
+        abs_diff = np.abs(np.expand_dims(abs_before_number_array, axis=-1) - reference)
+        abs_diff[np.expand_dims(abs_before_number_array, axis=-1) < reference] = np.inf
+        indices = np.argmin(abs_diff, axis=-1)  # 마지막 차원을 따라 argmin 적용
+
+        after_number = reference[indices]
+        
+    result = sign_array * after_number
+    
+    return result
+
+
+def ToFloat(exponent, mentisa, mentisaBit):
+
+    # Convert integer input to an ndarray
+    if type(exponent) != np.ndarray:
+        exponent = np.array([exponent])
+    
+    if type(mentisa) != np.ndarray:
+        mentisa = np.array([mentisa])
+    
+    expLen = len(exponent)
+    menLen = len(mentisa)
+    
+    ## Sanity check
+    if expLen == menLen:
+        out = np.zeros(expLen)
+    elif expLen != menLen:
+        print(exponent, mentisa)
+        raise Exception("ERROR : the number of exponent array and the number of metisa array is different.")
+    
+    if any(x >= 2**mentisaBit for x in mentisa):
+        raise Exception("ERROR : the integer value of mentisa is out of range. Need to check mentisaBit.")
+    
+    # Caculate values
+    zeroIndex = np.where(exponent + mentisa == 0)[0]
+    
+    # First calculate decimal point from 'mentisa'.
+    DecimalPoint = 0
+    for i in range(mentisaBit):
+        DecimalPoint += ((mentisa >> i) % 2) * (1/(2**(mentisaBit - i)))
+        
+    out = (1 + DecimalPoint) * (2**exponent)
+    
+    if len(zeroIndex) > 0:
+        out[zeroIndex] = 0
+        
+    return out
+
+def FloatSpacing(ExponentBit, MentisaBit, plot=False):
+
+    i = np.repeat(np.linspace(0, 2**ExponentBit - 1, 2**ExponentBit, dtype=np.uint32), 2**MentisaBit)
+    j = np.tile(np.linspace(0, 2**MentisaBit - 1, 2**MentisaBit, dtype=np.uint32), 2**ExponentBit)
+    
+    out = ToFloat(i, j, MentisaBit)
+    
+    if plot == True:
+        plt.figure()
+        plt.plot(out, 'b.')
+        plt.show()
+
+    return out
 
 
 def toFloat34(before_value):
