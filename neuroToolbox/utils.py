@@ -306,27 +306,24 @@ def convert_number_format(before_number, stochastic_rounding):
     sign_array = np.sign(before_number_array)
     abs_before_number_array = np.abs(before_number_array)
     
+    insert_indices = np.searchsorted(reference, abs_before_number_array)
+    # 확률론적 반올림을 위한 준비
+    nearest_lower_indices = np.maximum(0, insert_indices - 1)
+    nearest_higher_indices = np.minimum(len(reference) - 1, insert_indices)
+    
+    nearest_lower = reference[nearest_lower_indices]
+    nearest_higher = reference[nearest_higher_indices]
+    
     if stochastic_rounding:
-        # Find the nearest lower and higher reference numbers for each before_number
-        nearest_lower = np.vectorize(lambda x: reference[reference <= x][-1] if x >= reference[0] else reference[0])(abs_before_number_array)
-        nearest_higher = np.vectorize(lambda x: reference[reference >= x][0] if x <= reference[-1] else reference[-1])(abs_before_number_array)
-        
-        # Calculate the probabilities for rounding down or up
         prob_lower = 1 - (abs_before_number_array - nearest_lower) / (nearest_higher - nearest_lower)
-        random_probs = np.random.rand(*prob_lower.shape)  # 입력 배열과 동일한 모양의 랜덤 배열 생성
-        
-        # Apply stochastic rounding based on the calculated probabilities
+        prob_lower = np.nan_to_num(prob_lower)  # 0으로 나누기를 방지
+        random_probs = np.random.rand(*prob_lower.shape)
         after_number = np.where(random_probs < prob_lower, nearest_lower, nearest_higher)
     else:
-        # 최소 차이에 해당하는 인덱스를 찾기 위해 expand_dims를 사용하여 차원을 맞춤
-        abs_diff = np.abs(np.expand_dims(abs_before_number_array, axis=-1) - reference)
-        abs_diff[np.expand_dims(abs_before_number_array, axis=-1) < reference] = np.inf
-        indices = np.argmin(abs_diff, axis=-1)  # 마지막 차원을 따라 argmin 적용
-
-        after_number = reference[indices]
-        
-    result = sign_array * after_number
+        # 확률론적 반올림이 아닐 경우 가장 가까운 값을 선택
+        after_number = np.where(abs_before_number_array - nearest_lower <= nearest_higher - abs_before_number_array, nearest_lower, nearest_higher)
     
+    result = sign_array * after_number
     return result
 
 
