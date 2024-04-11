@@ -48,6 +48,12 @@ class Converter:
         self.optimizer = config["conversion"]["optimizer"]
         self.loss_alpha = config.getfloat('conversion', 'loss_alpha')
         self.scaling_step = config.getint('conversion', 'scaling_step')
+
+        self.stochastic_rounding = config["conversion"]["stochastic_rounding"]
+        if self.stochastic_rounding == 'off':
+            self.stochastic_rounding = False
+        else:
+            self.stochastic_rounding = True
         
         self.error_list = []
         self.synops_error_list = []
@@ -255,7 +261,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.bias_flag)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -301,7 +307,7 @@ class Converter:
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
 
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
