@@ -41,6 +41,12 @@ class Analysis:
         elif bias_flag == 'True':
             self.bias_flag = True
         else: print(f"ERROR !!")
+
+        self.stochastic_rounding = config["conversion"]["stochastic_rounding"]
+        if self.stochastic_rounding == 'off':
+            self.stochastic_rounding = False
+        else:
+            self.stochastic_rounding = True
         
         self.mac_operation = self.config["result"]["input_model_mac"]
 
@@ -80,7 +86,7 @@ class Analysis:
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     self.syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
@@ -119,7 +125,7 @@ class Analysis:
             fr = []
             for idx in range(len(firing_rate)):
                 spikes = firing_rate[idx].flatten()
-                spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
                 fr.append(spikes)
             firing_rate = np.array(fr)
 
