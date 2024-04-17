@@ -121,20 +121,15 @@ class Converter:
             else: ann_weights = [weights[layer.name]]
             
             # Calculate fan-in count
-            fanin_cnt = np.zeros(ann_weights[0].shape[1])
-            for i in range(ann_weights[0].shape[1]):
-                fanin_cnt[i] = len(np.where(ann_weights[0][:, i] > 0)[0])
-            fanin = np.mean(fanin_cnt)
+            # fanin_cnt = np.zeros(ann_weights[0].shape[1])
+            # for i in range(ann_weights[0].shape[1]):
+            #     fanin_cnt[i] = len(np.where(ann_weights[0][:, i] > 0)[0])
+            # fanin = np.mean(fanin_cnt)
             
             if 'on' == self.normalization:
                 max_ann_weights = np.max(abs(ann_weights[0]))
-                norm_factor = self.w_mag / (fanin**(1/2))
-                snn_weights = ann_weights[0] / max_ann_weights * norm_factor
-                self.v_th[layer.name] = 1.0 * norm_factor
-            elif 'scaling' == self.normalization:
-                norm_factor = self.w_mag / (fanin**(1/2))
-                snn_weights = ann_weights[0] * self.w_mag
-                self.v_th[layer.name] = 1.0 * self.w_mag
+                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
+                self.v_th[layer.name] = 1.0 / max_ann_weights * self.w_mag
             else:
                 snn_weights = ann_weights[0]
                 self.v_th[layer.name] = 1.0
@@ -207,6 +202,9 @@ class Converter:
                 threshold_list = self.v_th
         
         plt.plot(score_list, synOps_list, 'b', marker='x', linestyle='-')
+        plt.title(f"Accuracy vs. Synaptic operations", fontsize=20)
+        plt.xlabel(f"Accuracy (%)", fontsize=15)
+        plt.ylabel(f"Synaptic operations", fontsize=15)
         plt.ylim([3500000, 7000000])
         plt.show()
         
