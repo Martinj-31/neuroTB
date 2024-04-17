@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import neuroToolbox.utils as utils
 from tqdm import tqdm
 
+import seaborn as sns
+
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
@@ -105,47 +107,10 @@ class Converter:
             print(f"# Refractory period is 0.")
             print(f"# Replaced by a very small value that can be ignored.\n")
             
-        if 'off' == self.optimizer:
-            for layer in self.parsed_model.layers:
-                if 'input' in layer.name or 'flatten' in layer.name:
-                    continue
-                else: pass
-                
-                neuron = self.synapses[layer.name]
-                
-                if self.bias_flag:
-                    if 'conv' in layer.name or 'dense' == layer.name:
-                        ann_weights = [weights[layer.name], neuron[3]]
-                    else: ann_weights = [weights[layer.name]]
-                else: ann_weights = [weights[layer.name]]
-                
-                if 'on' == self.normalization:
-                    max_ann_weights = np.max(abs(ann_weights[0]))
-                    snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
-                    self.v_th[layer.name] = 1.0 * self.w_mag
-                else:
-                    snn_weights = ann_weights[0]
-                    self.v_th[layer.name] = 1.0
-                snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
-                
-                if self.bias_flag:
-                    if 'conv' in layer.name or 'dense' == layer.name:
-                        neuron[2] = snn_weights
-                        neuron[3] = ann_weights[1]
-                    else: neuron[2] = snn_weights
-                else: neuron[2] = snn_weights
-                
-                with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
-                    pickle.dump(self.synapses, f)
-                    
-            return
-        
         for layer in self.parsed_model.layers:
             if 'input' in layer.name or 'flatten' in layer.name:
                 continue
             else: pass
-            
-            print(f" Weight Normalization for {layer.name} layer...\n")
             
             neuron = self.synapses[layer.name]
             
@@ -155,12 +120,26 @@ class Converter:
                 else: ann_weights = [weights[layer.name]]
             else: ann_weights = [weights[layer.name]]
             
-            # Weight Normalization
-            max_ann_weights = np.max(abs(ann_weights[0]))
-            snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
+            # Calculate fan-in count
+            fanin_cnt = np.zeros(ann_weights[0].shape[1])
+            for i in range(ann_weights[0].shape[1]):
+                fanin_cnt[i] = len(np.where(ann_weights[0][:, i] > 0)[0])
+            fanin = np.mean(fanin_cnt)
+            
+            if 'on' == self.normalization:
+                max_ann_weights = np.max(abs(ann_weights[0]))
+                norm_factor = self.w_mag / (fanin**(1/2))
+                snn_weights = ann_weights[0] / max_ann_weights * norm_factor
+                self.v_th[layer.name] = 1.0 * norm_factor
+            elif 'scaling' == self.normalization:
+                norm_factor = self.w_mag / (fanin**(1/2))
+                snn_weights = ann_weights[0] * self.w_mag
+                self.v_th[layer.name] = 1.0 * self.w_mag
+            else:
+                snn_weights = ann_weights[0]
+                self.v_th[layer.name] = 1.0
             snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
             
-            # Weight adaptation
             if self.bias_flag:
                 if 'conv' in layer.name or 'dense' == layer.name:
                     neuron[2] = snn_weights
@@ -170,11 +149,73 @@ class Converter:
             
             with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
                 pickle.dump(self.synapses, f)
-            print('')
-        
+                    
+        if self.optimizer == 'off':
+            return
         
         print(f" Threshold balancing for each layer...\n")
         
+        score_list = []
+        synOps_list = []
+        best_target_firing_rate = 0
+        for target_firing_rate in range(int(self.firing_range), 1, -1):
+            
+            print(f"Target firing rate range : {target_firing_rate}\n")
+            
+            for layer in self.parsed_model.layers:
+                if 'input' in layer.name:
+                    input_data = utils.Input_Activation(self.x_norm, layer.name)
+                    continue
+                elif 'flatten' in layer.name:
+                    continue
+                else: pass
+                
+                neuron = self.synapses[layer.name]
+                
+                snn_weights = neuron[2]
+                
+                cnt = 0
+                while True:
+                    output_spikes = self.get_output_spikes(input_data, snn_weights, layer.name)
+                    nonzero_output_spikes = output_spikes[np.nonzero(output_spikes)]
+                    avg_output_spikes = np.mean(nonzero_output_spikes)
+                    
+                    if target_firing_rate*0.95 <= avg_output_spikes <= target_firing_rate*1.05:
+                        break
+                    elif cnt == 50:
+                        print(f"Break point occurs")
+                        break
+                    
+                    if avg_output_spikes < target_firing_rate:
+                        self.v_th[layer.name] -= 1
+                    elif avg_output_spikes > target_firing_rate:
+                        self.v_th[layer.name] += 1
+                    else: pass
+                    
+                    cnt += 1
+                
+                input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
+            
+            score, synOps = self.score(self.x_test, self.y_test)
+            print(score, synOps)
+            score_list.append(score)
+            synOps_list.append(synOps)
+            
+            if score > float(self.config['result']['input_model_acc'])*100*0.95:
+                print(score)
+                best_target_firing_rate = target_firing_rate
+                threshold_list = self.v_th
+        
+        plt.plot(score_list, synOps_list, 'b', marker='x', linestyle='-')
+        plt.ylim([3500000, 7000000])
+        plt.show()
+        
+        print(score_list)
+        print(synOps_list)
+        print(best_target_firing_rate)
+        self.v_th = threshold_list
+        
+        '''
         pre_error = 0
         direction = -1
         for epoch in range(self.epoch):
@@ -249,7 +290,7 @@ class Converter:
                 self.firing_range = 1.0
             
             self.firing_range_list.append(self.firing_range)
-            
+            '''
         print(f"THreshold :{self.v_th}")
 
         print(f"\nWeight conversion DONE.<<<\n\n\n")
