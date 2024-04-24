@@ -65,7 +65,7 @@ class Converter:
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
         data_size = int(10000 / self.config.getint('test', 'data_size'))
-        data_size = 50
+        # data_size = 50
         
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
@@ -152,8 +152,14 @@ class Converter:
         
         score_list = []
         synOps_list = []
-        best_target_firing_rate = 0
-        for target_firing_rate in range(int(self.firing_range), 1, -1):
+        threshold_list = []
+        layer_threshold = {}
+        for l in self.parsed_model.layers:
+            if 'input' in layer.name or 'flatten' in layer.name:
+                continue
+            layer_threshold[l.name] = []
+        target_score = float(self.config['result']['input_model_acc'])*100*0.95
+        for target_firing_rate in range(int(self.firing_range), 0, -1):
             
             print(f"Target firing rate range : {target_firing_rate}\n")
             
@@ -189,29 +195,41 @@ class Converter:
                     
                     cnt += 1
                 
+                layer_threshold[layer.name].append(self.v_th[layer.name])
                 input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
             
             score, synOps = self.score(self.x_test, self.y_test)
+            print(self.v_th)
             print(score, synOps)
             score_list.append(score)
             synOps_list.append(synOps)
-            
-            if score > float(self.config['result']['input_model_acc'])*100*0.95:
-                print(score)
-                best_target_firing_rate = target_firing_rate
-                threshold_list = self.v_th
+            threshold_list.append(self.v_th.copy())
         
-        plt.plot(score_list, synOps_list, 'b', marker='x', linestyle='-')
-        plt.title(f"Accuracy vs. Synaptic operations", fontsize=20)
-        plt.xlabel(f"Accuracy (%)", fontsize=15)
-        plt.ylabel(f"Synaptic operations", fontsize=15)
-        plt.ylim([3500000, 7000000])
+        cloesst_idx = np.argmin(np.abs(np.array(score_list) - target_score))
+        print(f"Best score index : \n{cloesst_idx}\n")
+        
+        print(f"Score list : \n{score_list}\n")
+        print(f"SunOps list : \n{synOps_list}\n")
+        print(f"Layer threshold : \n{layer_threshold}")
+        for layer in self.parsed_model.layers:
+            if 'input' in layer.name or 'flatten' in layer.name:
+                continue
+            plt.plot(np.arange(len(layer_threshold[layer.name])), layer_threshold[layer.name], marker='o', markersize=3, label=f"{layer.name}")
+        plt.title(f"Threshold trend", fontsize=20)
+        plt.xlabel(f"Iteration", fontsize=20)
+        plt.ylabel(f"threshold", fontsize=15)
+        plt.legend()
+        plt.grid(True)
         plt.show()
         
-        print(score_list)
-        print(synOps_list)
-        print(best_target_firing_rate)
-        self.v_th = threshold_list
+        plt.plot(score_list, synOps_list, marker='x', markersize=10, linestyle='None')
+        plt.title(f"Accuracy", fontsize=20)
+        plt.xlabel(f"Accuracy (%)", fontsize=15)
+        plt.ylabel(f"Input data size", fontsize=15)
+        plt.xlim([0, 100])
+        plt.show()
+        
+        self.v_th = threshold_list[cloesst_idx]
         
         '''
         pre_error = 0
@@ -330,10 +348,30 @@ class Converter:
         return np.array(acts)
     
     
-    def score(self, x, y):
-        x_test = x
-        y_test = y
+    def in_out_test(self, x):
+        weights = {}
+        for key in self.synapses.keys():
+            weights[key] = self.synapses[key][2]
         
+        x = x.flatten()
+        for layer, synapse in self.synapses.items():
+            x = utils.get_weighted_sum(x, weights[layer], self.fp_precision, self.stochastic_rounding)
+            neg_idx = np.where(x < 0)[0]
+            x[neg_idx] = 0
+            plt.plot((x / self.v_th[layer]), np.floor((x / self.v_th[layer]) / ((x / self.v_th[layer])*self.t_ref + 1)), 'b.')
+            plt.yscale('log')
+            plt.xlim([0, 200])
+            plt.ylim([0, 200])
+            plt.show()
+            
+            x = (x / self.v_th[layer]) / ((x / self.v_th[layer])*self.t_ref + 1)
+            x = np.floor(x)
+    
+    
+    def score(self, x, y):
+        x_test = np.floor(x)
+        y_test = y
+
         weights = {}
         for key in self.synapses.keys():
             weights[key] = self.synapses[key][2]
