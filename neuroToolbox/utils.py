@@ -119,11 +119,11 @@ def weightDecompile(synapses):
         src = np.array(synapse[0]) - synCnt
         synCnt += 1024
         tar = np.array(synapse[1]) - synCnt
-        w = np.array(synapse[2])
-        source = len(np.unique(src))
-        target = len(np.unique(tar))
+        w = np.array(synapse[3])
+        source = synapse[2][0]
+        target = synapse[2][1]
+
         weights = np.zeros(source * target).reshape(source, target)
-        
         for i in range(len(w)):
             weights[src[i]][tar[i]] = w[i]
         
@@ -203,16 +203,16 @@ def Input_Activation(input_activations, layer_name):
     return np.array(input_acts)
 
 
-def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, stochastic_rounding, bias_flag, clip=True):
-    spikes = get_weighted_sum(spikes, weights, precision, stochastic_rounding)
+def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, clip=True):
+    spikes = get_weighted_sum(spikes, weights, precision)
     if bias_flag:
         if 'conv' in layer_name:
             s = 0
-            for oc_idx, oc in enumerate(synapse[4]):
-                spikes[s:oc] = (spikes[s:oc] + synapse[3][oc_idx])
+            for oc_idx, oc in enumerate(synapse[5]):
+                spikes[s:oc] = (spikes[s:oc] + synapse[4][oc_idx])
                 s = oc + 1
         elif 'dense' in layer_name:
-            spikes = (spikes + synapse[3])
+            spikes = (spikes + synapse[4])
         else:
             spikes = spikes
     else: pass
@@ -231,11 +231,11 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, pr
     return spikes
 
 
-def get_weighted_sum(spikes, w, precision='FP32', stochastic_rounding=False):
+def get_weighted_sum(spikes, w, precision='FP32'):
     if precision == 'FP8':
         spikes = np.tile(spikes, (w.shape[1], 1))
         spikes = np.multiply(spikes, w.T)
-        spikes = convert_number_format(spikes, stochastic_rounding)
+        spikes = convert_number_format(spikes)
         spikes = np.sum(spikes, axis=1)
     elif precision == 'FP32':
         spikes = np.dot(spikes, w)
@@ -279,7 +279,7 @@ def data_transfer(input_data, trans_domain, clip=True):
     return transferred_data
 
 
-def convert_number_format(before_number, stochastic_rounding):
+def convert_number_format(before_number):
     reference = np.array([  0.      ,   1.0625   ,   1.125   ,   1.1875   ,   1.25    ,   1.3125   ,
                             1.375   ,   1.4375   ,   1.5     ,   1.5625   ,   1.625   ,   1.6875   ,
                             1.75    ,   1.8125   ,   1.875   ,   1.9375   ,   2.      ,   2.125    ,
@@ -313,15 +313,8 @@ def convert_number_format(before_number, stochastic_rounding):
     
     nearest_lower = reference[nearest_lower_indices]
     nearest_higher = reference[nearest_higher_indices]
-    
-    if stochastic_rounding:
-        prob_lower = 1 - (abs_before_number_array - nearest_lower) / (nearest_higher - nearest_lower)
-        prob_lower = np.nan_to_num(prob_lower)  # 0으로 나누기를 방지
-        random_probs = np.random.rand(*prob_lower.shape)
-        after_number = np.where(random_probs < prob_lower, nearest_lower, nearest_higher)
-    else:
-        # 확률론적 반올림이 아닐 경우 가장 가까운 값을 선택
-        after_number = np.where(abs_before_number_array - nearest_lower <= nearest_higher - abs_before_number_array, nearest_lower, nearest_higher)
+
+    after_number = np.where(abs_before_number_array - nearest_lower <= nearest_higher - abs_before_number_array, nearest_lower, nearest_higher)
     
     result = sign_array * after_number
     return result
