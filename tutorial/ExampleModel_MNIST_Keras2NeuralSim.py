@@ -24,7 +24,6 @@ os.makedirs(path_wd + '/dataset/')
 
 print("path wd: ", path_wd)
 from run.main import run_neuroTB
-import neuroToolbox.utils as utils
 
 
 # %% Load MNIST dataset and preprocess
@@ -42,10 +41,14 @@ x_test = x_test.reshape(x_test.shape[0], 28, 28, axis).astype('float32')
 y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
 
-# Input domain transfer to Log domain
-x_train = utils.data_transfer(x_train, 'log', False)
-x_test = utils.data_transfer(x_test, 'log')
 
+def IFRA(x, t, q=False):
+    cliped_x = K.clip(x, 0, 1e+7)
+    y = cliped_x / (cliped_x*t*0.001 + 1)
+    if q:
+        return K.round(y)
+    else:
+        return y
 
 # %% Define DNN model.
 # Define the input layer
@@ -55,15 +58,15 @@ inputs = keras.layers.Input(input_shape)
 bias_flag = False
 
 # Convolutional layers
-x = keras.layers.Conv2D(4, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(inputs)
-x = Lambda(lambda x: K.clip(x, 0, 1e+7)/(K.clip(x, 0, 1e+7)*0.005+1))(x)
+x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(inputs)
+x = Lambda(lambda x: IFRA(x, 5, False))(x)
 if bias_flag:
     x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 else: pass
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
-x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(x)
-x = Lambda(lambda x: K.clip(x, 0, 1e+7)/(K.clip(x, 0, 1e+7)*0.005+1))(x)
+x = keras.layers.Conv2D(16, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(x)
+x = Lambda(lambda x: IFRA(x, 5, False))(x)
 if bias_flag:
     x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 else: pass
@@ -71,7 +74,7 @@ x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Flatten()(x)
 x = keras.layers.Dense(units=100, use_bias=bias_flag)(x)
-x = Lambda(lambda x: K.clip(x, 0, 1e+7)/(K.clip(x, 0, 1e+7)*0.005+1))(x)
+x = Lambda(lambda x: IFRA(x, 5, False))(x)
 outputs = keras.layers.Dense(units=10, activation='softmax', use_bias=bias_flag)(x)
 
 # Create the model
@@ -79,11 +82,11 @@ model = keras.Model(inputs=inputs, outputs=outputs)
 
 # Compile the model
 model.compile(loss='categorical_crossentropy',
-            optimizer=keras.optimizers.Adam(learning_rate=0.001),
+            optimizer=keras.optimizers.SGD(learning_rate=0.001),
             metrics=['accuracy'])
 
 # Train the model
-batch_size = 64
+batch_size = 128
 epochs = 10
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
@@ -104,7 +107,7 @@ x_norm = x_train[::6000]
 np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_norm'), x_norm)
 
 # Evaluate the model
-score = model.evaluate(x_test[::int(10000 / 1000)], y_test[::int(10000 / 1000)], verbose=0)
+score = model.evaluate(x_test[:1000], y_test[:1000], verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
@@ -129,24 +132,17 @@ default_config['names']['snn_model'] = 'SNN_' + model_name
 
 default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
-default_config['conversion']['firing_range'] = '20'
-default_config['conversion']['fp_precision'] = 'FP32'
-default_config['conversion']['epoch'] = '30'
-default_config['conversion']['normalization'] = 'on'
-default_config['conversion']['optimizer'] = 'on'
-default_config['conversion']['loss_alpha'] = '0.999'
-default_config['conversion']['scaling_step'] = '1'
-
+default_config['conversion']['firing_range'] = '10'
+default_config['conversion']['fp_precision'] = 'FP8'
+default_config['conversion']['normalization'] = 'off'
+default_config['conversion']['optimizer'] = 'off'
 default_config['spiking_neuron']['refractory'] = '5'
-default_config['spiking_neuron']['threshold'] = '16.0'
-default_config['spiking_neuron']['w_mag'] = '64.0'
-
+default_config['spiking_neuron']['threshold'] = '1.0'
+default_config['spiking_neuron']['w_mag'] = '16.0'
 default_config['options']['bias'] = str(bias_flag)
-default_config['options']['trans_domain'] = 'log'
-
-default_config['test']['data_size'] = '10'
-
+default_config['test']['data_size'] = '1000'
 default_config['result']['input_model_acc'] = str(score[1])
+
 
 # Define path for the new config file
 config_filepath = os.path.join(path_wd, 'config')
