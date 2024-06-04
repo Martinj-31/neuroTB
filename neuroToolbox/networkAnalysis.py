@@ -87,17 +87,11 @@ class Analysis:
                     shortcut = firing_rate
                 if 'conv2d_7' == layer or 'conv2d_12' == layer or 'conv2d_17' == layer:
                     shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
-                    a = np.argmax(firing_rate)
-                    print(firing_rate[a], shortcut[a])
                     firing_rate = firing_rate + shortcut
-                    print(firing_rate[a])
                     continue
                 firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
                 if 'conv2d_2' == layer or 'conv2d_4' == layer or 'conv2d_9' == layer or 'conv2d_14' == layer or 'conv2d_19' == layer:
-                    a = np.argmax(firing_rate)
-                    print(firing_rate[a], shortcut[a])
                     firing_rate = firing_rate + shortcut
-                    print(firing_rate[a])
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
