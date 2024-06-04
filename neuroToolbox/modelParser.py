@@ -1,6 +1,5 @@
 import os, sys
 import numpy as np
-import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from tensorflow import keras
@@ -108,33 +107,6 @@ class Parser:
             elif layer_type == 'MaxPooling2D':
                 raise ValueError("MaxPooling2D layer detected. Please replace all MaxPooling2D layers with AveragePooling2D layers and retrain your model.")
                   
-            elif layer_type == 'Add':
-                
-                print("Replacing Add layer by Concatenate plus Conv.")
-
-                # Create a concatenate layer
-                shape = layer.output_shape
-                if keras.backend.image_data_format() == 'channels_first':
-                    axis = 1
-                    c, h, w = shape[1:]
-                else:
-                    axis = -1
-                    h, w, c = shape[1:]
-
-                # Replace Add layer to Concatenate layer
-                concatenate_layer = keras.layers.Concatenate(axis = axis)
-                afterParse_layer_list.append(concatenate_layer)
-                                            
-                # Create a Conv2D layer
-                weights = np.zeros([1, 1, 2 * c, c])
-                for k in range(c):
-                    weights[:, :, k::c, k] = 1
-
-                # Replace Add layer to Conv2d layer
-                conv2d_layer = keras.layers.Conv2D(filters = c, kernel_size = 1, activation='relu')
-                afterParse_layer_list.append(conv2d_layer)
-                self.conv_weights.append([weights, np.zeros(c)])
-                continue
             
             elif layer_type == 'GlobalAveragePooling2D':
                 # Replace GlobalAveragePooling2D layer with AveragePooling2D plus Flatten layer
@@ -188,55 +160,32 @@ class Parser:
         # batch_shape = (batch_size,) + input_shape
         # new_input_layer = keras.layers.Input(batch_shape=batch_shape, name=layer_list[0].name)
         # x = new_input_layer
-        is_resnet = False
         x = layer_list[0].input
+        
+        shortcut = None
+        
+        for i, layer in enumerate(layer_list[1:]):
+            prev_layer = layer_list[i]
 
-        previous_layers=[]
-        for layer in layer_list[1:]:
-            
-            layer._inbound_nodes = []
-            layer._outbound_nodes = []
-                       
-            if layer.__class__.__name__ == 'Concatenate':
-                is_resnet = True
-                for idx, i in enumerate(reversed(previous_layers)):
-                    if i.__class__.__name__ == 'Concatenate':
-                        if idx == 4:
-                            input_tensor = previous_layers[-3].output
-                            x = layer([ x, input_tensor ])
-                        elif idx == 5:
-                            shortcut = previous_layers[-1](previous_layers[-4].output)
-                            x = layer([previous_layers[-2].output, shortcut]) 
-                        break
-                    elif len(previous_layers) == 4:
-                        shortcut = previous_layers[-1](previous_layers[-4].output)
-                        x = layer([previous_layers[-2].output, shortcut])
-                        break
-                    elif len(previous_layers) == 3:
-                        input_tensor = previous_layers[-3].output
-                        x = layer([ x, input_tensor ])
-                        break
-                    else: 
-                        pass
-            else:
+            if i == 0:
                 x = layer(x)
-            previous_layers.append(layer)
+                shortcut = x
+                continue
             
+            if isinstance(layer, keras.layers.Add):
+                if shortcut is not None:
+                    x = keras.layers.Add()([x, shortcut])
+                    shortcut = x
+            elif isinstance(layer, keras.layers.Conv2D):
+                if layer.strides == (2, 2) and 'conv' in prev_layer.name and prev_layer.strides == (1, 1):
+                    shortcut = layer(shortcut)
+                else: x = layer(x)
+            else: x = layer(x)
+        
         model = keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
-        model.compile(loss='categorical_crossentropy',
-                  optimizer=keras.optimizers.Adam(learning_rate=0.001),
-                  metrics=['accuracy'])
-
-        if is_resnet == True:
-            conv_idx = 0
-            for idx, layer in enumerate(model.layers):
-                if layer.__class__.__name__ == 'Concatenate':
-                    print(f'concatenate next layer : {model.layers[idx + 1].__class__.__name__}')
-                    model.layers[idx + 1].set_weights(self.conv_weights[conv_idx])
-                    conv_idx += 1
-            model.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(learning_rate=0.001),
-                    metrics=['accuracy'])      
+        model.compile(loss='categorical_crossentropy', 
+                      optimizer=keras.optimizers.Adam(learning_rate=0.001), 
+                      metrics=['accuracy'])  
 
         if self.plot == True:
             keras.utils.plot_model(model, self.config['paths']['path_wd'] + '/model_graph' + '/parsed_model.png', show_shapes=True)
@@ -368,7 +317,6 @@ class Parser:
             
     def get_model_MAC(self, data_size):
         MAC = 0
-        data_size = 10000/data_size
         
         bias_flag = self.config["options"]["bias"]
         if bias_flag == 'False':
