@@ -37,7 +37,7 @@ def run_neuroTB(config_filepath):
     input_model_name = config["names"]["input_model"]
     # Load the model using the input_model_name
     input_model = keras.models.load_model(os.path.join(config["paths"]["models"], f"{input_model_name}.h5"))
-    data_size = int(10000 / config.getint('test', 'data_size'))
+    data_size = config.getint('test', 'data_size')
 
     start = time.time()
     # %% Parse model
@@ -83,7 +83,7 @@ def run_neuroTB(config_filepath):
     evaluation = networkAnalysis.Analysis(config)
     
     # evaluation.input_log_domain_trans_plot()
-    evaluation.plot_error(error_list, synops_error_list, acc_error_list)
+    # evaluation.plot_error(error_list, synops_error_list, acc_error_list)
     evaluation.set_threshold(threshold)
     evaluation.run(data_size)
     # evaluation.IOcurve()
