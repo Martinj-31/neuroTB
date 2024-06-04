@@ -41,12 +41,6 @@ class Analysis:
         elif bias_flag == 'True':
             self.bias_flag = True
         else: print(f"ERROR !!")
-
-        self.stochastic_rounding = config["conversion"]["stochastic_rounding"]
-        if self.stochastic_rounding == 'off':
-            self.stochastic_rounding = False
-        else:
-            self.stochastic_rounding = True
         
         self.mac_operation = self.config["result"]["input_model_mac"]
 
@@ -60,13 +54,14 @@ class Analysis:
 
     def run(self, data_size):
         print(f"Preparing for running converted snn.")
+        print(f"Threshold : {self.v_th}")
 
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
-        self.x_test = x_test[::data_size]
+        self.x_test = np.floor(x_test[:data_size])
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
-        y_test = y_test[::data_size]
+        y_test = y_test[:data_size]
 
         print(f"Input data length : {len(self.x_test)}")
         print(f"...\n")
@@ -75,18 +70,34 @@ class Analysis:
 
         weights = {}
         for key in self.synapses.keys():
-            weights[key] = self.synapses[key][2]
+            weights[key] = self.synapses[key][3]
 
         score = 0
         self.syn_operation = 0
+        # residual_firing_rate = None
         for input_idx in range(len(self.x_test)):
             firing_rate = self.x_test[input_idx].flatten()
+            shortcut = None
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
-                for neu_idx in range(len(firing_rate)):
-                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
-                    self.syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
+                # for neu_idx in range(len(firing_rate)):
+                #     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
+                #     self.syn_operation += firing_rate[neu_idx] * fan_out
+                if 'conv2d_1' == layer or 'conv2d_3' == layer or 'conv2d_5' == layer or 'conv2d_8' == layer or 'conv2d_10' == layer or 'conv2d_13' == layer or 'conv2d_15' == layer or 'conv2d_18' == layer:
+                    shortcut = firing_rate
+                if 'conv2d_7' == layer or 'conv2d_12' == layer or 'conv2d_17' == layer:
+                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                    a = np.argmax(firing_rate)
+                    print(firing_rate[a], shortcut[a])
+                    firing_rate = firing_rate + shortcut
+                    print(firing_rate[a])
+                    continue
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                if 'conv2d_2' == layer or 'conv2d_4' == layer or 'conv2d_9' == layer or 'conv2d_14' == layer or 'conv2d_19' == layer:
+                    a = np.argmax(firing_rate)
+                    print(firing_rate[a], shortcut[a])
+                    firing_rate = firing_rate + shortcut
+                    print(firing_rate[a])
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}\n")
 
@@ -112,7 +123,7 @@ class Analysis:
 
         weights = {}
         for key in self.synapses.keys():
-            weights[key] = self.synapses[key][2]
+            weights[key] = self.synapses[key][3]
 
         firing_rate = x_norm
         
