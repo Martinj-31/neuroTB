@@ -1,11 +1,8 @@
 import sys, os, warnings, pickle, math, time
 import numpy as np
-import matplotlib.pyplot as plt
 
 from tensorflow import keras
-from tqdm import tqdm
 
-import neuroToolbox.utils as utils
 
 sys.path.append(os.getcwd())
 
@@ -62,11 +59,10 @@ class networkCompiler:
 
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
-
                 print(f"Flatten layer are not converted to SNN. (Skipped)")
-                
                 self.flatten_shapes.append(layers[-2])
                 continue
+            
             self.neuron_layer(layer)
             if layer_type == 'Dense':
                 self.Synapse_dense(layer)
@@ -75,6 +71,17 @@ class networkCompiler:
                 self.Synapse_convolution(layer)
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
+            
+            # Need to edit
+            elif layer_type == 'Add':
+                for node in layer._inbound_nodes:
+                    incoming_layers = node.inbound_layers
+                    if isinstance(incoming_layers, list):
+                        connections = [incoming.name for incoming in incoming_layers]
+                    else: connections = [incoming_layers.name]
+                    print(connections)
+                    # connections 두 번째 요소가 shortcut임. 이거 연결해야 함.
+                    # 두 번째 요소가 add면 identity, conv2d면 convolution.
 
         print(f"\n>>> Setup layers complete.\n")
 
@@ -85,7 +92,11 @@ class networkCompiler:
 
 
     def neuron_layer(self, layer):
-        self.neurons[layer.name] = np.prod(layer.output_shape[1:])
+        if len(layer._inbound_nodes) > 1:
+            output_shape = layer.get_output_shape_at(1)
+            self.neurons[layer.name] = np.prod(output_shape[1:])
+        else:
+            self.neurons[layer.name] = np.prod(layer.output_shape[1:])
 
 
     def Synapse_dense(self, layer):
@@ -140,10 +151,12 @@ class networkCompiler:
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
+        num_src = np.prod(layer.input_shape[1:])
+        num_tar = np.prod(layer.output_shape[1:])
         
         if self.bias_flag:
-            self.synapses[layer.name] = [source, target, weights, bias]
-        else: self.synapses[layer.name] = [source, target, weights]
+            self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, bias]
+        else: self.synapses[layer.name] = [source, target, [num_src, num_tar], weights]
 
 
     def Synapse_convolution(self, layer):
@@ -176,11 +189,16 @@ class networkCompiler:
         # 'channel_first' : [batch_size, channels, height, width]
         # 'channel_last' : [batch_size, height, width, channels]
         ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
+        
+        if len(layer._inbound_nodes) > 1:
+            input_shape = layer.get_input_shape_at(1)
+        else:
+            input_shape = layer.input_shape
 
         input_channels = w.shape[2]
         output_channels = w.shape[3]
-        height_fm = layer.input_shape[1 + ii]
-        width_fm = layer.input_shape[2 + ii]
+        height_fm = input_shape[1 + ii]
+        width_fm = input_shape[2 + ii]
         height_kn, width_kn = layer.kernel_size
         stride_y, stride_x = layer.strides
 
@@ -239,10 +257,12 @@ class networkCompiler:
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-
+        num_src = np.prod(layer.input_shape[1:])
+        num_tar = np.prod(layer.output_shape[1:])
+        
         if self.bias_flag:
-            self.synapses[layer.name] = [source, target, weights, bias, output_channels_idx]
-        else: self.synapses[layer.name] = [source, target, weights, output_channels_idx]
+            self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, bias, output_channels_idx]
+        else: self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, output_channels_idx]
 
 
     def Synapse_pooling(self, layer):
@@ -297,8 +317,10 @@ class networkCompiler:
         source = source.astype(int) + self.synCnt
         self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
+        num_src = np.prod(layer.input_shape[1:])
+        num_tar = np.prod(layer.output_shape[1:])
 
-        self.synapses[layer.name] = [source, target, weights]
+        self.synapses[layer.name] = [source, target, [num_src, num_tar], weights]
 
 
     def build(self):
