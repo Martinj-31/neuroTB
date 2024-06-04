@@ -1,4 +1,4 @@
-import os, sys, pickle, math
+import os, sys, pickle
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import neuroToolbox.utils as utils
 from tqdm import tqdm
 
-import seaborn as sns
 
 # Add the path of the parent directory (neuroTB) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -41,21 +40,10 @@ class Converter:
         
         self.mac_operation = config.getfloat('result', 'input_model_mac')
         
-        self.trans_domain = config["options"]["trans_domain"]
-        
         self.firing_range = config.getfloat('conversion', 'firing_range')
         self.fp_precision = config["conversion"]["fp_precision"]
-        self.epoch = config.getint('conversion', 'epoch')
         self.normalization = config["conversion"]["normalization"]
         self.optimizer = config["conversion"]["optimizer"]
-        self.loss_alpha = config.getfloat('conversion', 'loss_alpha')
-        self.scaling_step = config.getint('conversion', 'scaling_step')
-
-        self.stochastic_rounding = config["conversion"]["stochastic_rounding"]
-        if self.stochastic_rounding == 'off':
-            self.stochastic_rounding = False
-        else:
-            self.stochastic_rounding = True
         
         self.error_list = []
         self.synops_error_list = []
@@ -64,16 +52,15 @@ class Converter:
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
-        data_size = int(10000 / self.config.getint('test', 'data_size'))
-        # data_size = 50
+        data_size = self.config.getint('test', 'data_size')
         
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
-        self.x_test = x_test[::data_size]
+        self.x_test = x_test[:data_size]
         
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
-        self.y_test = y_test[::data_size]
+        self.y_test = y_test[:data_size]
         
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
@@ -81,8 +68,8 @@ class Converter:
         
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
         self.w_mag = config.getfloat('spiking_neuron', 'w_mag')
-        
         self.init_v_th = config.getfloat('spiking_neuron', 'threshold')
+        
         self.v_th = {}
         for layer in self.parsed_model.layers:
             if 'input' in layer.name or 'flatten' in layer.name:
@@ -108,23 +95,17 @@ class Converter:
             print(f"# Replaced by a very small value that can be ignored.\n")
             
         for layer in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name:
                 continue
             else: pass
             
             neuron = self.synapses[layer.name]
-            
+            print(f"Convert weight and threshold for layer {layer.name}\n")
             if self.bias_flag:
                 if 'conv' in layer.name or 'dense' == layer.name:
-                    ann_weights = [weights[layer.name], neuron[3]]
+                    ann_weights = [weights[layer.name], neuron[4]]
                 else: ann_weights = [weights[layer.name]]
             else: ann_weights = [weights[layer.name]]
-            
-            # Calculate fan-in count
-            # fanin_cnt = np.zeros(ann_weights[0].shape[1])
-            # for i in range(ann_weights[0].shape[1]):
-            #     fanin_cnt[i] = len(np.where(ann_weights[0][:, i] > 0)[0])
-            # fanin = np.mean(fanin_cnt)
             
             if 'on' == self.normalization:
                 max_ann_weights = np.max(abs(ann_weights[0]))
@@ -132,15 +113,15 @@ class Converter:
                 self.v_th[layer.name] = 1.0 / max_ann_weights * self.w_mag
             else:
                 snn_weights = ann_weights[0]
-                self.v_th[layer.name] = 1.0
+                self.v_th[layer.name] = self.init_v_th
             snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
             
             if self.bias_flag:
                 if 'conv' in layer.name or 'dense' == layer.name:
-                    neuron[2] = snn_weights
-                    neuron[3] = ann_weights[1]
-                else: neuron[2] = snn_weights
-            else: neuron[2] = snn_weights
+                    neuron[3] = snn_weights
+                    neuron[4] = ann_weights[1]
+                else: neuron[3] = snn_weights
+            else: neuron[3] = snn_weights
             
             with open(self.filepath + self.filename + '_Converted_synapses.pkl', 'wb') as f:
                 pickle.dump(self.synapses, f)
@@ -158,6 +139,7 @@ class Converter:
             if 'input' in layer.name or 'flatten' in layer.name:
                 continue
             layer_threshold[l.name] = []
+            
         target_score = float(self.config['result']['input_model_acc'])*100*0.95
         for target_firing_rate in range(int(self.firing_range), 0, -1):
             
@@ -184,7 +166,7 @@ class Converter:
                     if target_firing_rate*0.95 <= avg_output_spikes <= target_firing_rate*1.05:
                         break
                     elif cnt == 50:
-                        print(f"Break point occurs")
+                        print(f"Skip point occurs")
                         break
                     
                     if avg_output_spikes < target_firing_rate:
@@ -195,7 +177,9 @@ class Converter:
                     
                     cnt += 1
                 
+                # layer_threshold for threshold plot
                 layer_threshold[layer.name].append(self.v_th[layer.name])
+                
                 input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
             
             score, synOps = self.score(self.x_test, self.y_test)
@@ -216,10 +200,11 @@ class Converter:
                 continue
             plt.plot(np.arange(len(layer_threshold[layer.name])), layer_threshold[layer.name], marker='o', markersize=3, label=f"{layer.name}")
         plt.title(f"Threshold trend", fontsize=20)
-        plt.xlabel(f"Iteration", fontsize=20)
+        plt.xlabel(f"average firing rates", fontsize=15)
         plt.ylabel(f"threshold", fontsize=15)
         plt.legend()
         plt.grid(True)
+        plt.xticks(np.arange(0, 20, 2), np.arange(20, 0, -2))
         plt.show()
         
         plt.plot(score_list, synOps_list, marker='x', markersize=10, linestyle='None')
@@ -318,7 +303,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.bias_flag)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -351,11 +336,11 @@ class Converter:
     def in_out_test(self, x):
         weights = {}
         for key in self.synapses.keys():
-            weights[key] = self.synapses[key][2]
+            weights[key] = self.synapses[key][3]
         
         x = x.flatten()
         for layer, synapse in self.synapses.items():
-            x = utils.get_weighted_sum(x, weights[layer], self.fp_precision, self.stochastic_rounding)
+            x = utils.get_weighted_sum(x, weights[layer], self.fp_precision)
             neg_idx = np.where(x < 0)[0]
             x[neg_idx] = 0
             plt.plot((x / self.v_th[layer]), np.floor((x / self.v_th[layer]) / ((x / self.v_th[layer])*self.t_ref + 1)), 'b.')
@@ -374,7 +359,7 @@ class Converter:
 
         weights = {}
         for key in self.synapses.keys():
-            weights[key] = self.synapses[key][2]
+            weights[key] = self.synapses[key][3]
         
         score = 0
         syn_operation = 0
@@ -384,7 +369,7 @@ class Converter:
                 for neu_idx in range(len(firing_rate)):
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     syn_operation += firing_rate[neu_idx] * fan_out
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
+                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
 
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
