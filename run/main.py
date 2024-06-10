@@ -29,10 +29,6 @@ def run_neuroTB(config_filepath):
     y_test_file = np.load(os.path.join(config["paths"]["dataset_path"], 'y_test.npz'))
     y_test = y_test_file['arr_0']
 
-    x_norm = None
-    x_norm_file = np.load(os.path.join(config['paths']['dataset_path'], 'x_norm.npz'))
-    x_norm = x_norm_file['arr_0']
-
     # Read 'input_model' value from config.ini
     input_model_name = config["names"]["input_model"]
     # Load the model using the input_model_name
@@ -50,13 +46,11 @@ def run_neuroTB(config_filepath):
     parser.get_model_activation()
     parser.get_model_MAC(data_size)
     
-    score1, score2 = parser.parseAnalysis(input_model, parsed_model, x_test, y_test)
-    print("input model Test loss : ", score1[0])
-    print("input model Test accuracy : ", score1[1])
-    print("parsed model Test loss : ", score2[0])
-    print("parsed model Test accuracy : ", score2[1])
+    parsed_model_score = parser.parseAnalysis(parsed_model, x_test[:1000], y_test[:1000])
+    print("parsed model Test loss : ", parsed_model_score[0])
+    print("parsed model Test accuracy : ", parsed_model_score[1])
     
-    config['result']['parsed_model_acc'] = str(score2[1])
+    config['result']['parsed_model_acc'] = str(parsed_model_score[1])
     
     
     # %% Generate neurons and synapse connections for SNN
@@ -76,23 +70,18 @@ def run_neuroTB(config_filepath):
     
     converter.convertWeights()
     threshold = converter.get_threshold()
-    error_list, synops_error_list, acc_error_list, firing_range_list = converter.error()
     
     
     # %% Evaluation each step
     evaluation = networkAnalysis.Analysis(config)
     
-    # evaluation.input_log_domain_trans_plot()
-    # evaluation.plot_error(error_list, synops_error_list, acc_error_list)
     evaluation.set_threshold(threshold)
     evaluation.run(data_size)
-    # evaluation.IOcurve()
+    evaluation.genResultFile()
     # evaluation.act_compare()
-    # evaluation.evalNetwork(model_name='parsed')
     evaluation.plot_compare()
     
     took = time.time() - start
     
     print(f"Total simulation time : {took:.2f} seconds.")
     
-    evaluation.genResultFile()
