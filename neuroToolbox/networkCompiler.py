@@ -46,6 +46,12 @@ class networkCompiler:
 
 
     def setup_layers(self, input_shape):
+        """
+        Set a layer from ANN model to SNN synapse connections.
+
+        Args:
+            input_shape (_type_): _description_
+        """
 
         print("\n\n####### Compiling an ANN model into a SNN model #######\n")
         print(f"Data format is '{keras.backend.image_data_format()}'\n")
@@ -79,19 +85,49 @@ class networkCompiler:
                     if isinstance(incoming_layers, list):
                         connections = [incoming.name for incoming in incoming_layers]
                     else: connections = [incoming_layers.name]
-                    print(connections)
-                    # connections 두 번째 요소가 shortcut임. 이거 연결해야 함.
-                    # 두 번째 요소가 add면 identity, conv2d면 convolution.
+                target_layer = self.get_layer_by_name(connections[1])
+                
+                if target_layer:
+                    target_layer_type = target_layer.__class__.__name__
+                    new_layer_name = target_layer.name
+                    if target_layer.name == 'conv2d':
+                        new_layer_name += '_identity'
+                    elif target_layer_type == 'Add':
+                        new_layer_name += '_identity'
+                    elif 'Conv' in target_layer_type:
+                        new_layer_name += '_conv'
+                    print(f"-----(shortcut detect)-----")
+                    target_layer._name = new_layer_name
+                self.synapses[layer.name] = []
 
         print(f"\n>>> Setup layers complete.\n")
 
 
+    def get_layer_by_name(self, layer_name):
+        for layer in self.parsed_model.layers[1:]:
+            if layer.name == layer_name:
+                return layer
+        return None
+    
+    
     # Input will be made in neuralSim library.
     def neuron_input_layer(self, input_shape):
+        """
+        Generate input layer neurons.
+
+        Args:
+            input_shape (_type_): _description_
+        """
         self.neurons['input_layer'] = np.prod(input_shape[1:])
 
 
     def neuron_layer(self, layer):
+        """
+        Generate neurons for each layer.
+
+        Args:
+            layer (_type_): _description_
+        """
         if len(layer._inbound_nodes) > 1:
             output_shape = layer.get_output_shape_at(1)
             self.neurons[layer.name] = np.prod(output_shape[1:])
@@ -266,7 +302,9 @@ class networkCompiler:
 
 
     def Synapse_pooling(self, layer):
-        """_summary_
+        """
+        This method is for generating synapse connection from CNN layer to SNN layer with neuron index.
+        
         Args:
             layer (tf.keras.Model): Keras CNN model with weight information.
 
@@ -323,7 +361,66 @@ class networkCompiler:
         self.synapses[layer.name] = [source, target, [num_src, num_tar], weights]
 
 
+    def changekey_neurons(self):
+        updated_neurons = {}
+        neurons_keys = list(self.neurons.keys())
+        i = 0
+        
+        print(f"Change key of neurons...")
+        print(f"_________________________________________________________________")
+        for layer in self.parsed_model.layers:
+            new_key = layer.name
+            
+            if '_flatten' in new_key:
+                continue
+            if i < len(neurons_keys):
+                old_key = neurons_keys[i]
+                if '_identity' in new_key or '_conv' in new_key:
+                    updated_neurons[new_key] = self.neurons.pop(old_key)
+                    print(f"Update {old_key} to {new_key}")
+                else:
+                    updated_neurons[old_key] = self.neurons[old_key]
+                i += 1
+        
+        print(f"_________________________________________________________________\n")
+        
+        self.neurons = updated_neurons
+        return self.neurons
+    
+    def changekey_synapses(self):
+        updated_synapses = {}
+        synapses_keys = list(self.synapses.keys())
+        i = 0
+        
+        print(f"Change key of synapses...")
+        print(f"_________________________________________________________________")
+        for layer in self.parsed_model.layers:
+            new_key = layer.name
+            
+            if '_flatten' in new_key or 'input' in new_key:
+                continue
+            if i < len(synapses_keys):
+                old_key = synapses_keys[i]
+                if '_identity' in new_key or '_conv' in new_key:
+                    updated_synapses[new_key] = self.synapses.pop(old_key)
+                    print(f"Update {old_key} to {new_key}")
+                else:
+                    updated_synapses[old_key] = self.synapses[old_key]
+                i += 1
+        
+        print(f"_________________________________________________________________\n")
+        
+        self.synapses = updated_synapses
+        return self.synapses
+    
+
     def build(self):
+        """
+        Build converted SNN model.
+
+        Returns:
+            _type_: _description_
+        """
 
         print(f"Build and Store compiled SNN model...")
 
@@ -340,10 +437,22 @@ class networkCompiler:
 
 
     def layers(self):
+        """
+        Return layers.
+
+        Returns:
+            _type_: _description_
+        """
         return self.synapses
 
 
     def neuronCoreNum(self):
+        """
+        Return the number of neuron core to be used on neuplus.
+
+        Returns:
+            _type_: _description_
+        """
         neuron_num = {}
         for i in range(len(self.neurons)):
             neuron_num[list(self.neurons.keys())[i]] = list(self.neurons.values())[i]
@@ -353,6 +462,11 @@ class networkCompiler:
 
 
     def summarySNN(self):
+        """
+        Summarize converted SNN structure.
+        """
+        self.neurons = self.changekey_neurons()
+        self.synapses = self.changekey_synapses()
         total_neuron = 0
         print(f"_________________________________________________________________")
         print(f"{'Model: '}{self.config['names']['snn_model']}")
