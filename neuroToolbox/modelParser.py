@@ -1,6 +1,7 @@
 import os, sys
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from tensorflow import keras
 
@@ -127,6 +128,12 @@ class Parser:
             
             # elif flatten_added == False:
             #     raise ValueError("input model doesn't have flatten layer. please check again")
+            
+            
+            elif layer_type == 'Lambda' or layer_type == 'Add':
+                # These layers are for parsed model evaluation and flag role.
+                
+                afterParse_layer_list.append(layer)
 
             elif layer_type not in convertible_layers:
                 print("Skipping layer {}.".format(layer_type))
@@ -299,18 +306,22 @@ class Parser:
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
         
-        model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
+        input_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"{self.input_model_name}.h5"))
+        parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], self.config['names']['parsed_model'] + '.h5'))
         
         input_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'input_model_activations')
         os.makedirs(input_model_activation_dir, exist_ok=True)
         parsed_model_activation_dir = os.path.join(self.config['paths']['path_wd'], 'parsed_model_activations')
         os.makedirs(parsed_model_activation_dir, exist_ok=True)
         
-        for layer in model.layers:
-            model_activation = tf.keras.models.Model(inputs=model.input, outputs=layer.output).predict(x_norm)
-            np.savez_compressed(os.path.join(input_model_activation_dir, f"input_model_activation_{layer.name}.npz"), model_activation)
-            np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
-                
+        for layer in input_model.layers:
+            input_model_activation = tf.keras.models.Model(inputs=input_model.input, outputs=layer.output).predict(x_norm)
+            np.savez_compressed(os.path.join(input_model_activation_dir, f"input_model_activation_{layer.name}.npz"), input_model_activation)
+        
+        for layer in parsed_model.layers:
+            parsed_model_activation = tf.keras.models.Model(inputs=parsed_model.input, outputs=layer.output).predict(x_norm)
+            np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), parsed_model_activation)
+    
             
     def get_model_MAC(self, data_size):
         """
