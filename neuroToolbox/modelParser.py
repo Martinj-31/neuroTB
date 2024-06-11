@@ -267,7 +267,7 @@ class Parser:
         return new_weight, new_bias
 
 
-    def parseAnalysis(self, model_1, model_2, x_test, y_test):
+    def parseAnalysis(self, parsed_model, x_test, y_test):
         """
         Evaluate and compare two models on a given test dataset.
 
@@ -282,14 +282,19 @@ class Parser:
 
         This function evaluates two models, `model_1` and `model_2`, on the provided test dataset (`x_test` and `y_test`). It computes evaluation metrics for each model and returns them as a tuple, allowing for comparison between the two models.
         """
-        
-        score1 = model_1.evaluate(x_test, y_test, verbose=0)
-        score2 = model_2.evaluate(x_test, y_test, verbose=0)
+        parsed_model.summary()
+        score = parsed_model.evaluate(x_test, y_test, verbose=0)
 
-        return score1, score2
+        return score
 
  
     def get_model_activation(self, name='input'):
+        """
+        Get the activation value of each layer.
+
+        Args:
+            name (str, optional): _description_. Defaults to 'input'.
+        """
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
         x_norm = x_norm_file['arr_0']
@@ -304,18 +309,16 @@ class Parser:
         for layer in model.layers:
             model_activation = tf.keras.models.Model(inputs=model.input, outputs=layer.output).predict(x_norm)
             np.savez_compressed(os.path.join(input_model_activation_dir, f"input_model_activation_{layer.name}.npz"), model_activation)
-            if 'lambda' in layer.name:
-                inbound = utils.get_inbound_layers_with_params(layer)
-                pre_layer = inbound[0]
-                np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{pre_layer.name}.npz"), model_activation)
-            elif 'conv' in layer.name or 'dense' in layer.name:
-                if hasattr(layer, 'activation'):
-                    if layer.activation.__name__ == 'softmax':
-                        np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
-            else: np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
+            np.savez_compressed(os.path.join(parsed_model_activation_dir, f"parsed_model_activation_{layer.name}.npz"), model_activation)
                 
             
     def get_model_MAC(self, data_size):
+        """
+        Get the MAC operation of the ANN model.
+
+        Args:
+            data_size (_type_): _description_
+        """
         MAC = 0
         
         bias_flag = self.config["options"]["bias"]
