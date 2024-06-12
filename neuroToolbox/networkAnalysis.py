@@ -53,53 +53,67 @@ class Analysis:
     
 
     def run(self, data_size):
+        """
+        Run SNN model.
+
+        Args:
+            data_size (_type_): _description_
+        """
         print(f"Preparing for running converted snn.")
         print(f"Threshold : {self.v_th}")
 
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
-        self.x_test = np.floor(x_test[:data_size])
+        x_test = np.floor(x_test[:data_size])
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
         y_test = y_test[:data_size]
 
-        print(f"Input data length : {len(self.x_test)}")
+        print(f"Input data length : {len(x_test)}")
         print(f"...\n")
 
         print(f"Loading synaptic weights ...\n")
 
         weights = {}
         for key in self.synapses.keys():
+            if 'add' in key:
+                continue
             weights[key] = self.synapses[key][3]
 
         score = 0
         self.syn_operation = 0
-        # residual_firing_rate = None
-        for input_idx in range(len(self.x_test)):
-            firing_rate = self.x_test[input_idx].flatten()
+        for input_idx in range(len(x_test)):
+            firing_rate = []
+            for oc in range(x_test[input_idx].shape[-1]):
+                firing_rate = np.concatenate((firing_rate, x_test[input_idx][:, :, oc].flatten()))
             shortcut = None
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
-                # for neu_idx in range(len(firing_rate)):
-                #     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
-                #     self.syn_operation += firing_rate[neu_idx] * fan_out
-                if 'conv2d_1' == layer or 'conv2d_3' == layer or 'conv2d_5' == layer or 'conv2d_8' == layer or 'conv2d_10' == layer or 'conv2d_13' == layer or 'conv2d_15' == layer or 'conv2d_18' == layer:
+                for neu_idx in range(len(firing_rate)):
+                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
+                    self.syn_operation += firing_rate[neu_idx] * fan_out
+                if '_identity' in layer or 'add' in layer:
+                    if layer == 'conv2d_identity':
+                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                    if 'add' in layer:
+                        firing_rate = firing_rate + shortcut
                     shortcut = firing_rate
-                if 'conv2d_7' == layer or 'conv2d_12' == layer or 'conv2d_17' == layer:
+                elif '_conv' in layer:
                     shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
-                    firing_rate = firing_rate + shortcut
-                    continue
-                firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
-                if 'conv2d_2' == layer or 'conv2d_4' == layer or 'conv2d_9' == layer or 'conv2d_14' == layer or 'conv2d_19' == layer:
-                    firing_rate = firing_rate + shortcut
+                else:
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+
             print(f"Firing rate from output layer for #{input_idx+1} input")
-            print(f"{firing_rate}\n")
+            print(f"{firing_rate}")
 
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
             else: pass
+            
+            print(f"predict : {np.argmax(firing_rate)} | answer : {np.argmax(y_test[input_idx])}")
+            print(f"Accuracy : {score/(input_idx+1)*100} %\n")
 
-        self.accuracy = (score/len(self.x_test))*100
+        self.accuracy = (score/len(x_test))*100
         print(f"______________________________________")
         print(f"Accuracy : {self.accuracy} %")
         print(f"Synaptic operation : {self.syn_operation}")
@@ -108,6 +122,9 @@ class Analysis:
 
 
     def plot_compare(self):
+        """
+        Plot activation and expected firing rates for each layer.
+        """
         os.makedirs(self.config['paths']['path_wd'] + '/fr_corr')
         
         activation_dir = os.path.join(self.config['paths']['path_wd'], f"parsed_model_activations")
@@ -117,12 +134,37 @@ class Analysis:
 
         weights = {}
         for key in self.synapses.keys():
+            if 'add' in key:
+                continue
             weights[key] = self.synapses[key][3]
 
         firing_rate = x_norm
         
+        output_layer = 0
+        lambda_cnt = 0
         for layer, synapse in self.synapses.items():
-            act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
+            output_layer += 1
+            if 'add' in layer:
+                continue
+            elif '_identity' in layer:
+                new_layer = layer.replace('_identity', '')
+                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+            elif '_conv' in layer:
+                new_layer = layer.replace('_conv', '')
+                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+            elif 'conv2d' in layer:
+                new_layer = layer.replace('conv2d', 'lambda')
+                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+                lambda_cnt += 1
+            elif 'dense' in layer:
+                if output_layer == len(self.synapses):
+                    act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
+                else:
+                    new_layer = layer.replace(layer, f"lambda_{lambda_cnt}")
+                    act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+                    lambda_cnt += 1
+            else:
+                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
             acts = act_file['arr_0']
             
             activations = utils.Input_Activation(acts, layer)
@@ -130,78 +172,22 @@ class Analysis:
             fr = []
             for idx in range(len(firing_rate)):
                 spikes = firing_rate[idx].flatten()
-                spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.stochastic_rounding, self.bias_flag)
+                spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
                 fr.append(spikes)
             firing_rate = np.array(fr)
 
             plt.figure(figsize=(10, 10))
             plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
-            # plt.title(f"DNN activation vs. SNN firing rates", fontsize=30)
             plt.title(f"DNN activation vs. Expected firing rates", fontsize=30)
             plt.xlabel(f"Activations in {layer}", fontsize=27)
-            # plt.ylabel(f"Firing rates in {layer}", fontsize=27)
             plt.ylabel(f"Expected firing rates in {layer}", fontsize=27)
             plt.xticks(fontsize=20)
             plt.yticks(fontsize=20)
             plt.grid(True)
             # plt.yscale('symlog')
             # plt.ylim([1,200])
-            plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}", transparent=True)
+            plt.savefig(self.config['paths']['path_wd'] + '/fr_corr' + f"/{layer}", transparent=False)
             plt.show()
-    
-    
-    def IOcurve(self, axis_scale='linear'):
-        weights = utils.weightDecompile(self.synapses)
-
-        plot_input_spikes = {}
-        plot_output_spikes = {}
-        for layer in self.synapses.keys():
-            plot_input_spikes[layer] = []
-            plot_output_spikes[layer] = []
-
-        for input_idx in range(len(self.x_test)):
-            input_spike = self.x_test[input_idx].flatten()
-            input_spike = np.reshape(input_spike, (len(input_spike), 1))
-            for layer, synapse in self.synapses.items():
-                cnt = 0
-                input_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
-                output_spikes = np.zeros(len(input_spike)*len(weights[layer][0])*len(input_spike[0]))
-                for i in range(len(input_spike)):
-                    for j in range(len(weights[layer][0])):
-                        for k in range(len(input_spike[0])):
-                            output_spike = input_spike[i][k] * weights[layer][k][j]
-                            if output_spike < 0:
-                                output_spike = 0
-                            else: pass
-                            output_spike = np.floor(output_spike / (output_spike*self.t_ref + self.v_th[layer]))
-                            input_spikes[cnt] = input_spike[i][k] * weights[layer][k][j]
-                            output_spikes[cnt] = output_spike
-                            cnt += 1
-                idx = np.where(input_spikes >= 0)[0]
-                plot_input_spikes[layer] = np.concatenate((plot_input_spikes[layer], input_spikes[idx]))
-                plot_output_spikes[layer] = np.concatenate((plot_output_spikes[layer], output_spikes[idx]))
-
-                next_spike = np.dot(input_spike.flatten(), weights[layer])
-                neg_idx = np.where(next_spike < 0)[0]
-                next_spike[neg_idx] = 0
-                next_spike = np.floor(next_spike / (next_spike*self.t_ref + self.v_th[layer]))
-                next_spike = np.reshape(next_spike, (len(next_spike), 1))
-                input_spike = next_spike
-
-        for layer in self.synapses.keys():
-            plt.plot(plot_input_spikes[layer], plot_output_spikes[layer], 'b.')
-            plt.title(f"IO curve {layer}")
-            plt.grid(True)
-            if axis_scale == 'symlog':
-                plt.xscale('symlog')
-                plt.yscale('symlog')
-            else: pass
-            plt.show()
-
-
-    def spikes(self):
-        
-        return self.firing_rates
     
     
     def set_threshold(self, threshold):
@@ -390,46 +376,6 @@ class Analysis:
                             plt.show()
                 input_idx += 1
                 print('')
-    
-    
-    def plot_error(self, error_list, synops_error_list, acc_error_list):
-        os.makedirs(self.config['paths']['path_wd'] + '/error')
-        
-        plt.figure(figsize=(10, 10))
-        plt.plot(error_list, marker='o', linestyle='-', color='red', label=f"Total error")
-        plt.plot(synops_error_list, marker='o', linestyle='-', color='blue', label="SynOps error")
-        plt.plot(acc_error_list, marker='o', linestyle='-', color='green', label=f"Performance error")
-        plt.title(f"Error on epoch {len(error_list)}", fontsize=30)
-        plt.xlabel(f"Epoch", fontsize=27)
-        plt.ylabel(f"Error", fontsize=27)
-        plt.ylim([0, 0.18])
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-        plt.grid(True)
-        plt.legend(fontsize='xx-large')
-        plt.savefig(self.config['paths']['path_wd'] + '/error' + f"/error")
-        plt.show()
-    
-    
-    def input_log_domain_trans_plot(self):
-        x_norm = None
-        x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
-        x_norm = x_norm_file['arr_0']
-        
-        ori_x = x_norm
-        log_x = utils.data_transfer(ori_x, 'log')
-        
-        plt.figure(figsize=(10, 10))
-        plt.scatter(ori_x, log_x, color='r', marker='o', s=10)
-        plt.title(f"Log domain transfer correlation", fontsize=30)
-        plt.xlabel(f"Before transfer", fontsize=27)
-        plt.ylabel(f"After transfer", fontsize=27)
-        plt.xticks(fontsize=20)
-        plt.yticks(fontsize=20)
-        plt.grid(True)
-        plt.yscale('symlog')
-        plt.ylim([1, 500])
-        plt.show()
                 
     
     def genResultFile(self):
@@ -452,7 +398,6 @@ class Analysis:
             logfile.writelines(f"Bias : YES\n")
         elif 'False' == self.config["options"]["bias"]:
             logfile.writelines(f"Bias : NO\n")
-        logfile.writelines(f"Input domain : {self.config['options']['trans_domain']} \n")
         
         logfile.writelines(f"\n")
         
@@ -467,9 +412,7 @@ class Analysis:
         logfile.writelines(f"/// Conversion setup \n")
         logfile.writelines(f"Normalization : {self.config['conversion']['normalization']} \n")
         logfile.writelines(f"Optimizer : {self.config['conversion']['optimizer']} \n")
-        logfile.writelines(f"Loss alpha : {self.config['conversion']['loss_alpha']} \n")
         logfile.writelines(f"Format : {self.config['conversion']['fp_precision']} \n")
-        logfile.writelines(f"Epoch : {self.config['conversion']['epoch']} \n")
         
         logfile.writelines(f"\n")
         
