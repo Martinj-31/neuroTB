@@ -141,7 +141,7 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 model = build_resnet18(input_shape=(32, 32, 3), num_classes=num_classes)
 
 # Compile the model
-model.compile(loss='sparse_categorical_crossentropy', 
+model.compile(loss='categorical_crossentropy', 
               optimizer=keras.optimizers.Adam(learning_rate=0.001), 
               metrics=['accuracy'])
 
