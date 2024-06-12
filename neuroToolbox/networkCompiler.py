@@ -62,14 +62,15 @@ class networkCompiler:
         for layer in self.parsed_model.layers[1:]:
             layers.append(layer)
 
+            if layer_type not in convertible_layers:
+                continue
+            
             print(f"\n Building layer for {layer.__class__.__name__} ({layer.name})")
 
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
                 print(f"Flatten layer are not converted to SNN. (Skipped)")
                 self.flatten_shapes.append(layers[-2])
-                continue
-            elif layer_type not in convertible_layers:
                 continue
             
             self.neuron_layer(layer)
