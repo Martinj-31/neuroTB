@@ -62,7 +62,7 @@ class networkCompiler:
         for layer in self.parsed_model.layers[1:]:
             layers.append(layer)
 
-            print(f"\n Building layer for {layer.__class__.__name__}")
+            print(f"\n Building layer for {layer.__class__.__name__} ({layer.name})")
 
             layer_type = layer.__class__.__name__
             if layer_type == 'Flatten':
