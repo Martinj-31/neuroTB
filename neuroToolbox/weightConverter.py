@@ -56,11 +56,11 @@ class Converter:
         
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
-        self.x_test = x_test[:data_size]
+        self.x_test = x_test[:1000]
         
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
-        self.y_test = y_test[:data_size]
+        self.y_test = y_test[:1000]
         
         x_norm = None
         x_norm_file = np.load(os.path.join(self.config['paths']['dataset_path'], 'x_norm.npz'))
@@ -72,15 +72,19 @@ class Converter:
         
         self.v_th = {}
         for layer in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name:
                 continue
             else: self.v_th[layer.name] = self.init_v_th
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
+        self.changename_layers()
 
 
     def convertWeights(self):
+        """
+        Convert ANN weights to SNN weights and set threshold.
+        """
 
         print("\n\n######## Converting weight ########\n")
         
@@ -95,31 +99,38 @@ class Converter:
             print(f"# Replaced by a very small value that can be ignored.\n")
             
         for layer in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
                 continue
             else: pass
             
             neuron = self.synapses[layer.name]
             print(f"Convert weight and threshold for layer {layer.name}\n")
             if self.bias_flag:
-                if 'conv' in layer.name or 'dense' == layer.name:
+                if 'conv' in layer.name or 'dense' in layer.name:
                     ann_weights = [weights[layer.name], neuron[4]]
                 else: ann_weights = [weights[layer.name]]
             else: ann_weights = [weights[layer.name]]
             
-            if 'on' == self.normalization:
+            if 'on' == self.normalization:       
                 max_ann_weights = np.max(abs(ann_weights[0]))
                 snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
                 self.v_th[layer.name] = 1.0 / max_ann_weights * self.w_mag
+                if 'conv' in layer.name or 'dense' in layer.name:
+                    if self.bias_flag:
+                        snn_bias = ann_weights[1] / max_ann_weights * self.w_mag
             else:
                 snn_weights = ann_weights[0]
                 self.v_th[layer.name] = self.init_v_th
+                if 'conv' in layer.name or 'dense' in layer.name:
+                    if self.bias_flag:
+                        snn_bias = ann_weights[1]
+            
             snn_weights = utils.weightFormat(snn_weights, self.fp_precision)
             
             if self.bias_flag:
-                if 'conv' in layer.name or 'dense' == layer.name:
+                if 'conv' in layer.name or 'dense' in layer.name:
                     neuron[3] = snn_weights
-                    neuron[4] = ann_weights[1]
+                    neuron[4] = snn_bias
                 else: neuron[3] = snn_weights
             else: neuron[3] = snn_weights
             
@@ -136,11 +147,11 @@ class Converter:
         threshold_list = []
         layer_threshold = {}
         for l in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
                 continue
             layer_threshold[l.name] = []
             
-        target_score = float(self.config['result']['input_model_acc'])*100*0.95
+        target_score = float(self.config['result']['input_model_acc'])*100*0.99
         for target_firing_rate in range(int(self.firing_range), 0, -1):
             
             print(f"Target firing rate range : {target_firing_rate}\n")
@@ -149,13 +160,13 @@ class Converter:
                 if 'input' in layer.name:
                     input_data = utils.Input_Activation(self.x_norm, layer.name)
                     continue
-                elif 'flatten' in layer.name:
+                elif 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
                     continue
                 else: pass
                 
                 neuron = self.synapses[layer.name]
                 
-                snn_weights = neuron[2]
+                snn_weights = neuron[3]
                 
                 cnt = 0
                 while True:
@@ -298,6 +309,17 @@ class Converter:
     
 
     def get_output_spikes(self, x, weights, layer_name):
+        """
+        Get output spikes for a layer.
+
+        Args:
+            x (_type_): _description_
+            weights (_type_): _description_
+            layer_name (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         synapse = self.synapses[layer_name]
         input_spikes = x
         spikes = []
@@ -310,6 +332,17 @@ class Converter:
     
     
     def get_input_spikes(self, x, weights, layer_name):
+        """
+        Get weighted sum.
+
+        Args:
+            x (_type_): _description_
+            weights (_type_): _description_
+            layer_name (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         synapse = self.synapses[layer_name]
         input_spikes = x
         spikes = []
@@ -322,6 +355,17 @@ class Converter:
     
     
     def get_activations(self, x, weights, layer_name):
+        """
+        Get expected activations with output spikes.
+
+        Args:
+            x (_type_): _description_
+            weights (_type_): _description_
+            layer_name (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         synapse = self.synapses[layer_name]
         input_activations = x
         acts = []
@@ -333,27 +377,17 @@ class Converter:
         return np.array(acts)
     
     
-    def in_out_test(self, x):
-        weights = {}
-        for key in self.synapses.keys():
-            weights[key] = self.synapses[key][3]
-        
-        x = x.flatten()
-        for layer, synapse in self.synapses.items():
-            x = utils.get_weighted_sum(x, weights[layer], self.fp_precision)
-            neg_idx = np.where(x < 0)[0]
-            x[neg_idx] = 0
-            plt.plot((x / self.v_th[layer]), np.floor((x / self.v_th[layer]) / ((x / self.v_th[layer])*self.t_ref + 1)), 'b.')
-            plt.yscale('log')
-            plt.xlim([0, 200])
-            plt.ylim([0, 200])
-            plt.show()
-            
-            x = (x / self.v_th[layer]) / ((x / self.v_th[layer])*self.t_ref + 1)
-            x = np.floor(x)
-    
-    
     def score(self, x, y):
+        """
+        Measure score for SNN with current parameters.
+
+        Args:
+            x (_type_): _description_
+            y (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         x_test = np.floor(x)
         y_test = y
 
@@ -382,90 +416,25 @@ class Converter:
     def get_threshold(self):
         
         return self.v_th
-    
-    
-    def error(self):
-        
-        return self.error_list, self.synops_error_list, self.acc_error_list, self.firing_range_list
-    
-    
-    def get_activations_layer(self, layer_in, layer_out, x, batch_size=None, path=None):
-
-        # Set to 10 if batch_size is not specified
-        if batch_size is None:
-            batch_size = 10
-        
-        # If input sample x and batch_size are divided and the remainder is nonzero
-        if len(x) % batch_size != 0:
-            # Delete the remainder divided by input sample list x
-            x = x[: -(len(x) % batch_size)]
-        
-        print("Calculating activations of layer {}.".format(layer_out.name))
-        # Calculate the activation of the corresponding layer neuron by putting 
-        # an input sample in the predict function
-        activations = tf.keras.models.Model(inputs=layer_in.input, 
-                                            outputs=layer_out.output).predict(x, batch_size)
-        
-        # Save activations as an npz file
-        print("Writing activations to disk.")
-        if path is not None:
-            np.savez_compressed(os.path.join(path, f'activation_{layer_out.name}.npz'), activations)
 
 
-        return np.array(activations)
-    
-    
-    def get_inbound_layers_with_params(self, layer):
-        
-        inbound = layer
-        prev_layer = None
-        # Repeat when a layer with weight exists
-        while True:
-            inbound = self.get_inbound_layers(inbound)
+    def changename_layers(self):
+        neurons_keys = list(self.neurons.keys())
+        i = 0
+        print(f"Change name of layers...")
+        print(f"_________________________________________________________________")
+        for layer in self.parsed_model.layers:
+            old_name = layer.name
             
-            if len(inbound) == 1 and not isinstance(inbound[0], 
-                                                    tf.keras.layers.BatchNormalization):
-                inbound = inbound[0]
-                if self.has_weights(inbound):
-                    return [inbound]
-                
-            # If there is no layer information
-            # In the case of input layer, the previous layer does not exist, 
-            # so it is empty list return
-            else:
-                result = []
-                for inb in inbound:
-                    if isinstance(inb, tf.keras.layers.BatchNormalization):
-                        prev_layer = self.get_inbound_layers_with_params(inb)[0]
-                            
-                    if self.has_weights(inb):
-                        result.append(inb)
-                        
-                    else:
-                        result += self.get_inbound_layers_with_params(inb)
-                        
-                if prev_layer is not None:
-                    return [prev_layer]
-                
+            if '_flatten' in old_name:
+                continue
+            if i < len(neurons_keys):
+                new_name = neurons_keys[i]
+                if '_identity' in new_name or '_conv' in new_name:
+                    layer._name = new_name
+                    print(f"Update {old_name} to {new_name}")
                 else:
-                    return result
-    
-    
-    def get_inbound_layers(self, layer):
+                    layer._name = old_name
+                i += 1
         
-        # Check the previous layer of that layer through _inbound_nodes
-        inbound_layers = layer._inbound_nodes[0].inbound_layers
-        
-        if not isinstance(inbound_layers, (list, tuple)):
-            inbound_layers = [inbound_layers]
-            
-        return inbound_layers
-        
-    
-    def has_weights(self, layer):
-        
-        if isinstance(layer, tf.keras.layers.BatchNormalization):
-            return False
-        
-        else:    
-            return len(layer.weights)
+        print(f"_________________________________________________________________")
