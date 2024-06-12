@@ -55,6 +55,7 @@ class networkCompiler:
 
         print("\n\n####### Compiling an ANN model into a SNN model #######\n")
         print(f"Data format is '{keras.backend.image_data_format()}'\n")
+        convertible_layers = eval(self.config.get('restrictions', 'convertible_layers'))
 
         self.neuron_input_layer(input_shape)
         layers = []
@@ -67,6 +68,8 @@ class networkCompiler:
             if layer_type == 'Flatten':
                 print(f"Flatten layer are not converted to SNN. (Skipped)")
                 self.flatten_shapes.append(layers[-2])
+                continue
+            elif layer_type not in convertible_layers:
                 continue
             
             self.neuron_layer(layer)
