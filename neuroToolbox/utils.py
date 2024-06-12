@@ -105,17 +105,14 @@ def has_weights(layer):
     
     else:    
         return len(layer.weights)
-    
-
-def get_percentile_activation(activations, percentile):
-
-    return np.percentile(activations, percentile) if activations.size else 1
 
 
 def weightDecompile(synapses):
     weight_list = {}
     synCnt = 0
     for layer, synapse in synapses.items():
+        if 'add' in layer:
+            continue
         src = np.array(synapse[0]) - synCnt
         synCnt += 1024
         tar = np.array(synapse[1]) - synCnt
@@ -132,11 +129,11 @@ def weightDecompile(synapses):
     return weight_list
 
 
-def weightFormat(weights, format='FP32', stochastic_rounding=False):
+def weightFormat(weights, format='FP32'):
     if 'FP32' == format:
         weights = weights
     elif 'FP8' == format:
-        weights = convert_number_format(weights, stochastic_rounding)
+        weights = convert_number_format(weights)
     elif 'INT8' == format:
         weights = toInt8(weights)
     else: pass
@@ -204,25 +201,24 @@ def Input_Activation(input_activations, layer_name):
 
 
 def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, clip=True):
-    spikes = get_weighted_sum(spikes, weights, precision)
+    membrane = get_weighted_sum(spikes, weights, precision)
     if bias_flag:
         if 'conv' in layer_name:
             s = 0
             for oc_idx, oc in enumerate(synapse[5]):
-                spikes[s:oc] = (spikes[s:oc] + synapse[4][oc_idx])
+                membrane[s:oc] = membrane[s:oc] + synapse[4][oc_idx]
                 s = oc + 1
         elif 'dense' in layer_name:
-            spikes = (spikes + synapse[4])
-        else:
-            spikes = spikes
+            membrane = membrane + synapse[4]
+        else: pass
     else: pass
     
-    neg_idx = np.where(spikes < 0)[0]
-    spikes[neg_idx] = 0
+    neg_idx = np.where(membrane < 0)[0]
+    membrane[neg_idx] = 0
     
     if 'pooling' in layer_name:
-        spikes = spikes / threshold
-    else: spikes = (spikes / threshold) / ((spikes / threshold)*refractory + 1)
+        spikes = membrane / threshold
+    else: spikes = (membrane / threshold) / ((membrane / threshold)*refractory + 1)
     
     if clip:
         spikes = np.floor(spikes)
