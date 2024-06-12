@@ -46,7 +46,7 @@ def IFRA(x, t, q=False):
     else:
         return y
 
-bias_flag = False
+bias_flag = True
 
 # Add a channel dimension.
 axis = 1 if keras.backend.image_data_format() == 'channels_first' else -1
@@ -56,14 +56,14 @@ def identity_block(input_tensor, kernel_size, filters):
     filters1, filters2 = filters
     
     x = keras.layers.Conv2D(filters1, (1, 1), use_bias=bias_flag)(input_tensor)
-    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     if bias_flag:
         x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = Lambda(lambda x: IFRA(x, 5, False))(x)
 
     x = keras.layers.Conv2D(filters2, kernel_size, padding='same', use_bias=bias_flag)(x)
-    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     if bias_flag:
         x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = Lambda(lambda x: IFRA(x, 5, False))(x)
 
     x = keras.layers.Add()([x, input_tensor])
     x = Lambda(lambda x: IFRA(x, 5, False))(x)
@@ -74,19 +74,19 @@ def conv_block(input_tensor, kernel_size, filters, strides=(2, 2)):
     filters1, filters2 = filters
     
     x = keras.layers.Conv2D(filters1, (1, 1), strides=strides, use_bias=bias_flag)(input_tensor)
-    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     if bias_flag:
         x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = Lambda(lambda x: IFRA(x, 5, False))(x)
 
     x = keras.layers.Conv2D(filters2, kernel_size, padding='same', use_bias=bias_flag)(x)
-    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     if bias_flag:
         x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     
     shortcut = keras.layers.Conv2D(filters2, (1, 1), strides=strides, use_bias=bias_flag)(input_tensor)
-    shortcut = Lambda(lambda x: IFRA(x, 5, False))(shortcut)
     if bias_flag:
         shortcut = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(shortcut)
+    shortcut = Lambda(lambda x: IFRA(x, 5, False))(shortcut)
 
     x = keras.layers.Add()([x, shortcut])
     x = Lambda(lambda x: IFRA(x, 5, False))(x)
@@ -97,9 +97,9 @@ def build_resnet18(input_shape=(32, 32, 3), num_classes=10):
     inputs = keras.layers.Input(shape=input_shape)
     
     x = keras.layers.Conv2D(64, (7, 7), strides=(2, 2), padding='same', use_bias=bias_flag)(inputs)
-    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     if bias_flag:
         x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
+    x = Lambda(lambda x: IFRA(x, 5, False))(x)
 
     # ResNet blocks
     x = identity_block(x, 3, [64, 64])
@@ -116,6 +116,7 @@ def build_resnet18(input_shape=(32, 32, 3), num_classes=10):
 
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(512, use_bias=bias_flag)(x)
+    x = Lambda(lambda x: IFRA(x, 5, False))(x)
     outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -128,8 +129,8 @@ def build_resnet18(input_shape=(32, 32, 3), num_classes=10):
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
 # Data preprocessing and normalization
-x_train = x_train.astype('float32') 
-x_test = x_test.astype('float32') 
+x_train = x_train.astype('float32')
+x_test = x_test.astype('float32')
 
 # Convert labels to one-hot encoding
 num_classes = 10
@@ -140,11 +141,13 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 model = build_resnet18(input_shape=(32, 32, 3), num_classes=num_classes)
 
 # Compile the model
-model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(learning_rate=0.001), metrics=['accuracy'])
+model.compile(loss='sparse_categorical_crossentropy', 
+              optimizer=keras.optimizers.Adam(learning_rate=0.001), 
+              metrics=['accuracy'])
 
 # Train the model
-batch_size = 128
-epochs = 1
+batch_size = 256
+epochs = 10
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_data=(x_test, y_test))
 
 # Evaluate the model
