@@ -55,21 +55,21 @@ def IFRA(x, t, q=False):
 input_shape = x_train.shape[1:]
 inputs = keras.layers.Input(input_shape)
 
-bias_flag = False
+bias_flag = True
 
 # Convolutional layers
 x = keras.layers.Conv2D(8, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(inputs)
-x = Lambda(lambda x: IFRA(x, 5, False))(x)
 if bias_flag:
     x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 else: pass
+x = Lambda(lambda x: IFRA(x, 5, False))(x)
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Conv2D(16, (3, 3), strides=(1, 1), padding='same', use_bias=bias_flag)(x)
-x = Lambda(lambda x: IFRA(x, 5, False))(x)
 if bias_flag:
     x = keras.layers.BatchNormalization(epsilon=1e-5, axis = axis)(x)
 else: pass
+x = Lambda(lambda x: IFRA(x, 5, False))(x)
 x = keras.layers.AveragePooling2D(pool_size=(2, 2))(x)
 
 x = keras.layers.Flatten()(x)
@@ -81,8 +81,8 @@ outputs = keras.layers.Dense(units=10, activation='softmax', use_bias=bias_flag)
 model = keras.Model(inputs=inputs, outputs=outputs)
 
 # Compile the model
-model.compile(loss='categorical_crossentropy',
-            optimizer=keras.optimizers.SGD(learning_rate=0.001),
+model.compile(loss='sparse_categorical_crossentropy',
+            optimizer=keras.optimizers.Adam(learning_rate=0.001),
             metrics=['accuracy'])
 
 # Train the model
@@ -133,7 +133,7 @@ default_config['names']['snn_model'] = 'SNN_' + model_name
 default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
 default_config['conversion']['firing_range'] = '10'
-default_config['conversion']['fp_precision'] = 'FP8'
+default_config['conversion']['fp_precision'] = 'FP32'
 default_config['conversion']['normalization'] = 'off'
 default_config['conversion']['optimizer'] = 'off'
 default_config['spiking_neuron']['refractory'] = '5'
