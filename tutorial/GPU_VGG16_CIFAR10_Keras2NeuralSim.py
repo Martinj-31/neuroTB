@@ -129,7 +129,7 @@ def build_model_structure(input_shape=(32, 32, 3), num_classes=10):
     x = Lambda(lambda x: IFRA(x, 5, False))(x)
     x = keras.layers.Dense(4096, use_bias=bias_flag)(x)
     x = Lambda(lambda x: IFRA(x, 5, False))(x)
-    outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias=False)(x)
+    outputs = keras.layers.Dense(num_classes, activation='softmax', use_bias=bias_flag)(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
     return model
@@ -168,16 +168,16 @@ print('Test accuracy:', score[1])
 # Save the model
 model_name = 'VGG16_CIFAR10'
 model.summary()
-keras.models.save_model(model, os.path.join(path_wd, model_name + '.h5'))
+keras.models.save_model(model, os.path.join(path_wd + '/models/', model_name + '.h5'))
 
 # Save the preprocessed dataset for later use
-np.savez_compressed(os.path.join(path_wd, 'x_test'), x_test)
-np.savez_compressed(os.path.join(path_wd, 'x_train'), x_train)
-np.savez_compressed(os.path.join(path_wd, 'y_test'), y_test)
-np.savez_compressed(os.path.join(path_wd, 'y_train'), y_train)
-# Extracting datasets for Normalization
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_test'), x_test)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_train'), x_train)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'y_test'), y_test)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'y_train'), y_train)
+# Extracting datasets for Normalizationdi
 x_norm = x_train[::6000]
-np.savez_compressed(os.path.join(path_wd, 'x_norm'), x_norm)
+np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_norm'), x_norm)
 
 
 # Save the config file
