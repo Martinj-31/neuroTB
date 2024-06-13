@@ -25,10 +25,19 @@ print("path wd: ", path_wd)
 # Import the run_neuroTB function from run.main
 from run.main import run_neuroTB
 
-model_path = '/Users/mingyucheon/work/neuroTB/temp/models'
-model_name = 'MNIST_CNN'
-bias_flag = False
-model = keras.models.load_model(os.path.join(model_path, f"models/{model_name}.h5"))
+def IFRA(x, t, q=False):
+    cliped_x = K.clip(x, 0, 1e+7)
+    y = cliped_x / (cliped_x*t*0.001 + 1)
+    if q:
+        return K.round(y)
+    else:
+        return y
+
+# Load trained ANN model.
+model_path = '/Users/mingyucheon/work/neuroTB/temp/resnet_model'
+model_name = 'ResNet18_CIFAR10'
+bias_flag = True
+model = keras.models.load_model(os.path.join(model_path,f"models/{model_name}.h5"))
 model.summary()
 keras.models.save_model(model, os.path.join(path_wd + '/models/', model_name + '.h5'))
 
@@ -49,7 +58,7 @@ x_norm = x_norm_file['arr_0']
 np.savez_compressed(os.path.join(path_wd + '/dataset/', 'x_norm'), x_norm)
 
 # Evaluate the model
-score = model.evaluate(x_test[::int(10000 / 1000)], y_test[::int(10000 / 1000)], verbose=0)
+score = model.evaluate(x_test[:1000], y_test[:1000], verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
@@ -67,30 +76,22 @@ default_config['paths']['path_wd'] = path_wd
 default_config['paths']['dataset_path'] = path_wd + '/dataset/'
 default_config['paths']['models'] = path_wd + '/models/'
 
-default_config['names']['dataset'] = 'MNIST'
+default_config['names']['dataset'] = 'CIFAR-10'
 default_config['names']['input_model'] = model_name
 default_config['names']['parsed_model'] = 'parsed_' + model_name
 default_config['names']['snn_model'] = 'SNN_' + model_name
 
 default_config['conversion']['neuron'] = 'IF'
 default_config['conversion']['batch_size'] = '1'
-default_config['conversion']['firing_range'] = '20'
+default_config['conversion']['firing_range'] = '10'
 default_config['conversion']['fp_precision'] = 'FP32'
-default_config['conversion']['epoch'] = '30'
-default_config['conversion']['normalization'] = 'on'
-default_config['conversion']['optimizer'] = 'on'
-default_config['conversion']['loss_alpha'] = '0.999'
-default_config['conversion']['scaling_step'] = '1'
-
+default_config['conversion']['normalization'] = 'off'
+default_config['conversion']['optimizer'] = 'off'
 default_config['spiking_neuron']['refractory'] = '5'
-default_config['spiking_neuron']['threshold'] = '16.0'
-default_config['spiking_neuron']['w_mag'] = '64.0'
-
-default_config['options']['bias'] = str(bias_flag) 
-default_config['options']['trans_domain'] = 'log'
-
+default_config['spiking_neuron']['threshold'] = '1.0'
+default_config['spiking_neuron']['w_mag'] = '16.0'
+default_config['options']['bias'] = str(bias_flag)
 default_config['test']['data_size'] = '1000'
-
 default_config['result']['input_model_acc'] = str(score[1])
 
 # Set the relative path of the config file
