@@ -383,7 +383,7 @@ class networkCompiler:
         for layer in self.parsed_model.layers:
             new_key = layer.name
             
-            if '_flatten' in new_key:
+            if '_flatten' in new_key or 'lambda' in new_key:
                 continue
             if i < len(neurons_keys):
                 old_key = neurons_keys[i]
@@ -409,7 +409,7 @@ class networkCompiler:
         for layer in self.parsed_model.layers:
             new_key = layer.name
             
-            if '_flatten' in new_key or 'input' in new_key:
+            if '_flatten' in new_key or 'input' in new_key or 'lambda' in new_key:
                 continue
             if i < len(synapses_keys):
                 old_key = synapses_keys[i]
