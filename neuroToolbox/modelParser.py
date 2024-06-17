@@ -134,6 +134,8 @@ class Parser:
                 # These layers are for parsed model evaluation and flag role.
                 
                 afterParse_layer_list.append(layer)
+                
+                continue
 
             elif layer_type not in convertible_layers:
                 print("Skipping layer {}.".format(layer_type))
@@ -153,43 +155,71 @@ class Parser:
         Build and compile the parsed model.
 
         Parameters:
-        - layer_list (list): List of layers for the parsed model.
+        - afterParse_layer_list (list): List of layers for the parsed model.
 
         Returns:
         - tf.keras.Model: The compiled parsed model.
 
         This method constructs the parsed model by connecting the layers provided in the layer_list (afterParse_layer_list)
         """
-       
+        layer_list = self.layer_name_update(layer_list)
         print("\n###### build parsed model ######\n")
         # input_shape = layer_list[0].input_shape[0][1:]
         # batch_size = self.config.getint('initial', 'batch_size')
         # batch_shape = (batch_size,) + input_shape
         # new_input_layer = keras.layers.Input(batch_shape=batch_shape, name=layer_list[0].name)
         # x = new_input_layer
+        
         x = layer_list[0].input
-        
         shortcut = None
+        conv_list = []
+        shortcut_state = None
+        last_conv_layer = None
         
-        for i, layer in enumerate(layer_list[1:]):
-            prev_layer = layer_list[i]
-
-            if i == 0:
-                x = layer(x)
-                shortcut = x
-                continue
-            
-            if isinstance(layer, keras.layers.Add):
-                if shortcut is not None:
-                    x = keras.layers.Add()([x, shortcut])
-                    shortcut = x
+        for layer in layer_list[1:]:
+            if '_shortcut_i' in layer.name:
+                shortcut_state = True
+            elif '_shortcut_c' in layer.name:
+                shortcut_state = False
             elif isinstance(layer, keras.layers.Conv2D):
-                if layer.strides == (2, 2) and 'conv' in prev_layer.name and prev_layer.strides == (1, 1):
-                    shortcut = layer(shortcut)
-                else: x = layer(x)
-            else: x = layer(x)
+                last_conv_layer = layer.name
+            conv_list.append(layer)
+
+            if isinstance(layer, keras.layers.Add):
+                conv_list.pop()
+                if shortcut_state == True:
+                    for l in conv_list:
+                        x = l(x)
+                        if '_shortcut_i' in l.name:
+                            shortcut = x
+                    x = layer([x, shortcut])
+                    shortcut = x
+                if shortcut_state == False:
+                    x = conv_list[0](x)
+                    shortcut = x
+                    for l in conv_list[1:]:
+                        if l.name == last_conv_layer or '_shortcut_c' in l.name:
+                            shortcut = l(shortcut)
+                        else:
+                            x = l(x)
+                    x = layer([x, shortcut])
+                    shortcut = x
+                shortcut_state = None
+                last_conv_layer = None
+                conv_list.clear()
+            
+            elif isinstance(layer, keras.layers.Dense):
+                conv_list.pop()
+                for l in conv_list:
+                    x = l(x)
+                x = layer(x)
+                shortcut_state = None
+                conv_list.clear()
+        
+        layer_list = self.layer_name_reset(layer_list)
         
         model = keras.models.Model(inputs=layer_list[0].input, outputs=x, name="parsed_model")
+        
         model.compile(loss='categorical_crossentropy', 
                       optimizer=keras.optimizers.Adam(learning_rate=0.001), 
                       metrics=['accuracy'])  
@@ -200,6 +230,46 @@ class Parser:
             pass
 
         return model
+    
+    
+    def layer_name_update(self, layer_list):
+        for layer in layer_list:
+            if isinstance(layer, keras.layers.Add):
+                for node in layer._inbound_nodes:
+                    incoming_layers = node.inbound_layers
+                    if isinstance(incoming_layers, list):
+                        connections = [incoming.name for incoming in incoming_layers]
+                    else: connections = [incoming_layers.name]
+                
+                target_layer = self.get_layer(connections[1])
+                new_layer_name = target_layer.name
+                
+                numbers = [0 if name == 'lambda' else int(name.split('_')[-1]) for name in connections]
+                
+                if numbers[0] > numbers[1]:
+                    new_layer_name += '_shortcut_i'
+                else:
+                    new_layer_name += '_shortcut_c'
+                target_layer._name = new_layer_name
+        
+        return layer_list
+    
+    
+    def layer_name_reset(self, layer_list):
+        for layer in layer_list:
+            new_layer_name = layer.name
+            new_layer_name = new_layer_name.replace('_shortcut_i', '').replace('_shortcut_c', '')
+            layer._name = new_layer_name
+        
+        return layer_list
+    
+    
+    def get_layer(self, layer_name):
+        for layer in self.input_model.layers[1:]:
+            if layer.name == layer_name:
+                return layer
+        
+        return None
 
       
     def _get_BN_parameters(self, layer):
@@ -289,7 +359,6 @@ class Parser:
 
         This function evaluates two models, `model_1` and `model_2`, on the provided test dataset (`x_test` and `y_test`). It computes evaluation metrics for each model and returns them as a tuple, allowing for comparison between the two models.
         """
-        parsed_model.summary()
         score = parsed_model.evaluate(x_test, y_test, verbose=0)
 
         return score
