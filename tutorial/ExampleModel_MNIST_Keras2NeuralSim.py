@@ -81,7 +81,7 @@ outputs = keras.layers.Dense(units=10, activation='softmax', use_bias=bias_flag)
 model = keras.Model(inputs=inputs, outputs=outputs)
 
 # Compile the model
-model.compile(loss='sparse_categorical_crossentropy',
+model.compile(loss='categorical_crossentropy',
             optimizer=keras.optimizers.Adam(learning_rate=0.001),
             metrics=['accuracy'])
 
