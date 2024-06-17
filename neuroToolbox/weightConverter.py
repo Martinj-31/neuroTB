@@ -426,7 +426,7 @@ class Converter:
         for layer in self.parsed_model.layers:
             old_name = layer.name
             
-            if '_flatten' in old_name:
+            if '_flatten' in old_name or 'lambda' in old_name:
                 continue
             if i < len(neurons_keys):
                 new_name = neurons_keys[i]
