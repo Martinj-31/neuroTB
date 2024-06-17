@@ -63,7 +63,7 @@ class networkCompiler:
             layers.append(layer)
             layer_type = layer.__class__.__name__
             
-            if layer_type not in convertible_layers:
+            if layer_type not in convertible_layers and layer_type != 'Add':
                 continue
 
             print(f"\n Building layer for {layer.__class__.__name__} ({layer.name})")
@@ -82,14 +82,21 @@ class networkCompiler:
             elif layer_type == 'AveragePooling2D':
                 self.Synapse_pooling(layer)
             
-            # Need to edit
             elif layer_type == 'Add':
                 for node in layer._inbound_nodes:
                     incoming_layers = node.inbound_layers
                     if isinstance(incoming_layers, list):
                         connections = [incoming.name for incoming in incoming_layers]
                     else: connections = [incoming_layers.name]
-                target_layer = self.get_layer_by_name(connections[1])
+                lambda_layer = self.get_layer_by_name(connections[1])
+                
+                for node in lambda_layer._inbound_nodes:
+                    incoming_layer = node.inbound_layers
+                    if isinstance(incoming_layer, list):
+                        target = [incoming.name for incoming in incoming_layer]
+                    else: target = [incoming_layer.name]
+                
+                target_layer = self.get_layer_by_name(target[0])
                 
                 if target_layer:
                     target_layer_type = target_layer.__class__.__name__
@@ -111,6 +118,7 @@ class networkCompiler:
         for layer in self.parsed_model.layers[1:]:
             if layer.name == layer_name:
                 return layer
+        
         return None
     
     
