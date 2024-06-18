@@ -151,7 +151,7 @@ class Converter:
                 continue
             layer_threshold[l.name] = []
             
-        target_score = float(self.config['result']['input_model_acc'])*100*0.99
+        target_score = float(self.config['result']['input_model_acc'])*100
         for target_firing_rate in range(int(self.firing_range), 0, -1):
             
             print(f"Target firing rate range : {target_firing_rate}\n")
