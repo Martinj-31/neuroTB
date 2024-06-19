@@ -129,8 +129,8 @@ def build_resnet18(input_shape=(32, 32, 3), num_classes=10):
 (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
 # Data preprocessing and normalization
-x_train = x_train.astype('float32')
-x_test = x_test.astype('float32')
+x_train = x_train.reshape(x_train.shape[0], 32, 32, axis).astype('float32')
+x_test = x_test.reshape(x_test.shape[0], 32, 32, axis).astype('float32')
 
 # Convert labels to one-hot encoding
 num_classes = 10
