@@ -294,7 +294,7 @@ class networkCompiler:
                         idx += width_kn
                 row_idx += (stride_x-1)
                 target_cnt += 1
-            output_channels_idx.append(target_cnt-1)
+            output_channels_idx.append(target_cnt)
                 
         if 'same' == layer.padding:
             padding_idx = np.where(source == -1)[0]
