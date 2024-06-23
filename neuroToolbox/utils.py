@@ -207,7 +207,7 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, pr
             s = 0
             for oc_idx, oc in enumerate(synapse[5]):
                 membrane[s:oc] = membrane[s:oc] + synapse[4][oc_idx]
-                s = oc + 1
+                s = oc
         elif 'dense' in layer_name:
             membrane = membrane + synapse[4]
         else: pass
