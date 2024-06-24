@@ -80,8 +80,6 @@ class Analysis:
                 continue
             weights[key] = self.synapses[key][3]
 
-        key_list = list(weights.keys())
-        print(key_list)
         score = 0
         self.syn_operation = 0
         for input_idx in range(len(x_test)):
