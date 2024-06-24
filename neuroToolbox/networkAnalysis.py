@@ -80,6 +80,8 @@ class Analysis:
                 continue
             weights[key] = self.synapses[key][3]
 
+        key_list = list(weights.keys())
+        print(key_list)
         score = 0
         self.syn_operation = 0
         for input_idx in range(len(x_test)):
@@ -89,9 +91,9 @@ class Analysis:
             shortcut = None
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
-                # for neu_idx in range(len(firing_rate)):
-                #     fan_out = len(np.where(weights[neu_idx][:] > 0))
-                #     self.syn_operation += firing_rate[neu_idx] * fan_out
+                for neu_idx in range(len(firing_rate)):
+                    fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
+                    self.syn_operation += firing_rate[neu_idx] * fan_out
                 if '_identity' in layer or 'add' in layer:
                     if layer == 'conv2d_identity':
                         firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
