@@ -155,18 +155,33 @@ class Converter:
         for target_firing_rate in range(int(self.firing_range), 0, -1):
             
             print(f"Target firing rate range : {target_firing_rate}\n")
+            shortcut = None
             
             for layer in self.parsed_model.layers:
                 if 'input' in layer.name:
                     input_data = utils.Input_Activation(self.x_norm, layer.name)
                     continue
-                elif 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
+                elif 'flatten' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
                     continue
                 else: pass
-                
+
+                first_layer_flag = 0
+
+                if '_identity' in layer.name or 'add' in layer.name:
+                    if layer.name == 'conv2d_identity':
+                        first_layer_flag = 1
+                        
+                    if 'add' in layer.name:
+                        input_data = input_data + shortcut
+                        shortcut = input_data
+                        continue
+
                 neuron = self.synapses[layer.name]
-                
                 snn_weights = neuron[3]
+
+                if '_conv' in layer.name:
+                    shortcut = self.get_output_spikes(shortcut, snn_weights, layer.name)
+                    continue
                 
                 cnt = 0
                 while True:
@@ -192,7 +207,10 @@ class Converter:
                 layer_threshold[layer.name].append(self.v_th[layer.name])
                 
                 input_data = self.get_output_spikes(input_data, snn_weights, layer.name)
-            
+
+                if first_layer_flag == 1:
+                    shortcut = input_data
+                    
             score, synOps = self.score(self.x_test, self.y_test)
             print(self.v_th)
             print(score, synOps)
@@ -393,14 +411,19 @@ class Converter:
 
         weights = {}
         for key in self.synapses.keys():
+            if 'add' in key:
+                continue
             weights[key] = self.synapses[key][3]
         
         score = 0
         syn_operation = 0
         for input_idx in tqdm(range(len(x_test)), ncols=70, ascii=' ='):
             firing_rate = x_test[input_idx].flatten()
+            shortcut = None
             for layer, synapse in self.synapses.items():
                 for neu_idx in range(len(firing_rate)):
+                    if 'add' in layer:
+                        continue
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     syn_operation += firing_rate[neu_idx] * fan_out
                 if '_identity' in layer or 'add' in layer:

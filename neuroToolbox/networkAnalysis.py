@@ -90,6 +90,8 @@ class Analysis:
             for layer, synapse in self.synapses.items():
                 # Calculate synaptic operations
                 for neu_idx in range(len(firing_rate)):
+                    if 'add' in layer:
+                        continue
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
                     self.syn_operation += firing_rate[neu_idx] * fan_out
                 if '_identity' in layer or 'add' in layer:
