@@ -149,21 +149,34 @@ class Analysis:
         
         output_layer = 0
         lambda_cnt = 0
+        add_cnt = 0
+        add_flag = 0
+
         for layer, synapse in self.synapses.items():
             output_layer += 1
             if 'add' in layer:
-                continue
-            elif '_identity' in layer:
-                new_layer = layer.replace('_identity', '')
-                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
-            elif '_conv' in layer:
-                new_layer = layer.replace('_conv', '')
-                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+                add_flag = 1
+                add_cnt += 1
+                lambda_cnt += 1
+                pass
             elif 'conv2d' in layer:
+                add_flag = 0
                 new_layer = layer.replace('conv2d', 'lambda')
-                act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+                if '_identity' in new_layer:
+                    new_layer = new_layer.replace('_identity','')
+                elif '_conv' in new_layer:
+                    new_layer = new_layer.replace('_conv','')
+                
+                if add_cnt == 0:
+                    act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+                else:
+                    base, old_number = new_layer.rsplit('_', 1)
+                    new_layer = new_layer.replace(new_layer, f"lambda_{int(old_number)+add_cnt}")
+                    act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
+
                 lambda_cnt += 1
             elif 'dense' in layer:
+                add_flag = 0
                 if output_layer == len(self.synapses):
                     act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
                 else:
@@ -171,17 +184,39 @@ class Analysis:
                     act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
                     lambda_cnt += 1
             else:
+                add_flag = 0
                 act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
-            acts = act_file['arr_0']
-            
-            activations = utils.Input_Activation(acts, layer)
 
+            if add_flag == 0:
+                acts = act_file['arr_0']            
+                activations = utils.Input_Activation(acts, layer)
+            
             fr = []
-            for idx in range(len(firing_rate)):
-                spikes = firing_rate[idx].flatten()
-                spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
-                fr.append(spikes)
-            firing_rate = np.array(fr)
+
+            if '_identity' in layer or 'add' in layer:
+                if layer == 'conv2d_identity':
+                    for idx in range(len(firing_rate)):
+                        spikes = firing_rate[idx].flatten()
+                        spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                        fr.append(spikes)
+                    firing_rate = np.array(fr)
+                if 'add' in layer:
+                    firing_rate = firing_rate + shortcut
+                    shortcut = firing_rate
+                    continue
+                shortcut = firing_rate
+            elif '_conv' in layer:
+                for idx in range(len(shortcut)):
+                    spikes = shortcut[idx].flatten()
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                    fr.append(spikes)
+                shortcut = np.array(fr)
+            else: 
+                for idx in range(len(firing_rate)):
+                    spikes = firing_rate[idx].flatten()
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                    fr.append(spikes)
+                firing_rate = np.array(fr)
 
             plt.figure(figsize=(10, 10))
             plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
