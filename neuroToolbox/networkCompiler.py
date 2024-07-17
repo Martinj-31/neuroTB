@@ -249,7 +249,8 @@ class networkCompiler:
         width_fm = input_shape[2 + ii]
         height_kn, width_kn = layer.kernel_size
         stride_y, stride_x = layer.strides
-
+        pad_cali = False
+        
         fm = np.arange(width_fm*height_fm).reshape((width_fm, height_fm))
         if 'valid' == layer.padding:
             padding_y = 0
@@ -268,9 +269,12 @@ class networkCompiler:
             FM = fm_pad
             for i in range(1, input_channels):
                 FM = np.concatenate((FM, np.pad(fm+(width_fm*height_fm*i), ((padding_y, padding_y), (padding_x, padding_x)), mode='constant', constant_values=-1)), axis=0)
+            if (width_fm - width_kn + 2*padding_x)/stride_x + 1 != numCols:
+                pad_cali = True
+                pad_cali_val = int(np.ceil((width_fm - width_kn + 2*padding_x)/stride_x + 1 - numCols))
+                
         height_fm = int(FM.shape[0]/input_channels)
         width_fm = FM.shape[1]
-        
         FM = FM.flatten() # Make feature map flatten to indexing
 
         source = np.zeros(numCols*numRows*(height_kn*width_kn)*input_channels*output_channels)
@@ -284,12 +288,14 @@ class networkCompiler:
             row_idx = 0
             for i in range(numCols*numRows):
                 if 0 == i%numCols and i != 0:
-                    row_idx += width_fm*(stride_y-1) + width_kn - stride_x
+                    if pad_cali:
+                        row_idx += width_fm*(stride_y-1) + width_kn - stride_x + pad_cali_val
+                    else:
+                        row_idx += width_fm*(stride_y-1) + width_kn - stride_x
                 for fin in range(input_channels):
                     for j in range(height_kn):
                         source[idx:idx+width_kn] = FM[row_idx+fin*(height_fm*width_fm)+i+(j*width_fm):row_idx+fin*(height_fm*width_fm)+i+(j*width_fm)+width_kn]
                         target[idx:idx+width_kn] = np.zeros(len(source[idx:idx+width_kn])) + target_cnt
-                        # weights[idx:idx+width_kn] = np.flip(w[(height_kn-1)-j, 0:width_kn, fin, fout])
                         weights[idx:idx+width_kn] = w[j, 0:width_kn, fin, fout]
                         idx += width_kn
                 row_idx += (stride_x-1)
