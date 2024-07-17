@@ -30,6 +30,7 @@ firing_range = 0.9
 fp_precision = FP32
 optimizer = off
 normalization = off
+timesteps = 1.0
 
 [options]
 bias = 
