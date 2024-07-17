@@ -6,7 +6,7 @@ sys.path.append(parent_dir)
 
 from tensorflow import keras
 import numpy as np
-import pickle
+import pickle, math
 import matplotlib.pyplot as plt
 
 import neuroToolbox.utils as utils
@@ -32,8 +32,8 @@ class Analysis:
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
         self.fp_precision = config["conversion"]["fp_precision"]
-        self.timesteps = config['conversion']['timesteps']
-        self.timesteps = np.log(self.timesteps)
+        self.timesteps = config.getfloat('conversion', 'timesteps')
+        self.timesteps = math.log10(self.timesteps)
         
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
             
