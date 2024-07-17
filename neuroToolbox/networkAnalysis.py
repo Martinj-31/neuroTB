@@ -32,6 +32,8 @@ class Analysis:
         self.parsed_model = keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
         
         self.fp_precision = config["conversion"]["fp_precision"]
+        self.timesteps = config['conversion']['timesteps']
+        self.timesteps = np.log(self.timesteps)
         
         self.t_ref = config.getint('spiking_neuron', 'refractory') / 1000
             
@@ -96,14 +98,14 @@ class Analysis:
                     self.syn_operation += firing_rate[neu_idx] * fan_out
                 if '_identity' in layer or 'add' in layer:
                     if layer == 'conv2d_identity':
-                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                     if 'add' in layer:
                         firing_rate = firing_rate + shortcut
                     shortcut = firing_rate
                 elif '_conv' in layer:
-                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                 else:
-                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
 
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}")
@@ -197,7 +199,7 @@ class Analysis:
                 if layer == 'conv2d_identity':
                     for idx in range(len(firing_rate)):
                         spikes = firing_rate[idx].flatten()
-                        spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                        spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                         fr.append(spikes)
                     firing_rate = np.array(fr)
                 if 'add' in layer:
@@ -208,13 +210,13 @@ class Analysis:
             elif '_conv' in layer:
                 for idx in range(len(shortcut)):
                     spikes = shortcut[idx].flatten()
-                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                     fr.append(spikes)
                 shortcut = np.array(fr)
             else: 
                 for idx in range(len(firing_rate)):
                     spikes = firing_rate[idx].flatten()
-                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, False)
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                     fr.append(spikes)
                 firing_rate = np.array(fr)
 
