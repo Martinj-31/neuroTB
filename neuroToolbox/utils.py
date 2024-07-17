@@ -200,7 +200,7 @@ def Input_Activation(input_activations, layer_name):
     return np.array(input_acts)
 
 
-def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, clip=True):
+def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, timesteps):
     membrane = get_weighted_sum(spikes, weights, precision)
     if bias_flag:
         if 'conv' in layer_name:
@@ -220,11 +220,15 @@ def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, pr
         spikes = membrane / threshold
     else: spikes = (membrane / threshold) / ((membrane / threshold)*refractory + 1)
     
-    if clip:
-        spikes = np.floor(spikes)
-    else: pass
+    spikes = truncate(spikes, timesteps)
     
     return spikes
+
+
+def truncate(arr, decimal_places):
+    factor = 10**decimal_places
+    
+    return np.trunc(arr * factor) / factor
 
 
 def get_weighted_sum(spikes, w, precision='FP32'):
