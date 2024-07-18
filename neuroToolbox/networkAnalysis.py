@@ -95,7 +95,7 @@ class Analysis:
                     if 'add' in layer:
                         continue
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
-                    self.syn_operation += firing_rate[neu_idx] * fan_out
+                    self.syn_operation += firing_rate[neu_idx] * 10**self.timesteps * fan_out
                 if '_identity' in layer or 'add' in layer:
                     if layer == 'conv2d_identity':
                         firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
@@ -121,6 +121,7 @@ class Analysis:
         print(f"______________________________________")
         print(f"Accuracy : {self.accuracy} %")
         print(f"Synaptic operation : {self.syn_operation}")
+        print(f"Time steps : {10**self.timesteps} s")
         print(f"______________________________________\n")
         print(f"End running\n\n")
 
@@ -221,7 +222,7 @@ class Analysis:
                 firing_rate = np.array(fr)
 
             plt.figure(figsize=(10, 10))
-            plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
+            plt.plot(activations, firing_rate*10**self.timesteps, 'o', markersize=2, color='red', linestyle='None')
             plt.title(f"DNN activation vs. Expected firing rates", fontsize=30)
             plt.xlabel(f"Activations in {layer}", fontsize=27)
             plt.ylabel(f"Expected firing rates in {layer}", fontsize=27)
