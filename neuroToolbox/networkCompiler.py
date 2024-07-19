@@ -247,7 +247,6 @@ class networkCompiler:
         output_channels = w.shape[3]
         height_fm = input_shape[1 + ii]
         width_fm = input_shape[2 + ii]
-        print(layer.output_shape)
         output_fm = layer.output_shape[1]
         height_kn, width_kn = layer.kernel_size
         stride_y, stride_x = layer.strides
@@ -268,20 +267,13 @@ class networkCompiler:
             padding_left = pad//2
             padding_bottom = pad-padding_top
             padding_right = pad-padding_left
-            print(pad, padding_top, padding_bottom, padding_left, padding_right)
-
-            #padding_y = (height_kn - 1) // 2
-            #padding_x = (width_kn - 1) // 2
             numCols = int((width_fm - width_kn + padding_left + padding_right)/stride_x + 1)
             numRows = int((height_fm - height_kn + padding_top + padding_bottom)/stride_y + 1)
-            print(numCols, numRows)
+
             fm_pad = np.pad(fm, ((padding_top, padding_bottom), (padding_left, padding_right)), mode='constant', constant_values=-1)
             FM = fm_pad
             for i in range(1, input_channels):
                 FM = np.concatenate((FM, np.pad(fm+(width_fm*height_fm*i), ((padding_top, padding_bottom), (padding_left, padding_right)), mode='constant', constant_values=-1)), axis=0)
-            #if (width_fm - width_kn + 2*padding_x)/stride_x + 1 != numCols:
-            #    pad_cali = True
-            #    pad_cali_val = int(np.ceil((width_fm - width_kn + 2*padding_x)/stride_x + 1 - numCols))
                 
         height_fm = int(FM.shape[0]/input_channels)
         width_fm = FM.shape[1]
