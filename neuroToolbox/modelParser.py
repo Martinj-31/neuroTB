@@ -422,19 +422,25 @@ class Parser:
                 output_channels = w.shape[3]
                 height_fm = layer.input_shape[1 + ii]
                 width_fm = layer.input_shape[2 + ii]
+                output_fm = layer.output_shape[1]
                 height_kn, width_kn = layer.kernel_size
                 stride_y, stride_x = layer.strides
                 
                 if 'valid' == layer.padding:
-                    padding_y = 0
-                    padding_x = 0
+                    padding_top = 0
+                    padding_left = 0
+                    padding_bottom = 0
+                    padding_right = 0
                     numCols = int((width_fm - width_kn)/stride_x + 1)
                     numRows = int((height_fm - height_kn)/stride_y + 1)
                 elif 'same' == layer.padding:
-                    padding_y = (height_kn - 1) // 2
-                    padding_x = (width_kn - 1) // 2
-                    numCols = int((width_fm - width_kn + 2*padding_x)/stride_x + 1)
-                    numRows = int((height_fm - height_kn + 2*padding_y)/stride_y + 1)
+                    pad = max((output_fm - 1) * stride_x + height_kn - height_fm, 0)
+                    padding_top = pad//2
+                    padding_left = pad//2
+                    padding_bottom = pad-padding_top
+                    padding_right = pad-padding_left
+                    numCols = int((width_fm - width_kn + padding_left + padding_right)/stride_x + 1)
+                    numRows = int((height_fm - height_kn + padding_top + padding_bottom)/stride_y + 1)
 
                 mac = height_kn * width_kn * input_channels * output_channels * numCols * numRows
                 MAC += mac
