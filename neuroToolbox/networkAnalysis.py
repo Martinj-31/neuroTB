@@ -98,14 +98,14 @@ class Analysis:
                     self.syn_operation += firing_rate[neu_idx] * 10**self.timesteps * fan_out
                 if '_identity' in layer or 'add' in layer:
                     if layer == 'conv2d_identity':
-                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                     if 'add' in layer:
                         firing_rate = firing_rate + shortcut
                     shortcut = firing_rate
                 elif '_conv' in layer:
-                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                 else:
-                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
 
             print(f"Firing rate from output layer for #{input_idx+1} input")
             print(f"{firing_rate}")
@@ -200,7 +200,7 @@ class Analysis:
                 if layer == 'conv2d_identity':
                     for idx in range(len(firing_rate)):
                         spikes = firing_rate[idx].flatten()
-                        spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                        spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                         fr.append(spikes)
                     firing_rate = np.array(fr)
                 if 'add' in layer:
@@ -211,21 +211,24 @@ class Analysis:
             elif '_conv' in layer:
                 for idx in range(len(shortcut)):
                     spikes = shortcut[idx].flatten()
-                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                     fr.append(spikes)
                 shortcut = np.array(fr)
             else: 
                 for idx in range(len(firing_rate)):
                     spikes = firing_rate[idx].flatten()
-                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                    spikes = utils.neuron_model(spikes, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                     fr.append(spikes)
                 firing_rate = np.array(fr)
 
             plt.figure(figsize=(10, 10))
-            plt.plot(activations, firing_rate*10**self.timesteps, 'o', markersize=2, color='red', linestyle='None')
+            if '_conv' in layer:
+                plt.plot(activations, shortcut, 'o', markersize=2, color='red', linestyle='None')
+            else:
+                plt.plot(activations, firing_rate, 'o', markersize=2, color='red', linestyle='None')
             plt.title(f"DNN activation vs. Expected firing rates", fontsize=30)
             plt.xlabel(f"Activations in {layer}", fontsize=27)
-            plt.ylabel(f"Expected firing rates in {layer}", fontsize=27)
+            plt.ylabel(f"Expected firing rates in {layer} Hz", fontsize=27)
             plt.xticks(fontsize=20)
             plt.yticks(fontsize=20)
             plt.grid(True)
