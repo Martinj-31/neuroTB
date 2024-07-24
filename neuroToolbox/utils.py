@@ -200,8 +200,8 @@ def Input_Activation(input_activations, layer_name):
     return np.array(input_acts)
 
 
-def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, precision, bias_flag, timesteps):
-    membrane = get_weighted_sum(spikes, weights, precision)
+def neuron_model(spikes, weights, threshold, refractory, layer_name, synapse, bias_flag, timesteps):
+    membrane = np.dot(spikes, weights)
     if bias_flag:
         if 'conv' in layer_name:
             s = 0
