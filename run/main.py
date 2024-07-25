@@ -78,7 +78,6 @@ def run_neuroTB(config_filepath):
     evaluation.set_threshold(threshold)
     evaluation.run(data_size)
     evaluation.genResultFile()
-    # evaluation.act_compare()
     evaluation.plot_compare()
     
     took = time.time() - start
