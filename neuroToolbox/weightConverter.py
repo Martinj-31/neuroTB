@@ -1,4 +1,4 @@
-import os, sys, pickle
+import os, sys, pickle, math
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -44,6 +44,8 @@ class Converter:
         self.fp_precision = config["conversion"]["fp_precision"]
         self.normalization = config["conversion"]["normalization"]
         self.optimizer = config["conversion"]["optimizer"]
+        self.timesteps = config.getfloat('conversion', 'timesteps')
+        self.timesteps = math.log10(self.timesteps)
         
         self.error_list = []
         self.synops_error_list = []
@@ -97,7 +99,8 @@ class Converter:
             print(f"###################################################")
             print(f"# Refractory period is 0.")
             print(f"# Replaced by a very small value that can be ignored.\n")
-            
+        
+        cnt = 0
         for layer in self.parsed_model.layers:
             if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
                 continue
@@ -111,16 +114,16 @@ class Converter:
                 else: ann_weights = [weights[layer.name]]
             else: ann_weights = [weights[layer.name]]
             
-            if 'on' == self.normalization:       
+            if 'on' == self.normalization:
                 max_ann_weights = np.max(abs(ann_weights[0]))
-                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag
-                self.v_th[layer.name] = 1.0 / max_ann_weights * self.w_mag
+                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag # 코드 확인
+                self.v_th[layer.name] = 1.0 / max_ann_weights * self.w_mag # 코드 확인
+                cnt += 1
                 if 'conv' in layer.name or 'dense' in layer.name:
-                    if self.bias_flag:
-                        snn_bias = ann_weights[1] / max_ann_weights * self.w_mag
+                    if self.bias_flag: 
+                        snn_bias = ann_weights[1] # 코드 수정
             else:
                 snn_weights = ann_weights[0]
-                self.v_th[layer.name] = self.init_v_th
                 if 'conv' in layer.name or 'dense' in layer.name:
                     if self.bias_flag:
                         snn_bias = ann_weights[1]
@@ -178,6 +181,9 @@ class Converter:
 
                 neuron = self.synapses[layer.name]
                 snn_weights = neuron[3]
+                if 'conv' in layer.name or 'dense' in layer.name:
+                    if self.bias_flag:
+                        snn_bias = neuron[4]
 
                 if '_conv' in layer.name:
                     shortcut = self.get_output_spikes(shortcut, snn_weights, layer.name)
@@ -190,18 +196,31 @@ class Converter:
                     avg_output_spikes = np.mean(nonzero_output_spikes)
                     
                     if target_firing_rate*0.95 <= avg_output_spikes <= target_firing_rate*1.05:
+                        print(f"==> Average firing rate of {layer.name}: {avg_output_spikes}")
                         break
                     elif cnt == 50:
+                        print(f"==> Average firing rate of {layer.name}: {avg_output_spikes}")
                         print(f"Skip point occurs")
                         break
                     
+                    if abs(avg_output_spikes - target_firing_rate) > 10:
+                        scaling_factor = 4
+                    else: scaling_factor = 1
+                    
                     if avg_output_spikes < target_firing_rate:
-                        self.v_th[layer.name] -= 1
+                        self.v_th[layer.name] -= 1 * scaling_factor
                     elif avg_output_spikes > target_firing_rate:
-                        self.v_th[layer.name] += 1
+                        self.v_th[layer.name] += 1 * scaling_factor
                     else: pass
                     
+                    if 'conv' in layer.name or 'dense' in layer.name:
+                        if self.bias_flag:
+                            # Load previous layer threshold
+                            snn_bias = snn_bias # 코드 수정
+                    
                     cnt += 1
+                
+                print(f"Threshold: {self.v_th[layer.name]}")
                 
                 # layer_threshold for threshold plot
                 layer_threshold[layer.name].append(self.v_th[layer.name])
@@ -213,7 +232,7 @@ class Converter:
                     
             score, synOps = self.score(self.x_test, self.y_test)
             print(self.v_th)
-            print(score, synOps)
+            print(score, synOps, "\n")
             score_list.append(score)
             synOps_list.append(synOps)
             threshold_list.append(self.v_th.copy())
@@ -343,7 +362,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.bias_flag)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.bias_flag, self.timesteps)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -425,17 +444,17 @@ class Converter:
                     if 'add' in layer:
                         continue
                     fan_out = len(np.where(weights[layer][neu_idx][:] > 0))
-                    syn_operation += firing_rate[neu_idx] * fan_out
+                    syn_operation += firing_rate[neu_idx] * 10**self.timesteps * fan_out
                 if '_identity' in layer or 'add' in layer:
                     if layer == 'conv2d_identity':
-                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                     if 'add' in layer:
                         firing_rate = firing_rate + shortcut
                     shortcut = firing_rate
                 elif '_conv' in layer:
-                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
                 else:
-                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag)
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
 
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
