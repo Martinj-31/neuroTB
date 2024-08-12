@@ -126,6 +126,27 @@ class Parser:
                 
                 continue
             
+            
+            elif layer_type == 'GlobalAveragePooling1D':
+                # Replace GlobalAveragePooling1D layer with AveragePooling1D
+
+                # Get the temporal dimension of the input tensor
+                temporal_dim = layer.input_shape[1]  # Exclude the batch and channel dimensions
+                
+                # Create an AveragePooling1D layer with the same temporal dimension as the input tensor
+                avg_pool_layer = tf.keras.layers.AveragePooling1D(name=layer.name + "_avg", pool_size=temporal_dim)
+                afterParse_layer_list.append(avg_pool_layer)
+                
+                # Add Flatten layer
+                flatten_layer = tf.keras.layers.Flatten(name=layer.name + "_flatten")
+                afterParse_layer_list.append(flatten_layer)
+                
+                print("Replaced GlobalAveragePooling1D layer with AveragePooling1D layer.")
+                
+                continue
+
+                
+            
             # elif flatten_added == False:
             #     raise ValueError("input model doesn't have flatten layer. please check again")
             
