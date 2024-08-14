@@ -79,12 +79,12 @@ class networkCompiler:
                 self.Synapse_dense(layer)
             # There are two types of convolution layer. 1D or 2D
             elif 'Conv' in layer_type:
-                if '1' in layer_type:
+                if '1d' in layer_type:
                     self.Synapse_1d_convolution(layer)
                 else:
                     self.Synapse_convolution(layer)
             elif 'Pooling' in layer_type:
-                if '1' in layer_type:
+                if '1d' in layer_type:
                     self.Synapse_1d_pooling(layer)
                 else:
                     self.Synapse_pooling(layer)
