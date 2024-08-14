@@ -53,7 +53,7 @@ class Converter:
         self.firing_range_list = []
 
         self.parsed_model = tf.keras.models.load_model(os.path.join(self.config["paths"]["models"], f"parsed_{self.input_model_name}.h5"))
-        
+        self.changename_layers()
         data_size = self.config.getint('test', 'data_size')
         
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
@@ -100,7 +100,12 @@ class Converter:
             print(f"# Refractory period is 0.")
             print(f"# Replaced by a very small value that can be ignored.\n")
         
-        cnt = 0
+        weight_list = {}
+        th_list = {}
+        bias_weight_list = {}
+        th_factor = 1.0
+        bias_weight_factor = 1.0
+
         for layer in self.parsed_model.layers:
             if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
                 continue
@@ -116,12 +121,21 @@ class Converter:
             
             if 'on' == self.normalization:
                 max_ann_weights = np.max(abs(ann_weights[0]))
-                snn_weights = ann_weights[0] / max_ann_weights * self.w_mag # 코드 확인
-                self.v_th[layer.name] = 1.0 / max_ann_weights * self.w_mag # 코드 확인
-                cnt += 1
+                weight_factor = self.w_mag
+                
+                #weight_factor = self.w_mag/max_ann_weights
+                snn_weights = ann_weights[0] * weight_factor
+                weight_list[layer.name] = weight_factor 
+                if self.bias_flag:
+                    th_list[layer.name] = th_factor
+                    th_factor = th_factor * self.v_th[layer.name]
+                    bias_weight_factor = bias_weight_factor*weight_list[layer.name]
+                    bias_weight_list[layer.name] = bias_weight_factor
+
                 if 'conv' in layer.name or 'dense' in layer.name:
-                    if self.bias_flag: 
-                        snn_bias = ann_weights[1] # 코드 수정
+                    if self.bias_flag:
+                        snn_bias = ann_weights[1]/th_list[layer.name]*bias_weight_list[layer.name]
+
             else:
                 snn_weights = ann_weights[0]
                 if 'conv' in layer.name or 'dense' in layer.name:
@@ -362,7 +376,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], self.t_ref, layer_name, synapse, self.bias_flag, self.timesteps)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -385,7 +399,7 @@ class Converter:
         spikes = []
         for input_idx in range(len(input_spikes)):
             firing_rate = input_spikes[input_idx].flatten()
-            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], 0, layer_name, synapse, self.bias_flag, False)
+            firing_rate = utils.neuron_model(firing_rate, weights, self.v_th[layer_name], 0, layer_name, synapse, self.bias_flag, self.timesteps)
             spikes.append(firing_rate)
         
         return np.array(spikes)
@@ -408,7 +422,7 @@ class Converter:
         acts = []
         for input_idx in range(len(input_activations)):
             activation = input_activations[input_idx].flatten()
-            activation = utils.neuron_model(activation, weights, 1.0, 0, layer_name, synapse, self.bias_flag, False)
+            activation = utils.neuron_model(activation, weights, 1.0, 0, layer_name, synapse, self.bias_flag, self.timesteps)
             acts.append(activation)
         
         return np.array(acts)
@@ -447,14 +461,14 @@ class Converter:
                     syn_operation += firing_rate[neu_idx] * 10**self.timesteps * fan_out
                 if '_identity' in layer or 'add' in layer:
                     if layer == 'conv2d_identity':
-                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                        firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                     if 'add' in layer:
                         firing_rate = firing_rate + shortcut
                     shortcut = firing_rate
                 elif '_conv' in layer:
-                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                    shortcut = utils.neuron_model(shortcut, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
                 else:
-                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.fp_precision, self.bias_flag, self.timesteps)
+                    firing_rate = utils.neuron_model(firing_rate, weights[layer], self.v_th[layer], self.t_ref, layer, synapse, self.bias_flag, self.timesteps)
 
             if np.argmax(y_test[input_idx]) == np.argmax(firing_rate):
                 score += 1
