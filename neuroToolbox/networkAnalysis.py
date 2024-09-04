@@ -66,7 +66,7 @@ class Analysis:
 
         x_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'x_test.npz'))
         x_test = x_test_file['arr_0']
-        x_test = np.floor(x_test[:data_size])
+        x_test = x_test[:data_size]
         y_test_file = np.load(os.path.join(self.config["paths"]["dataset_path"], 'y_test.npz'))
         y_test = y_test_file['arr_0']
         y_test = y_test[:data_size]

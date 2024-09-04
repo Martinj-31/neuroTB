@@ -151,7 +151,7 @@ class Parser:
             #     raise ValueError("input model doesn't have flatten layer. please check again")
             
             
-            elif layer_type == 'Lambda' or layer_type == 'Add':
+            elif layer_type == 'Lambda' or layer_type == 'Add' or layer_type =='ReLU':
                 # These layers are for parsed model evaluation and flag role.
                 
                 afterParse_layer_list.append(layer)

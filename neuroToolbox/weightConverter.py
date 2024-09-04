@@ -80,7 +80,6 @@ class Converter:
 
         self.filepath = self.config['paths']['models']
         self.filename = self.config['names']['snn_model']
-        self.changename_layers()
 
 
     def convertWeights(self):
@@ -107,7 +106,7 @@ class Converter:
         bias_weight_factor = 1.0
 
         for layer in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name or 're_lu' in layer.name:
                 continue
             else: pass
             

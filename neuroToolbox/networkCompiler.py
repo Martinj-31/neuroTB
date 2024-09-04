@@ -79,15 +79,9 @@ class networkCompiler:
                 self.Synapse_dense(layer)
             # There are two types of convolution layer. 1D or 2D
             elif 'Conv' in layer_type:
-                if '1' in layer_type:
-                    self.Synapse_1d_convolution(layer)
-                else:
-                    self.Synapse_convolution(layer)
-            elif 'Pooling' in layer_type:
-                if '1' in layer_type:
-                    self.Synapse_1d_pooling(layer)
-                else:
-                    self.Synapse_pooling(layer)
+                self.Synapse_convolution(layer)
+            elif layer_type == 'AveragePooling2D':
+                self.Synapse_pooling(layer)
             
             elif layer_type == 'Add':
                 for node in layer._inbound_nodes:
@@ -204,10 +198,8 @@ class networkCompiler:
                     cnt += 1
         
         source = source.astype(int) + self.synCnt
-        self.synCnt += ((np.max(source) // self.nCount) + 1) * self.nCount
+        self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-        self.synCnt = 0
-        self.synCnt += ((np.max(target) // self.nCount) + 1) * self.nCount
         num_src = np.prod(layer.input_shape[1:])
         num_tar = np.prod(layer.output_shape[1:])
         
@@ -325,105 +317,14 @@ class networkCompiler:
             weights = np.delete(weights, padding_idx)
 
         source = source.astype(int) + self.synCnt
-        self.synCnt += ((np.max(source) // self.nCount) + 1) * self.nCount
+        self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-        self.synCnt = 0
-        self.synCnt += ((np.max(target) // self.nCount) + 1) * self.nCount
         num_src = np.prod(layer.input_shape[1:])
         num_tar = np.prod(layer.output_shape[1:])
         
         if self.bias_flag:
             self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, bias, output_channels_idx]
         else: self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, output_channels_idx]
-
-
-    def Synapse_1d_convolution(self, layer):
-        """Converts a 1D convolution layer to a SNN layer structure.
-
-        Args:
-            layer (tf.keras.Model): Keras 1D CNN model with weight information.
-
-        Parameters:
-            weights (): Weights format [kernel_length, input_channels, output_channels]
-            length_fm (int): Length of the feature map
-            length_kn (int): Length of the kernel
-            stride (int): Stride length
-            numCols (): Number of columns in output filters (horizontal moves)
-            padding (): Zero-padding columns. It is (kernel_size-1)/2
-
-        Raises:
-            NotImplementedError: Description
-        """
-
-        print("Connecting 1D layer...")
-
-        if self.bias_flag:
-            w, bias = layer.get_weights()
-        else:
-            w = layer.get_weights()[0]
-
-        ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
-        
-        input_channels = w.shape[1]
-        output_channels = w.shape[2]
-        length_fm = layer.input_shape[1 + ii]
-        output_fm = layer.output_shape[1]
-        length_kn = layer.kernel_size[0]
-        stride = layer.strides[0]
-
-        fm = np.arange(length_fm)
-        if 'valid' == layer.padding:
-            numCols = (length_fm - length_kn) // stride + 1
-            FM = fm
-            for i in range(1, input_channels):
-                FM = np.concatenate((FM, fm + (length_fm * i)), axis=0)
-        elif 'same' == layer.padding:
-            pad = max((output_fm - 1) * stride + length_kn - length_fm, 0)
-            padding_left = pad // 2
-            padding_right = pad - padding_left
-            numCols = (length_fm - length_kn + padding_left + padding_right) // stride + 1
-            fm_pad = np.pad(fm, ((padding_left, padding_right), (0, 0)), mode='constant', constant_values=-1)
-            FM = fm_pad
-            for i in range(1, input_channels):
-                FM = np.concatenate((FM, np.pad(fm + (length_fm * i), ((padding_left, padding_right), (0, 0)), mode='constant', constant_values=-1)), axis=0)
-
-        FM = FM.flatten()  # Make feature map flatten for indexing
-
-        source = np.zeros(numCols * length_kn * input_channels * output_channels)
-        target = np.zeros(numCols * length_kn * input_channels * output_channels)
-        weights = np.zeros(numCols * length_kn * input_channels * output_channels)
-
-        idx = 0
-        target_cnt = 0
-        output_channels_idx = []
-        for fout in range(output_channels):
-            for i in range(numCols):
-                for fin in range(input_channels):
-                    source[idx:idx+length_kn] = FM[i*stride+fin*length_fm:i*stride+fin*length_fm+length_kn]
-                    target[idx:idx+length_kn] = np.zeros(length_kn) + target_cnt
-                    weights[idx:idx+length_kn] = w[:, fin, fout]
-                    idx += length_kn
-                target_cnt += 1
-            output_channels_idx.append(target_cnt)
-
-        if 'same' == layer.padding:
-            padding_idx = np.where(source == -1)[0]
-            source = np.delete(source, padding_idx)
-            target = np.delete(target, padding_idx)
-            weights = np.delete(weights, padding_idx)
-
-        source = source.astype(int) + self.synCnt
-        self.synCnt += ((np.max(source) // self.nCount) + 1) * self.nCount
-        target = target.astype(int) + self.synCnt
-        self.synCnt = 0
-        self.synCnt += ((np.max(target) // self.nCount) + 1) * self.nCount
-        num_src = np.prod(layer.input_shape[1:])
-        num_tar = np.prod(layer.output_shape[1:])
-        
-        if self.bias_flag:
-            self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, bias, output_channels_idx]
-        else:
-            self.synapses[layer.name] = [source, target, [num_src, num_tar], weights, output_channels_idx]
 
 
     def Synapse_pooling(self, layer):
@@ -478,66 +379,10 @@ class networkCompiler:
                 idx += sx
 
         source = source.astype(int) + self.synCnt
-        self.synCnt += ((np.max(source) // self.nCount) + 1) * self.nCount
+        self.synCnt += self.nCount
         target = target.astype(int) + self.synCnt
-        self.synCnt = 0
-        self.synCnt += ((np.max(target) // self.nCount) + 1) * self.nCount
         num_src = np.prod(layer.input_shape[1:])
         num_tar = np.prod(layer.output_shape[1:])
-
-        self.synapses[layer.name] = [source, target, [num_src, num_tar], weights]
-    
-    
-    def Synapse_1d_pooling(self, layer):
-        """
-        This method is for generating synapse connection from a 1D CNN layer to SNN layer with neuron index.
-
-        Args:
-            layer (tf.keras.Model): Keras 1D CNN model with weight information.
-
-        Parameters:
-            length_fm (): Length of feature map
-            numFm (): Number of feature maps
-            length_pl (): Length of pool
-            sx (): Stride in x direction
-        """
-        if layer.__class__.__name__ == 'MaxPooling1D':
-            warnings.warn("Layer type 'MaxPooling1D' is not supported.", RuntimeWarning)
-        print(f"Connecting layer...")
-
-        ii = 1 if keras.backend.image_data_format() == 'channels_first' else 0
-
-        length_fm = layer.input_shape[1 + ii]
-        numFm = layer.input_shape[2 - 2 * ii]
-        length_pl = layer.pool_size[0]
-        sx = layer.strides[0]
-
-        fm = np.arange(length_fm)
-        FM = fm
-        for i in range(1, numFm):
-            FM = np.concatenate((FM, fm+(length_fm*i)), axis=0)
-
-        weight = 1 / length_pl
-
-        source = np.zeros(length_fm*numFm)
-        target = np.zeros(length_fm*numFm)
-        weights = np.ones(length_fm*numFm)*weight
-
-        idx = 0
-        for i in range(int((length_fm/sx))*numFm):
-            source[idx:idx+sx] = FM[idx:idx+sx]
-            target[idx:idx+sx] = np.zeros(len(source[idx:idx+sx])) + i
-            idx += sx
-
-        source = source.astype(int) + self.synCnt
-        self.synCnt += ((np.max(source) // self.nCount) + 1) * self.nCount
-        target = target.astype(int) + self.synCnt
-        self.synCnt = 0
-        self.synCnt += ((np.max(target) // self.nCount) + 1) * self.nCount
-        num_src = np.prod(layer.input_shape[1:])
-        num_tar = np.prod(layer.output_shape[1:])
-        
-        self.model_1d = True
 
         self.synapses[layer.name] = [source, target, [num_src, num_tar], weights]
 
