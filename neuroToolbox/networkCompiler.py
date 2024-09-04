@@ -79,10 +79,7 @@ class networkCompiler:
                 self.Synapse_dense(layer)
             # There are two types of convolution layer. 1D or 2D
             elif 'Conv' in layer_type:
-                if '1' in layer_type:
-                    self.Synapse_1d_convolution(layer)
-                else:
-                    self.Synapse_convolution(layer)
+                self.Synapse_convolution(layer)
             elif 'Pooling' in layer_type:
                 if '1' in layer_type:
                     self.Synapse_1d_pooling(layer)
@@ -178,7 +175,7 @@ class networkCompiler:
         weights = np.zeros(length_src*length_tar)
 
         cnt = 0
-        if len(self.flatten_shapes) == 1 and not self.model_1d:
+        if len(self.flatten_shapes) == 1:
             shape = self.flatten_shapes.pop().output_shape[1:]
 
             print(f"*** Flatten was detected. ***")
