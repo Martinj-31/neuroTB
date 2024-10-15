@@ -164,7 +164,7 @@ class Analysis:
                 pass
             elif 'conv2d' in layer:
                 add_flag = 0
-                new_layer = layer.replace('conv2d', 'lambda')
+                new_layer = layer.replace('conv2d', 're_lu')
                 if '_identity' in new_layer:
                     new_layer = new_layer.replace('_identity','')
                 elif '_conv' in new_layer:
@@ -174,7 +174,7 @@ class Analysis:
                     act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
                 else:
                     base, old_number = new_layer.rsplit('_', 1)
-                    new_layer = new_layer.replace(new_layer, f"lambda_{int(old_number)+add_cnt}")
+                    new_layer = new_layer.replace(new_layer, f"re_lu_{int(old_number)+add_cnt}")
                     act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
 
                 lambda_cnt += 1
@@ -183,7 +183,7 @@ class Analysis:
                 if output_layer == len(self.synapses):
                     act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{layer}.npz"))
                 else:
-                    new_layer = layer.replace(layer, f"lambda_{lambda_cnt}")
+                    new_layer = layer.replace(layer, f"re_lu_{lambda_cnt}")
                     act_file = np.load(os.path.join(activation_dir, f"parsed_model_activation_{new_layer}.npz"))
                     lambda_cnt += 1
             else:

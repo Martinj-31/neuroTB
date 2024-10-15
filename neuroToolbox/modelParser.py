@@ -265,7 +265,7 @@ class Parser:
                 target_layer = self.get_layer(connections[1])
                 new_layer_name = target_layer.name
                 
-                numbers = [0 if name == 'lambda' else int(name.split('_')[-1]) for name in connections]
+                numbers = [0 if name == 'ReLU' else int(name.split('_')[-1]) for name in connections]
                 
                 if numbers[0] > numbers[1]:
                     new_layer_name += '_shortcut_i'

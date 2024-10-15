@@ -74,7 +74,7 @@ class Converter:
         
         self.v_th = {}
         for layer in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 're_lu' in layer.name:
                 continue
             else: self.v_th[layer.name] = self.init_v_th
 
@@ -106,7 +106,7 @@ class Converter:
         bias_weight_factor = 1.0
 
         for layer in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name or 're_lu' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'activation' in layer.name or 're_lu' in layer.name:
                 continue
             else: pass
             
@@ -163,7 +163,7 @@ class Converter:
         threshold_list = []
         layer_threshold = {}
         for l in self.parsed_model.layers:
-            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
+            if 'input' in layer.name or 'flatten' in layer.name or 'add' in layer.name or 're_lu' in layer.name or 'activation' in layer.name:
                 continue
             layer_threshold[l.name] = []
             
@@ -177,7 +177,7 @@ class Converter:
                 if 'input' in layer.name:
                     input_data = utils.Input_Activation(self.x_norm, layer.name)
                     continue
-                elif 'flatten' in layer.name or 'lambda' in layer.name or 'activation' in layer.name:
+                elif 'flatten' in layer.name or 're_lu' in layer.name or 'activation' in layer.name:
                     continue
                 else: pass
 
@@ -490,7 +490,7 @@ class Converter:
         for layer in self.parsed_model.layers:
             old_name = layer.name
             
-            if '_flatten' in old_name or 'lambda' in old_name:
+            if '_flatten' in old_name or 're_lu' in old_name:
                 continue
             if i < len(neurons_keys):
                 new_name = neurons_keys[i]
